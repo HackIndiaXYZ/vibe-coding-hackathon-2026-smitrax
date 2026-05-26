@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Secrets — never commit. Keep the example template tracked.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*token*
+*secret*
+
+# Build output
+.next/
+apps/web/.next/
+dist/
+build/
+*.tsbuildinfo
+
+# Local runtime state and tool caches
+.patchpilot/
+.playwright-mcp/
+*.log
+
+# Local agent/editor config
+.claude/

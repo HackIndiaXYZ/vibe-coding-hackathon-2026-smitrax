@@ -1,0 +1,60 @@
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..17c6a09
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,15 @@
++node_modules/
++.env
++.env.*
++*.pem
++*.key
++*.p8
++*.p12
++.npmrc
++.yarnrc
++.pnpm-store/
++dist/
++build/
++coverage/
++.turbo/
++.next/
+diff --git a/package-lock.json b/package-lock.json
+new file mode 100644
+index 0000000..5f6c5f8
+--- /dev/null
++++ b/package-lock.json
+@@ -0,0 +1,21 @@
++{
++  "name": "patchpilot-vulnerable-demo",
++  "version": "1.0.0",
++  "lockfileVersion": 3,
++  "requires": true,
++  "packages": {
++    "": {
++      "name": "patchpilot-vulnerable-demo",
++      "version": "1.0.0",
++      "dependencies": {
++        "lodash": "4.17.21"
++      }
++    },
++    "node_modules/lodash": {
++      "version": "4.17.21",
++      "resolved": "https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz",
++      "integrity": "sha512-[REDACTED]==",
++      "license": "MIT"
++    }
++  }
++}
+diff --git a/package.json b/package.json
+index 4e2ae39..49f7f71 100644
+--- a/package.json
++++ b/package.json
+@@ -7,6 +7,6 @@
+     "build": "node build.js"
+   },
+   "dependencies": {
+-    "lodash": "4.17.20"
++    "lodash": "4.17.21"
+   }
+ }

@@ -1,0 +1,36 @@
+{
+  "name": "patchpilot",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "dev": "pnpm --filter @patchpilot/web dev",
+    "start": "pnpm --filter @patchpilot/web start",
+    "worker:dev": "pnpm --filter @patchpilot/worker dev",
+    "mcp:dev": "pnpm --filter @patchpilot/mcp dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm --filter @patchpilot/core test",
+    "scan:fixture": "pnpm --filter @patchpilot/core scan:fixture",
+    "verify:local-e2e": "tsx scripts/verify-local-e2e.ts",
+    "smoke:app": "node scripts/smoke-app.mjs",
+    "verify:env-redaction": "tsx scripts/verify-env-redaction.ts",
+    "verify:live-readiness": "tsx scripts/verify-live-readiness.ts",
+    "verify:github-live": "tsx scripts/verify-github-live.ts",
+    "verify:github-pr-live": "tsx scripts/verify-github-pr-live.ts",
+    "verify:telegram-live": "tsx scripts/verify-telegram-live.ts",
+    "verify:codex-cli": "tsx scripts/verify-codex-cli.ts",
+    "verify:codex-live": "tsx scripts/verify-codex-live.ts",
+    "verify:agent-provider": "tsx scripts/verify-agent-provider.ts",
+    "verify:openrouter-live": "tsx scripts/verify-provider-live.ts openrouter",
+    "verify:openai-compatible-live": "tsx scripts/verify-provider-live.ts openai-compatible",
+    "verify:ollama-live": "tsx scripts/verify-provider-live.ts ollama",
+    "demo:live": "tsx scripts/demo-live.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}

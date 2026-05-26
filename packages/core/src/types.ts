@@ -1,0 +1,244 @@
+export type SourceType = "github" | "local" | "vercel-linked" | "server";
+export type PackageManager = "npm" | "pnpm" | "yarn" | "unknown";
+export type RiskLevel = "low" | "medium" | "high" | "critical";
+export type JobStatus =
+  | "queued"
+  | "running"
+  | "completed"
+  | "failed_external_service"
+  | "failed_invalid_project"
+  | "failed_internal_error"
+  | "codex_not_executed"
+  | "validation_failed"
+  | "pr_ready"
+  | "approval_sent"
+  | "approved"
+  | "rejected"
+  | "failed";
+
+export interface Project {
+  id: string;
+  name: string;
+  sourceType: SourceType;
+  githubOwner?: string;
+  githubRepo?: string;
+  githubDefaultBranch?: string;
+  repoUrl?: string;
+  localPath?: string;
+  isPathAllowlisted: boolean;
+  packageManager: PackageManager;
+  deploymentProvider: "vercel" | "unknown" | "none" | "manual";
+  deploymentUrl?: string;
+  productionExposed: boolean;
+  archived?: boolean;
+  private?: boolean;
+  stack?: string[];
+  lastScanAt?: string;
+  lastScanStatus?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScanJob {
+  id: string;
+  projectId: string;
+  status: JobStatus;
+  scanner?: "osv-scanner" | "osv-api" | "agent-config";
+  startedAt?: string;
+  finishedAt?: string;
+  errorCode?: string;
+  errorMessage?: string;
+  rawOutputPath?: string;
+  createdAt: string;
+}
+
+export interface Vulnerability {
+  id: string;
+  source: "osv" | "nvd" | "ghsa" | "openssf";
+  osvId?: string;
+  cveIds: string[];
+  ghsaIds: string[];
+  summary: string;
+  details?: string;
+  severity: string;
+  cvssScore?: number;
+  publishedAt?: string;
+  modifiedAt?: string;
+  references: string[];
+  enrichment?: {
+    nvd?: "found" | "not_found" | "error";
+    ghsa?: "found" | "not_found" | "error";
+  };
+  enrichmentErrors?: Record<string, string>;
+}
+
+export interface Finding {
+  id: string;
+  projectId: string;
+  scanJobId?: string;
+  vulnerabilityId: string;
+  packageName: string;
+  ecosystem: string;
+  currentVersion: string;
+  fixedVersion?: string;
+  affectedRanges?: string[];
+  dependencyType: "direct" | "transitive" | "unknown";
+  manifestPath?: string;
+  lockfilePath?: string;
+  riskScore: number;
+  riskLevel: RiskLevel;
+  riskFactors: string[];
+  missingRiskData: string[];
+  fixStrategy: "safe_patch" | "minor_upgrade" | "major_upgrade" | "mitigation" | "manual_review" | "no_fix";
+  status: "open" | "fix_available" | "fix_running" | "pr_ready" | "awaiting_approval" | "approved" | "rejected" | "ignored" | "resolved";
+  scanConfidence: "lockfile" | "direct_manifest_only" | "unknown";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RiskSignal {
+  id: string;
+  findingId: string;
+  epssProbability?: number;
+  epssPercentile?: number;
+  isInKev?: boolean;
+  kevDueDate?: string;
+  kevKnownRansomwareUse?: string;
+  isProductionExposed?: boolean;
+  isDirectDependency?: boolean;
+  hasFix?: boolean;
+  hasInstallScripts?: boolean;
+  isNewPackageVersion?: boolean;
+  notes: string[];
+}
+
+export interface RemediationJob {
+  id: string;
+  findingId: string;
+  projectId: string;
+  status: JobStatus;
+  agent: "codex" | "manual" | "openai" | "openrouter" | "openai-compatible" | "ollama" | "deterministic-npm";
+  workspacePath?: string;
+  branchName?: string;
+  baseBranch?: string;
+  startedAt?: string;
+  finishedAt?: string;
+  errorCode?: string;
+  errorMessage?: string;
+  fixConfidence?: number;
+  summary?: string;
+  changedFiles: string[];
+  patchPath?: string;
+  patchAppliedAt?: string;
+  rollbackStatus?: "not_available" | "available" | "requested" | "completed" | "failed";
+  createdAt: string;
+}
+
+export interface JobEvent {
+  id: string;
+  jobType: "scan" | "remediation" | "validation" | "approval" | "rollback";
+  jobId: string;
+  type: string;
+  level: "debug" | "info" | "warn" | "error";
+  message: string;
+  data?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface ValidationRun {
+  id: string;
+  remediationJobId: string;
+  command: string;
+  status: "passed" | "failed" | "skipped_no_script" | "timeout";
+  exitCode?: number;
+  durationMs: number;
+  logPath?: string;
+  createdAt: string;
+}
+
+export interface PullRequestRecord {
+  id: string;
+  remediationJobId: string;
+  provider: "github";
+  owner: string;
+  repo: string;
+  number?: number;
+  url?: string;
+  branchName: string;
+  baseBranch: string;
+  draft: boolean;
+  status: "created" | "failed" | "closed" | "merged";
+  errorMessage?: string;
+  createdAt: string;
+}
+
+export interface ApprovalRequest {
+  id: string;
+  remediationJobId: string;
+  channel: "telegram" | "openclaw";
+  chatIdHash?: string;
+  messageId?: string;
+  status: "pending" | "approved" | "rejected" | "expired" | "unauthorized";
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AuditReceipt {
+  id: string;
+  projectId?: string;
+  actorType: "user" | "system" | "agent" | "mcp" | "plugin";
+  actorId?: string;
+  agent?: string;
+  channel?: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  inputSummary?: unknown;
+  outputSummary?: unknown;
+  changedFiles: string[];
+  commandLogsRef?: string;
+  prLink?: string;
+  approvalChannel?: string;
+  before?: unknown;
+  after?: unknown;
+  redacted: boolean;
+  previousReceiptHash?: string;
+  receiptHash: string;
+  createdAt: string;
+}
+
+export interface AgentConfigFinding {
+  id: string;
+  projectId?: string;
+  filePath: string;
+  line?: number;
+  field?: string;
+  reason: string;
+  severity: "low" | "medium" | "high" | "critical";
+  recommendation: string;
+  redactedSnippet?: string;
+  createdAt: string;
+}
+
+export interface IntegrationHealth {
+  name: string;
+  status: "configured" | "not_configured" | "available" | "unavailable" | "error";
+  message: string;
+  requiredEnv?: string[];
+}
+
+export interface PatchPilotState {
+  projects: Project[];
+  scanJobs: ScanJob[];
+  vulnerabilities: Vulnerability[];
+  findings: Finding[];
+  riskSignals: RiskSignal[];
+  remediationJobs: RemediationJob[];
+  jobEvents: JobEvent[];
+  validationRuns: ValidationRun[];
+  pullRequests: PullRequestRecord[];
+  approvals: ApprovalRequest[];
+  auditReceipts: AuditReceipt[];
+  agentFindings: AgentConfigFinding[];
+}
