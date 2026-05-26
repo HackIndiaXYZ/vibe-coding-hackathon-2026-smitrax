@@ -43,6 +43,11 @@ pnpm verify:ollama-live             # real local Ollama run, or honest skip
 Readiness (env var **names** only, never values) is also exposed at
 `/api/health` (`agentProviders`) and on the Settings page.
 
+> Tip: for Ollama, set `PATCHPILOT_AGENT_MODEL` to an installed model. A
+> code/instruct model returns clean JSON most reliably, e.g.
+> `PATCHPILOT_AGENT_MODEL=qwen2.5-coder:7b pnpm verify:ollama-live`. The default
+> `llama3.1` is only a placeholder and may not be installed.
+
 ## Env
 
 ```

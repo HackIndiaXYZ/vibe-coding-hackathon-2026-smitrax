@@ -1,35 +1,28 @@
 /*
- * PatchPilot Watch Commander — warm-cream editorial theme.
- * Design tokens follow DESIGN.md (Cursor-inspired): cream canvas, warm ink,
- * a single Cursor Orange voltage, hairline-only depth (no shadows), Inter for
- * display/body (CursorGothic substitute) and JetBrains Mono on code surfaces.
+ * PatchPilot Watch Commander — dark editorial theme.
+ * Adapts DESIGN.md's language to dark mode: a single Cursor-Orange accent used
+ * sparingly, hairline-only depth (no heavy shadows), editorial type with
+ * negative tracking on display, and JetBrains Mono on every data/code surface.
  */
 :root {
-  color-scheme: light;
+  color-scheme: dark;
+  --bg: #0d0d0c;
+  --bg-soft: #121210;
+  --surface: #161513;
+  --surface-2: #1c1b18;
+  --hairline: #272620;
+  --hairline-strong: #36342d;
+  --text: #f3f2ec;
+  --body: #c3c0b6;
+  --muted: #908c80;
+  --muted-soft: #66635b;
   --primary: #f54e00;
-  --primary-active: #d04200;
-  --ink: #26251e;
-  --body: #5a5852;
-  --muted: #807d72;
-  --muted-soft: #a09c92;
-  --hairline: #e6e5e0;
-  --hairline-soft: #efeee8;
-  --hairline-strong: #cfcdc4;
-  --canvas: #f7f7f4;
-  --canvas-soft: #fafaf7;
-  --surface-card: #ffffff;
-  --surface-strong: #e6e5e0;
+  --primary-active: #ff6a26;
+  --primary-soft: rgba(245, 78, 0, 0.13);
   --on-primary: #ffffff;
-  --success: #1f8a65;
-  --error: #cf2d56;
-  --warn: #c08532;
-
-  /* timeline pastels — reserved for in-product agent stages only */
-  --timeline-thinking: #dfa88f;
-  --timeline-grep: #9fc9a2;
-  --timeline-read: #9fbbe0;
-  --timeline-edit: #c0a8dd;
-  --timeline-done: #c08532;
+  --success: #4ec99a;
+  --error: #ff5d73;
+  --warn: #e0a24a;
 
   --sans: "Inter", system-ui, "Helvetica Neue", Helvetica, Arial, sans-serif;
   --mono: "JetBrains Mono", "Fira Code", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
@@ -43,10 +36,10 @@
 
 body {
   margin: 0;
-  background: var(--canvas);
-  color: var(--ink);
+  background: var(--bg);
+  color: var(--text);
   font-family: var(--sans);
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.5;
   letter-spacing: -0.1px;
   -webkit-font-smoothing: antialiased;
@@ -63,27 +56,30 @@ select {
   font: inherit;
 }
 
+/* ----- App shell ----- */
 .shell {
   display: grid;
-  grid-template-columns: 264px 1fr;
+  grid-template-columns: 248px 1fr;
   min-height: 100vh;
 }
 
 .side {
   border-right: 1px solid var(--hairline);
-  padding: 28px 20px;
-  background: var(--canvas-soft);
+  padding: 26px 16px;
+  background: var(--bg-soft);
   position: sticky;
   top: 0;
   height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .brand {
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 600;
-  letter-spacing: -0.4px;
-  color: var(--ink);
-  margin-bottom: 28px;
+  letter-spacing: -0.3px;
+  color: var(--text);
+  margin: 0 8px 26px;
   display: flex;
   align-items: center;
   gap: 9px;
@@ -91,8 +87,8 @@ select {
 
 .brand::before {
   content: "";
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 9999px;
   background: var(--primary);
   flex: none;
@@ -100,7 +96,7 @@ select {
 
 .nav {
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .nav a {
@@ -109,30 +105,63 @@ select {
   align-items: center;
   padding: 9px 12px;
   border-radius: var(--radius-md);
-  border: 1px solid transparent;
-  color: var(--body);
+  color: var(--muted);
   font-size: 14px;
   font-weight: 500;
   transition: background 120ms ease, color 120ms ease;
 }
 
 .nav a:hover {
-  border-color: var(--hairline);
-  color: var(--ink);
-  background: var(--surface-card);
+  color: var(--text);
+  background: var(--surface);
+}
+
+.nav a.active {
+  color: var(--text);
+  background: var(--surface-2);
+  box-shadow: inset 2px 0 0 var(--primary);
+}
+
+.nav a.active svg {
+  color: var(--primary);
+}
+
+.sidebar-foot {
+  margin-top: auto;
+  padding: 14px 12px 4px;
+  border-top: 1px solid var(--hairline);
+  color: var(--muted-soft);
+  font-size: 12px;
+  line-height: 1.5;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
 }
 
 .main {
-  padding: 40px 48px;
-  max-width: 1320px;
+  padding: 40px 44px;
+  max-width: 1280px;
   width: 100%;
+}
+
+/* ----- Headings ----- */
+.page-head {
+  margin-bottom: 28px;
+}
+
+.head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .topline {
   color: var(--muted);
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.88px;
+  letter-spacing: 0.9px;
   text-transform: uppercase;
   margin-bottom: 10px;
 }
@@ -141,129 +170,210 @@ h1,
 h2,
 h3 {
   margin: 0;
-  color: var(--ink);
-  font-weight: 400;
+  color: var(--text);
+  font-weight: 500;
 }
 
 h1 {
-  font-size: 40px;
+  font-size: 34px;
   line-height: 1.1;
-  letter-spacing: -1.2px;
+  letter-spacing: -1px;
+  font-weight: 400;
 }
 
 h2 {
-  font-size: 22px;
-  line-height: 1.3;
-  letter-spacing: -0.3px;
-  margin-bottom: 16px;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.section-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
 }
 
 p {
   color: var(--body);
 }
 
+/* ----- Cards / panels ----- */
 .grid {
   display: grid;
-  gap: 16px;
+  gap: 14px;
 }
 
 .metrics {
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin: 32px 0;
+  margin: 0 0 16px;
 }
 
 .card,
 .panel {
-  background: var(--surface-card);
+  background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-lg);
 }
 
 .card {
-  min-height: 112px;
-  padding: 20px;
+  padding: 18px 18px 16px;
 }
 
 .metric-label {
   color: var(--muted);
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.88px;
+  letter-spacing: 0.7px;
   text-transform: uppercase;
 }
 
 .metric-value {
-  font-size: 34px;
-  font-weight: 400;
-  letter-spacing: -0.8px;
-  margin-top: 16px;
-  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: -1px;
+  margin-top: 14px;
+  color: var(--text);
 }
 
 .metric-foot {
-  color: var(--muted);
-  font-size: 13px;
-  margin-top: 8px;
+  color: var(--muted-soft);
+  font-size: 12px;
+  margin-top: 7px;
 }
 
 .two {
-  grid-template-columns: 1.2fr 0.8fr;
+  grid-template-columns: 1.45fr 1fr;
+  align-items: start;
 }
 
 .panel {
-  padding: 24px;
+  padding: 22px;
   overflow: hidden;
 }
 
+/* ----- Tables ----- */
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 13.5px;
 }
 
 th,
 td {
   text-align: left;
-  padding: 12px 10px;
+  padding: 11px 8px;
   border-bottom: 1px solid var(--hairline);
   vertical-align: top;
   color: var(--body);
 }
 
+tr:last-child td {
+  border-bottom: none;
+}
+
 th {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
-  letter-spacing: 0.88px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
 }
 
 td:first-child {
-  color: var(--ink);
+  color: var(--text);
 }
 
+/* ----- Stat list (posture) ----- */
+.statlist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 13.5px;
+  color: var(--body);
+}
+
+.stat:last-child {
+  border-bottom: none;
+}
+
+.stat b {
+  font-family: var(--mono);
+  font-weight: 500;
+  color: var(--text);
+  font-size: 14px;
+}
+
+/* ----- Pills / chips / dots ----- */
 .pill,
-.badge {
+.badge,
+.chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   border-radius: 9999px;
-  padding: 4px 10px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
   white-space: nowrap;
 }
 
 .pill {
   border: 1px solid var(--hairline-strong);
   color: var(--muted);
+  padding: 4px 10px;
+  font-size: 11px;
 }
 
 .badge {
-  background: var(--surface-strong);
-  color: var(--ink);
+  background: var(--primary-soft);
+  color: var(--primary-active);
+  padding: 4px 11px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  font-family: var(--mono);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.chip {
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  color: var(--body);
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: var(--muted-soft);
+  flex: none;
+}
+
+.dot.ok {
+  background: var(--success);
+}
+.dot.warn {
+  background: var(--warn);
+}
+.dot.bad {
+  background: var(--error);
 }
 
 .mono {
@@ -272,24 +382,23 @@ td:first-child {
   color: var(--body);
 }
 
+/* ----- Semantic text ----- */
 .critical,
 .high {
   color: var(--error);
 }
-
 .medium {
   color: var(--warn);
 }
-
 .low,
 .ok {
   color: var(--success);
 }
-
 .muted {
   color: var(--muted);
 }
 
+/* ----- Buttons / forms ----- */
 .button {
   border: 1px solid transparent;
   background: var(--primary);
@@ -307,8 +416,8 @@ td:first-child {
 }
 
 .button.secondary {
-  background: var(--surface-card);
-  color: var(--ink);
+  background: var(--surface-2);
+  color: var(--text);
   border-color: var(--hairline-strong);
 }
 
@@ -332,9 +441,9 @@ td:first-child {
 
 .field input,
 .field select {
-  background: var(--surface-card);
+  background: var(--bg-soft);
   border: 1px solid var(--hairline-strong);
-  color: var(--ink);
+  color: var(--text);
   border-radius: var(--radius-md);
   padding: 11px 12px;
   min-width: 0;
@@ -346,6 +455,7 @@ td:first-child {
   border-color: var(--primary);
 }
 
+/* ----- Legacy radar/timeline (used by other pages) ----- */
 .radar {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -355,19 +465,18 @@ td:first-child {
 .radar-item {
   border: 1px solid var(--hairline);
   border-radius: var(--radius-lg);
-  padding: 16px;
-  min-height: 92px;
-  background: var(--canvas-soft);
+  padding: 15px;
+  background: var(--surface);
 }
 
 .timeline {
   display: grid;
-  gap: 12px;
+  gap: 11px;
 }
 
 .timeline div {
   border-left: 2px solid var(--hairline-strong);
-  padding-left: 14px;
+  padding-left: 13px;
   color: var(--body);
   font-size: 13px;
 }
@@ -381,10 +490,10 @@ td:first-child {
     height: auto;
   }
   .main {
-    padding: 28px 20px;
+    padding: 26px 18px;
   }
   h1 {
-    font-size: 32px;
+    font-size: 28px;
   }
   .metrics,
   .two,
