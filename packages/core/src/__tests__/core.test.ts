@@ -14,7 +14,11 @@ import {
   buildAnthropicRequest,
   buildFailoverConsentMessage,
   checkProviderReadiness,
+  classifyDeploymentResponse,
   detectManifests,
+  loadSecretsFile,
+  signPluginManifest,
+  verifyPluginSignature,
   classifyProviderError,
   clearReadinessCache,
   decideFailover,
@@ -1618,6 +1622,39 @@ describe("plugin manifest", () => {
     const result = validatePluginManifest(manifestPath);
     expect(result.warnings[0]).toContain("requires explicit review");
     expect(pluginManifestSchema.parse(result.manifest).id).toBe("patchpilot-test");
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("signs and verifies a plugin manifest, rejecting tampering", () => {
+    const manifest = { id: "patchpilot-test", version: "1.0.0", entry: "./dist/index.js", permissions: ["scan:read"] };
+    const sig = signPluginManifest(manifest, "registry-secret");
+    expect(verifyPluginSignature(manifest, sig, "registry-secret")).toBe(true);
+    expect(verifyPluginSignature({ ...manifest, version: "1.0.1" }, sig, "registry-secret")).toBe(false); // tampered
+    expect(verifyPluginSignature(manifest, sig, "wrong-secret")).toBe(false);
+  });
+});
+
+describe("deployment verification", () => {
+  it("classifies a deployment response (live + Vercel detection)", () => {
+    const headers = (map: Record<string, string>) => ({ get: (n: string) => map[n.toLowerCase()] ?? null });
+    expect(classifyDeploymentResponse(200, headers({ "x-vercel-id": "iad1::abc" }))).toEqual({ ok: true, vercel: true });
+    expect(classifyDeploymentResponse(404, headers({}))).toEqual({ ok: false, vercel: false });
+    expect(classifyDeploymentResponse(301, headers({ server: "Vercel" }))).toEqual({ ok: true, vercel: true });
+  });
+});
+
+describe("secret-manager file", () => {
+  it("loads secrets from a file for unset keys only (never overrides)", () => {
+    const root = tempRoot();
+    const file = path.join(root, "secrets.json");
+    writeFileSync(file, JSON.stringify({ PATCHPILOT_SECRET_TEST_A: "fromfile", PATCHPILOT_SECRET_TEST_B: "fromfile" }));
+    vi.stubEnv("PATCHPILOT_SECRET_TEST_B", "fromenv"); // already set → must NOT be overridden
+    const result = loadSecretsFile(file);
+    expect(result.keys).toContain("PATCHPILOT_SECRET_TEST_A");
+    expect(process.env.PATCHPILOT_SECRET_TEST_A).toBe("fromfile");
+    expect(process.env.PATCHPILOT_SECRET_TEST_B).toBe("fromenv"); // preserved
+    delete process.env.PATCHPILOT_SECRET_TEST_A;
+    vi.unstubAllEnvs();
     rmSync(root, { recursive: true, force: true });
   });
 });

@@ -3,6 +3,8 @@ export * from "./database";
 export * from "./env";
 export * from "./postgresStore";
 export * from "./queue";
+export * from "./secrets";
+export * from "./deployment";
 export * from "./settings";
 export * from "./errors";
 export * from "./redaction";

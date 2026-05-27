@@ -41,6 +41,7 @@
     "verify:provider-chain": "tsx scripts/verify-provider-chain.ts",
     "verify:provider-failover-consent": "tsx scripts/verify-provider-failover-consent.ts",
     "verify:watch-mode": "tsx scripts/verify-watch-mode.ts",
+    "verify:deployment": "tsx scripts/verify-deployment.ts",
     "verify:scanner-tools": "tsx scripts/verify-scanner-tools.ts",
     "verify:scanners": "tsx scripts/verify-scanners.ts",
     "scan:project-full": "tsx scripts/scan-project-full.ts",

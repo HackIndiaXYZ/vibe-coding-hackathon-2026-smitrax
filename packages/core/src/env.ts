@@ -1,9 +1,13 @@
 import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
+import { loadSecretsFile } from "./secrets";
 import type { IntegrationHealth } from "./types";
 
 loadDotenv();
+// After .env: fill any remaining secrets from a configured secret-manager file
+// (Docker/K8s secret mount or Vault file sink). Explicit env/.env values win.
+loadSecretsFile();
 
 function loadDotenv() {
   let current = process.cwd();
