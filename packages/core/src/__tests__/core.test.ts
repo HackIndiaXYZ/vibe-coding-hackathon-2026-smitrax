@@ -27,11 +27,14 @@ import {
   commitAll,
   diffLockfilePackage,
   detectScannerTools,
+  licensePolicyStatus,
+  loadLicensePolicy,
   parseGitleaksJson,
   parseRemediationPlan,
   parseSemgrepJson,
   parseTrivyJson,
   resolveAgentProvider,
+  typosquatTarget,
   scanCiHardening,
   scanMaliciousPackages,
   scanSecretsLightweight,
@@ -1085,6 +1088,35 @@ describe("scanner orchestration", () => {
     expect(container?.status).toBe("completed");
     expect(container?.findings[0]?.cveIds).toContain("CVE-2021-23337");
     vi.unstubAllEnvs();
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("applies a license policy to Trivy license findings", () => {
+    const root = tempRoot();
+    const policyPath = path.join(root, "policy.json");
+    writeFileSync(policyPath, JSON.stringify({ blocked: ["GPL-3.0"], review: ["LGPL-3.0"], allowed: ["MIT"] }));
+    const policy = loadLicensePolicy(policyPath);
+    expect(licensePolicyStatus("GPL-3.0", policy)).toBe("blocked");
+    expect(licensePolicyStatus("MIT", policy)).toBe("allowed");
+    expect(licensePolicyStatus("Apache-2.0", policy)).toBe("unknown");
+    const findings = parseTrivyJson(JSON.stringify({ Results: [{ Target: "x", Licenses: [{ PkgName: "p", Name: "GPL-3.0", Severity: "LOW" }] }] }), { licensePolicy: policy });
+    const license = findings.find((f) => f.category === "license");
+    expect(license?.severity).toBe("high");           // blocked → high
+    expect(license?.description).toContain("blocked");
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("flags typosquats as suspicious (low confidence), not real packages", () => {
+    expect(typosquatTarget("lodahs")).toBe("lodash");
+    expect(typosquatTarget("expres")).toBe("express");
+    expect(typosquatTarget("lodash")).toBeUndefined();   // the real package
+    expect(typosquatTarget("my-internal-lib")).toBeUndefined();
+    const root = tempRoot();
+    writeFileSync(path.join(root, "package.json"), JSON.stringify({ dependencies: { lodahs: "1.0.0", lodash: "4.17.20" } }));
+    const findings = scanMaliciousPackages(root);
+    const typo = findings.find((f) => f.title.includes("typosquat"));
+    expect(typo?.confidence).toBe("low");
+    expect(typo?.packageName).toBe("lodahs");
     rmSync(root, { recursive: true, force: true });
   });
 

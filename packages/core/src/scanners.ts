@@ -282,6 +282,37 @@ export function scanCiHardening(projectPath: string): ScannerFinding[] {
   return findings;
 }
 
+const POPULAR_PACKAGES = [
+  "lodash", "react", "react-dom", "express", "axios", "chalk", "commander", "debug",
+  "moment", "request", "webpack", "next", "vue", "typescript", "eslint", "jest",
+  "dotenv", "uuid", "classnames", "redux", "tslib", "yargs", "rimraf", "glob"
+];
+
+// Optimal string alignment (Damerau-Levenshtein) distance — counts an adjacent
+// transposition (e.g. lodahs↔lodash) as one edit, which typosquats often are.
+function editDistance(a: string, b: string): number {
+  const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
+  for (let i = 0; i <= a.length; i += 1) matrix[i]![0] = i;
+  for (let j = 0; j <= b.length; j += 1) matrix[0]![j] = j;
+  for (let i = 1; i <= a.length; i += 1) {
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[i]![j] = Math.min(matrix[i - 1]![j]! + 1, matrix[i]![j - 1]! + 1, matrix[i - 1]![j - 1]! + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        matrix[i]![j] = Math.min(matrix[i]![j]!, matrix[i - 2]![j - 2]! + 1);
+      }
+    }
+  }
+  return matrix[a.length]![b.length]!;
+}
+
+/** Returns the popular package a name appears to typosquat, or undefined. */
+export function typosquatTarget(name: string): string | undefined {
+  const lower = name.toLowerCase();
+  if (lower.length < 4 || POPULAR_PACKAGES.includes(lower)) return undefined;
+  return POPULAR_PACKAGES.find((popular) => Math.abs(popular.length - lower.length) <= 1 && editDistance(lower, popular) === 1);
+}
+
 /**
  * Package quarantine / suspicious-package heuristics. Labels findings
  * "malicious" ONLY when matched against a configured OpenSSF data directory;
@@ -311,6 +342,25 @@ export function scanMaliciousPackages(projectPath: string, options: { maliciousD
         source: `openssf-malicious-packages (${maliciousDir})`,
         confidence: "high",
         remediation: "Remove the package immediately and audit installs."
+      }));
+    }
+  }
+  // Low-confidence typosquat heuristic: a dependency one edit away from a very
+  // popular package (and not that package) is flagged "suspicious" — never
+  // "malicious" without a configured source.
+  for (const name of Object.keys(allDeps)) {
+    const target = typosquatTarget(name);
+    if (target) {
+      findings.push(makeFinding({
+        scanner: "patchpilot-quarantine",
+        category: "malware",
+        severity: "medium",
+        title: `Possible typosquat: ${name} resembles ${target}`,
+        description: `Dependency "${name}" is one character away from the popular package "${target}". Heuristic only — verify the package is intended.`,
+        packageName: name,
+        source: "patchpilot-quarantine (typosquat heuristic)",
+        confidence: "low",
+        remediation: `Confirm "${name}" is the intended package and not a typo of "${target}".`
       }));
     }
   }
@@ -381,7 +431,36 @@ export function parseSemgrepJson(json: string): ScannerFinding[] {
   }));
 }
 
-export function parseTrivyJson(json: string): ScannerFinding[] {
+export type LicensePolicyStatus = "allowed" | "review" | "blocked" | "unknown";
+
+/**
+ * Loads a license policy file. Accepts `{ allowed:[], review:[], blocked:[] }`
+ * or a flat `{ "GPL-3.0": "blocked" }` map. Returns undefined when unset/missing.
+ */
+export function loadLicensePolicy(policyPath = getEnv("PATCHPILOT_LICENSE_POLICY_PATH")): Record<string, LicensePolicyStatus> | undefined {
+  if (!policyPath || !existsSync(policyPath)) return undefined;
+  try {
+    const raw = JSON.parse(readFileSync(policyPath, "utf8")) as Record<string, unknown>;
+    const map: Record<string, LicensePolicyStatus> = {};
+    for (const status of ["allowed", "review", "blocked"] as const) {
+      const list = raw[status];
+      if (Array.isArray(list)) for (const license of list) if (typeof license === "string") map[license.toLowerCase()] = status;
+    }
+    for (const [key, value] of Object.entries(raw)) {
+      if (typeof value === "string" && (value === "allowed" || value === "review" || value === "blocked")) map[key.toLowerCase()] = value;
+    }
+    return Object.keys(map).length > 0 ? map : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function licensePolicyStatus(license: string, policy?: Record<string, LicensePolicyStatus>): LicensePolicyStatus {
+  if (!policy) return "unknown";
+  return policy[license.toLowerCase()] ?? "unknown";
+}
+
+export function parseTrivyJson(json: string, options: { licensePolicy?: Record<string, LicensePolicyStatus> } = {}): ScannerFinding[] {
   let data: { Results?: Array<{ Target?: string; Type?: string; Class?: string; Vulnerabilities?: Array<{ VulnerabilityID?: string; PkgName?: string; InstalledVersion?: string; FixedVersion?: string; Severity?: string; Title?: string }>; Misconfigurations?: Array<{ ID?: string; Title?: string; Severity?: string; Message?: string }>; Secrets?: Array<{ RuleID?: string; Title?: string; StartLine?: number; Match?: string }>; Licenses?: Array<{ PkgName?: string; Name?: string; Severity?: string }> }> };
   try {
     data = JSON.parse(json);
@@ -438,15 +517,19 @@ export function parseTrivyJson(json: string): ScannerFinding[] {
       }));
     }
     for (const license of result.Licenses ?? []) {
+      const name = license.Name ?? "unknown";
+      const policyStatus = licensePolicyStatus(name, options.licensePolicy);
+      const severity: ScannerSeverity = policyStatus === "blocked" ? "high" : policyStatus === "review" ? "medium" : policyStatus === "allowed" ? "info" : sev(license.Severity);
       findings.push(makeFinding({
         scanner: "trivy",
         category: "license",
-        severity: sev(license.Severity),
-        title: `License ${license.Name ?? "unknown"} (${license.PkgName ?? "package"})`,
-        description: `Detected license ${license.Name ?? "unknown"} for ${license.PkgName ?? "package"}.`,
+        severity,
+        title: `License ${name} (${license.PkgName ?? "package"})`,
+        description: `Detected license ${name} for ${license.PkgName ?? "package"}. Policy status: ${policyStatus}.`,
         packageName: license.PkgName,
         source: "trivy",
-        confidence: "medium"
+        confidence: "medium",
+        remediation: policyStatus === "blocked" ? "License is blocked by policy; replace or obtain an exception." : policyStatus === "review" ? "License requires review per policy." : undefined
       }));
     }
   }
@@ -503,7 +586,7 @@ function runTrivyFs(projectPath: string, command: string, timeoutMs: number): Sc
   if (!result.stdout.trim()) {
     return { scanner: "trivy", category: "container", status: "error", startedAt, finishedAt: now(), durationMs: elapsed(startedAt), findings: [], errors: [result.stderr.slice(0, 300) || "trivy produced no output"], complete: false };
   }
-  return { scanner: "trivy", category: "container", status: "completed", version: probeVersion(command), startedAt, finishedAt: now(), durationMs: elapsed(startedAt), findings: parseTrivyJson(result.stdout), errors: [], complete: true };
+  return { scanner: "trivy", category: "container", status: "completed", version: probeVersion(command), startedAt, finishedAt: now(), durationMs: elapsed(startedAt), findings: parseTrivyJson(result.stdout, { licensePolicy: loadLicensePolicy() }), errors: [], complete: true };
 }
 
 // ---------- coverage (dashboard) ----------
