@@ -21,6 +21,7 @@
     "test": "pnpm --filter @patchpilot/core test",
     "scan:fixture": "pnpm --filter @patchpilot/core scan:fixture",
     "verify:local-e2e": "tsx scripts/verify-local-e2e.ts",
+    "verify:python-e2e": "tsx scripts/verify-python-e2e.ts",
     "smoke:app": "node scripts/smoke-app.mjs",
     "verify:env-redaction": "tsx scripts/verify-env-redaction.ts",
     "verify:live-readiness": "tsx scripts/verify-live-readiness.ts",

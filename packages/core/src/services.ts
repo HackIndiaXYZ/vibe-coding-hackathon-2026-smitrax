@@ -5,7 +5,7 @@ import { JsonDatabase, id, now } from "./database";
 import { getEnv, localRoots, workspaceDir } from "./env";
 import { PatchPilotError } from "./errors";
 import { assertSafeLocalPath } from "./pathSafety";
-import { detectPackageManager, readPackageManifest } from "./packageDetection";
+import { detectManifests, detectPackageManager, readPackageManifest } from "./packageDetection";
 import { fetchEpss, fetchKev } from "./enrichment";
 import { queryOsvFindings } from "./osv";
 import { enrichVulnerability } from "./advisoryEnrichment";
@@ -316,10 +316,11 @@ export class PatchPilotService {
       sourcePath = resolved.path;
       cleanupSource = resolved.cleanup;
       const projectPath = sourcePath;
-      const manifest = readPackageManifest(projectPath);
-      if (!manifest) throw new PatchPilotError("unsupported_project", "No package.json was found. PatchPilot currently scans Node.js projects.");
+      const manifests = detectManifests(projectPath);
+      if (manifests.length === 0) throw new PatchPilotError("unsupported_project", "No package.json or requirements.txt was found. PatchPilot scans Node.js (npm) and Python (PyPI) projects.");
+      const manifest = manifests[0]!; // primary (npm preferred, else python)
       const agentFindings = scanAgentConfig(projectPath, project.id);
-      const osvResult = await queryOsvFindings(projectPath, manifest);
+      const osvResult = await queryOsvFindings(projectPath, manifests);
       const normalized = await Promise.all(osvResult.findings.map(async (item) => ({
         ...item,
         vulnerability: await enrichVulnerability(item.vulnerability)
@@ -370,8 +371,8 @@ export class PatchPilotService {
             fixedVersion: item.fixedVersion,
             affectedRanges: item.affectedRanges,
             dependencyType: item.dependencyType,
-            manifestPath: path.relative(projectPath, manifest.manifestPath),
-            lockfilePath: manifest.lockfilePath ? path.relative(projectPath, manifest.lockfilePath) : undefined,
+            manifestPath: path.relative(projectPath, (manifests.find((m) => m.ecosystem === item.ecosystem) ?? manifest).manifestPath),
+            lockfilePath: (manifests.find((m) => m.ecosystem === item.ecosystem) ?? manifest).lockfilePath ? path.relative(projectPath, (manifests.find((m) => m.ecosystem === item.ecosystem) ?? manifest).lockfilePath!) : undefined,
             riskScore: risk.score,
             riskLevel: risk.level,
             riskFactors: risk.factors,
@@ -841,7 +842,14 @@ export class PatchPilotService {
 
   private async runValidationSuite(remediationJobId: string, workspace: string, options: { ownLockfile?: boolean } = {}): Promise<ValidationRun[]> {
     const manifest = readPackageManifest(workspace);
-    if (!manifest) throw new PatchPilotError("validation_manifest_missing", "Cannot run validation without package.json.");
+    if (!manifest) {
+      // Non-npm project (e.g. Python): npm validation is not applicable. Skip
+      // honestly rather than failing — the patch is still produced and reviewed.
+      this.event("validation", remediationJobId, "validation.skipped_non_npm", "warn", "npm validation is not applicable to this ecosystem; skipped (review the patch).");
+      const skipped: ValidationRun = { id: id("val"), remediationJobId, command: "npm validation (non-npm project)", status: "skipped_no_script", durationMs: 0, createdAt: now() };
+      this.db.update((state) => state.validationRuns.push(skipped));
+      return [skipped];
+    }
     // When PatchPilot owns the lockfile (e.g. scoped Codex edited only package.json),
     // it regenerates the lockfile itself, then validates with `npm ci`. This keeps
     // Codex usage minimal while PatchPilot stays in control of install/test/build.

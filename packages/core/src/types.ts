@@ -1,5 +1,5 @@
 export type SourceType = "github" | "local" | "vercel-linked" | "server";
-export type PackageManager = "npm" | "pnpm" | "yarn" | "unknown";
+export type PackageManager = "npm" | "pnpm" | "yarn" | "pip" | "unknown";
 export type RiskLevel = "low" | "medium" | "high" | "critical";
 export type JobStatus =
   | "queued"

@@ -14,6 +14,7 @@ import {
   buildAnthropicRequest,
   buildFailoverConsentMessage,
   checkProviderReadiness,
+  detectManifests,
   classifyProviderError,
   clearReadinessCache,
   decideFailover,
@@ -773,6 +774,18 @@ describe("BYO agent provider layer", () => {
     vi.unstubAllEnvs();
   });
 
+  it("detects npm and Python manifests in a project", () => {
+    const root = tempRoot();
+    writeFileSync(path.join(root, "package.json"), JSON.stringify({ dependencies: { lodash: "4.17.20" } }));
+    writeFileSync(path.join(root, "requirements.txt"), "flask==2.0.0\nrequests>=2.20.0\n");
+    const manifests = detectManifests(root);
+    expect(manifests.map((m) => m.ecosystem).sort()).toEqual(["PyPI", "npm"]);
+    const py = manifests.find((m) => m.ecosystem === "PyPI")!;
+    expect(py.dependencies.flask).toBe("2.0.0");
+    expect(py.packageManager).toBe("pip");
+    rmSync(root, { recursive: true, force: true });
+  });
+
   it("remediates a PyPI requirements.txt pin (multi-ecosystem)", () => {
     const root = tempRoot();
     const reqPath = path.join(root, "requirements.txt");
@@ -1504,7 +1517,7 @@ describe("OSV scanner parsing", () => {
         { package: { name: "lodash", version: "4.17.20", ecosystem: "npm" }, vulnerabilities: [{ id: "OSV-DIRECT", aliases: [], affected: [] }] },
         { package: { name: "minimist", version: "0.0.8", ecosystem: "npm" }, vulnerabilities: [{ id: "OSV-TRANSITIVE", aliases: [], affected: [] }] }
       ] }]
-    }), manifest);
+    }), new Set(["lodash"]));
     expect(findings.find((finding) => finding.packageName === "lodash")?.dependencyType).toBe("direct");
     expect(findings.find((finding) => finding.packageName === "minimist")?.dependencyType).toBe("transitive");
     rmSync(root, { recursive: true, force: true });
@@ -1515,6 +1528,7 @@ describe("OSV scanner parsing", () => {
     const manifest = {
       name: "fixture",
       packageManager: "npm" as const,
+      ecosystem: "npm",
       dependencies: { lodash: "4.17.20" },
       devDependencies: {},
       optionalDependencies: {},
@@ -1528,7 +1542,7 @@ describe("OSV scanner parsing", () => {
       if (value.includes("/vulns/OSV-TEST")) return new Response(JSON.stringify({ id: "OSV-TEST", aliases: [], summary: "fixture", affected: [] }), { status: 200 });
       return new Response(JSON.stringify({ results: [{ vulns: [{ id: "OSV-TEST" }] }] }), { status: 200 });
     }));
-    const result = await queryOsvFindings(root, manifest);
+    const result = await queryOsvFindings(root, [manifest]);
     expect(result.scanner).toBe("osv-api");
     expect(result.scanConfidence).toBe("direct_manifest_only");
     vi.unstubAllGlobals();
@@ -1553,6 +1567,7 @@ describe("OSV scanner parsing", () => {
     const manifest = {
       name: "fixture",
       packageManager: "npm" as const,
+      ecosystem: "npm",
       dependencies: { lodash: "4.17.20" },
       devDependencies: {},
       optionalDependencies: {},
@@ -1561,8 +1576,9 @@ describe("OSV scanner parsing", () => {
       lockfilePath: path.join(root, "package-lock.json"),
       stack: ["node", "npm"]
     };
-    vi.stubEnv("PATH", `${binDir}${path.delimiter}${process.env.PATH ?? ""}`);
-    const result = await queryOsvFindings(root, manifest);
+    vi.stubEnv("PATCHPILOT_DISABLE_OSV_SCANNER", "false");
+    vi.stubEnv("PATCHPILOT_SCANNER_OSV_SCANNER_PATH", scanner); // use the fake scanner, not the real installed one
+    const result = await queryOsvFindings(root, [manifest]);
     expect(result.scanner).toBe("osv-scanner");
     expect(result.scanConfidence).toBe("lockfile");
     expect(result.findings[0]?.packageName).toBe("lodash");

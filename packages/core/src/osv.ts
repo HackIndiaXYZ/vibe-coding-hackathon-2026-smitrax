@@ -39,9 +39,15 @@ interface OsvVulnerability {
   severity?: Array<{ type: string; score: string }>;
 }
 
+function osvScannerBin(): string {
+  return getEnv("PATCHPILOT_SCANNER_OSV_SCANNER_PATH") ?? "osv-scanner";
+}
+
 export function osvScannerAvailable(): boolean {
   if (getEnv("PATCHPILOT_DISABLE_OSV_SCANNER") === "true") return false;
-  const result = spawnSync(process.platform === "win32" ? "where.exe" : "command", process.platform === "win32" ? ["osv-scanner"] : ["-v", "osv-scanner"], {
+  const bin = osvScannerBin();
+  if (bin.includes("\\") || bin.includes("/")) return existsSync(bin);
+  const result = spawnSync(process.platform === "win32" ? "where.exe" : "command", process.platform === "win32" ? [bin] : ["-v", bin], {
     encoding: "utf8",
     shell: process.platform !== "win32"
   });
@@ -50,7 +56,8 @@ export function osvScannerAvailable(): boolean {
 
 export async function queryOsvApi(manifest: PackageManifest): Promise<NormalizedOsvFinding[]> {
   const deps = { ...manifest.dependencies, ...manifest.devDependencies, ...manifest.optionalDependencies };
-  const entries = Object.entries(deps).map(([name, rawVersion]) => [name, semver.minVersion(rawVersion)?.version ?? rawVersion.replace(/^[^\d]*/, "")] as const);
+  const isNpm = manifest.ecosystem === "npm";
+  const entries = Object.entries(deps).map(([name, rawVersion]) => [name, isNpm ? (semver.minVersion(rawVersion)?.version ?? rawVersion.replace(/^[^\d]*/, "")) : rawVersion.replace(/^[^\d=<>~!]*/, "")] as const);
   if (entries.length === 0) return [];
   const findings: NormalizedOsvFinding[] = [];
   for (let offset = 0; offset < entries.length; offset += 100) {
@@ -61,7 +68,7 @@ export async function queryOsvApi(manifest: PackageManifest): Promise<Normalized
       body: JSON.stringify({
         queries: batch.map(([name, version]) => ({
           version,
-          package: { name, ecosystem: "npm" }
+          package: { name, ecosystem: manifest.ecosystem }
         }))
       })
     });
@@ -75,26 +82,35 @@ export async function queryOsvApi(manifest: PackageManifest): Promise<Normalized
       const [name, version] = entry;
       for (const vuln of result.vulns ?? []) {
         const hydrated = await fetchOsvVulnerability(vuln.id).catch(() => vuln);
-        findings.push(normalizeOsvVulnerability({ ...vuln, ...hydrated }, name, version, "direct"));
+        findings.push(normalizeOsvVulnerability({ ...vuln, ...hydrated }, name, version, "direct", manifest.ecosystem));
       }
     }
   }
   return findings;
 }
 
-export async function queryOsvFindings(projectPath: string, manifest: PackageManifest): Promise<OsvScanResult> {
+export async function queryOsvFindings(projectPath: string, manifests: PackageManifest[]): Promise<OsvScanResult> {
+  const directNames = new Set(manifests.flatMap((manifest) => Object.keys({ ...manifest.dependencies, ...manifest.devDependencies, ...manifest.optionalDependencies })));
   if (canRunOsvScanner(projectPath)) {
-    const result = spawnSync("osv-scanner", ["--format", "json", "--recursive", projectPath], { encoding: "utf8", shell: process.platform === "win32" });
+    const bin = osvScannerBin();
+    const args = ["--format", "json", "--recursive", projectPath];
+    const isCmd = process.platform === "win32" && /\.(cmd|bat)$/i.test(bin);
+    const bare = !bin.includes("\\") && !bin.includes("/");
+    const result = isCmd
+      ? spawnSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/c", bin, ...args], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 })
+      : spawnSync(bin, args, { encoding: "utf8", shell: bare && process.platform === "win32", maxBuffer: 64 * 1024 * 1024 });
     if ((result.status ?? 1) !== 0 && !result.stdout) {
       throw new PatchPilotError("osv_scanner_failed", "OSV-Scanner failed before producing JSON output.", { stderr: result.stderr }, 502);
     }
-    const findings = parseOsvScannerJson(result.stdout, manifest);
+    const findings = parseOsvScannerJson(result.stdout, directNames);
     return { findings, scanner: "osv-scanner", scanConfidence: "lockfile" };
   }
-  return { findings: await queryOsvApi(manifest), scanner: "osv-api", scanConfidence: "direct_manifest_only" };
+  const apiFindings: NormalizedOsvFinding[] = [];
+  for (const manifest of manifests) apiFindings.push(...await queryOsvApi(manifest));
+  return { findings: apiFindings, scanner: "osv-api", scanConfidence: "direct_manifest_only" };
 }
 
-export function parseOsvScannerJson(raw: string, manifest: PackageManifest): NormalizedOsvFinding[] {
+export function parseOsvScannerJson(raw: string, directNames: Set<string>): NormalizedOsvFinding[] {
   const parsed = JSON.parse(raw) as {
     results?: Array<{
       packages?: Array<{
@@ -108,7 +124,7 @@ export function parseOsvScannerJson(raw: string, manifest: PackageManifest): Nor
       const packageName = pkg.package?.name;
       const version = pkg.package?.version;
       if (!packageName || !version) return [];
-      const dependencyType = manifest.dependencies[packageName] || manifest.devDependencies[packageName] || manifest.optionalDependencies[packageName] ? "direct" : "transitive";
+      const dependencyType = directNames.has(packageName) ? "direct" : "transitive";
       const ecosystem = pkg.package?.ecosystem ?? "npm";
       return (pkg.vulnerabilities ?? []).map((vulnerability) => normalizeOsvVulnerability(vulnerability, packageName, version, dependencyType, ecosystem));
     })
