@@ -94,6 +94,7 @@ pipeline should apply it.**
 | **Audit receipts** | Hash-chained receipt for every action | Tamper-evident trail for compliance |
 | **Durable layer (opt-in)** | Postgres system-of-record + Redis/BullMQ queue & schedule | Survives restarts; Docker one-command up |
 | **MCP server** | ~25 tools exposing scan/triage/remediate/approve/rollback | Other agents drive PatchPilot, not your repo |
+| **OpenClaw bridge** | Optional chat channel that drives PatchPilot via MCP (`/patchpilot scan\|approve`) | Same gated tools as the dashboard; never edits the repo |
 
 ---
 
@@ -233,14 +234,22 @@ green), *model-agnostic* (BYO/local), and *agent-native* (MCP).
 - **Redis/BullMQ** durable queue + repeatable watch schedule that survives
   restarts. One command: `docker compose up -d`.
 
-### 6.9 Audit, MCP, and security model
+### 6.9 Audit, MCP, OpenClaw, and security model
 - **Hash-chained audit receipts** for every action (tamper-evident).
 - **MCP server** exposes ~25 tools (list/scan/triage/remediate/validate/PR/
-  approve/rollback/readiness/coverage/watch) so *other agents drive PatchPilot*
-  rather than the repo.
+  approve/rollback/readiness/coverage/watch) so *other agents and IDEs drive
+  PatchPilot* rather than the repo.
+- **OpenClaw bridge (optional):** a chat front-end that connects to the same MCP
+  server, giving commands like `/patchpilot status`, `/patchpilot scan`,
+  `/patchpilot affected`, `/patchpilot approve <id>`. It uses the identical gated
+  tools — it can request scans/remediation but **cannot auto-merge, auto-deploy,
+  or edit the repo**, and only reports success when actually configured
+  (`OPENCLAW_ENABLED=true` + CLI installed).
 - **Secrets hygiene:** redaction everywhere; secret-manager file indirection
   (`PATCHPILOT_SECRETS_FILE`); optional dashboard/API token; signed plugin
   registry (HMAC).
+- **Deployment verification (Vercel):** can ping a preview/prod URL and report
+  live/status — it **never triggers a deploy**.
 
 ---
 
@@ -280,6 +289,47 @@ provenance attestations, and signed plugin manifests; hash-chained audit receipt
 **Platform notes:** Windows-first spawn safety (absolute `.exe` vs `.cmd` vs bare
 names), runs on Windows/macOS/Linux/WSL.
 
+### 7.1 Integrations (complete map)
+
+Every integration is **honest**: it reports `configured` / `available` only when
+the credential or binary is actually present — otherwise `not_configured`,
+`unavailable`, or `tool_missing`. Nothing is faked. This is the full surface
+(matches the dashboard's integration-health panel):
+
+| Integration | Type | Role in PatchPilot | Default state |
+|---|---|---|---|
+| **GitHub** | Source + PR | Clone repos to ephemeral secret-scrubbed workspace; open **draft** PRs (token or GitHub App) | `not_configured` until `GITHUB_TOKEN`/App set |
+| **Local folders** | Source | Scan allow-listed local paths (traversal-guarded) | available when `PATCHPILOT_LOCAL_ROOTS` set |
+| **OSV.dev API** | Vuln intel | Primary CVE source for npm + PyPI | configured (public API) |
+| **OSV-Scanner CLI** | Scanner | Lockfile-aware SCA, multi-ecosystem | `tool_missing` until installed |
+| **EPSS (FIRST)** | Risk intel | Exploit-probability score per CVE | configured (public API) |
+| **CISA KEV** | Risk intel | Known-exploited flag + ransomware/due-date | configured (public feed) |
+| **NVD / GHSA** | Enrichment | Optional severity/details enrichment | optional (`NVD_API_KEY`, GHSA URL) |
+| **OpenSSF malicious-packages** | Scanner data | Malicious/typosquat package matching | optional dir |
+| **Gitleaks** | Scanner | Secret detection (findings redacted) | `tool_missing` until installed |
+| **Trivy** | Scanner | Container-image CVEs + license scan | `tool_missing` until installed |
+| **Syft** | Scanner | CycloneDX **SBOM** generation + diff | `tool_missing` until installed |
+| **Semgrep** | Scanner | SAST (not on native Windows → WSL/Docker) | `tool_missing` |
+| **OpenAI Codex CLI** | Remediation model | The **only** model allowed to edit the repo (subscription login) | `available` when `codex` installed + `CODEX_ENABLED` |
+| **OpenAI SDK** | Model | API-key remediation path | `not_configured` until `OPENAI_API_KEY` |
+| **Vercel AI SDK / AI Gateway** | Model | Gateway-routed plan advisor | `not_configured` until `AI_GATEWAY_API_KEY` |
+| **Ollama** | Local model | Fully offline plan advisor (verified live) | available when daemon running |
+| **OpenRouter / OpenAI-compatible / Anthropic / Grok** | Cloud advisors | Strict-JSON plan advisors (never edit repo) | **intentionally `not_configured`** |
+| **Telegram Bot API** | Approval channel | Inline-button approvals/consent + webhook (HMAC) | `not_configured` until bot token/chat set |
+| **OpenClaw** | Approval / chat bridge | Alternate channel that drives PatchPilot **through the MCP server** (`/patchpilot status\|scan\|affected\|approve`); respects all approval/consent gates | optional, `OPENCLAW_ENABLED=true` + CLI |
+| **MCP server** | Agent interface | ~25 tools so other agents/IDEs orchestrate PatchPilot (not the repo) | enabled (`PATCHPILOT_MCP_ENABLED`) |
+| **Vercel (deployment)** | Verify only | Pings a preview/prod URL, detects Vercel, reports live/status — **never deploys** | optional URL |
+| **Postgres 16** | Persistence | Write-through JSONB system-of-record + hydrate-on-restart (Docker) | opt-in `PATCHPILOT_PERSIST_POSTGRES` |
+| **Redis 7 / BullMQ** | Queue/scheduler | Durable jobs + repeatable watch schedule (Docker) | opt-in `PATCHPILOT_QUEUE_MODE=redis` |
+| **Secret-manager file** | Secrets | Fills unset keys from Docker/K8s mount or Vault file sink | optional `PATCHPILOT_SECRETS_FILE` |
+| **Signed plugin registry** | Extensibility | HMAC-signed plugin manifests; unsigned/tampered rejected | optional signing secret |
+| **cloudflared** | Demo infra | Tunnels the Telegram webhook for local demos | dev-only |
+
+**Trust tiers (who may touch the repo):** only **Codex** and PatchPilot's own
+deterministic applier can mutate files. **All cloud/local advisors and OpenClaw
+plan or orchestrate only** — they never write to your repo, and raw secret
+findings are never sent to cloud models.
+
 ---
 
 ## 8. Architecture (for the deck's "how it works" slide)
@@ -310,7 +360,7 @@ names), runs on Windows/macOS/Linux/WSL.
                  │      ▼                                                  │
                  │  AUDIT (hash-chained receipts)                          │
                  └───────────────────────────────────────────────────────┘
-   Surfaces:  Next.js dashboard  •  MCP tools (other agents)  •  Telegram phone
+   Surfaces:  Next.js dashboard  •  MCP tools (agents/IDEs)  •  Telegram phone  •  OpenClaw chat
    Durable:   JSON file (default)  •  Postgres + Redis/BullMQ (opt-in, Docker)
 ```
 
@@ -342,8 +392,9 @@ This is the order to **show in the video**. Each step has a real command.
    **nothing auto-merges**. Optionally demo **Rollback**.
 9. **Continuous watch.** `demo:watch` — scheduled re-scan, new-finding alert,
    dedupe, **no auto-patch**.
-10. **Agent-native.** `pnpm mcp:dev` — show the MCP tools an external agent can
-    call. The point: other agents orchestrate PatchPilot, not your repo.
+10. **Agent-native.** `pnpm mcp:dev` — show the MCP tools an external agent or
+    IDE can call (and the optional **OpenClaw** chat bridge: `/patchpilot scan`,
+    `/patchpilot approve`). The point: agents orchestrate PatchPilot, not your repo.
 11. **Durability (optional).** `docker compose up -d` + `verify:postgres` /
     `verify:queue` — survives restarts.
 12. **Honesty & audit.** Show `not_configured`/`tool_missing` statuses and the
