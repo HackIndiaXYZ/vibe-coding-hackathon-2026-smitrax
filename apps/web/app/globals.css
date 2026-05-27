@@ -481,6 +481,124 @@ td:first-child {
   font-size: 13px;
 }
 
+/* ----- Settings controls ----- */
+.controls {
+  display: grid;
+  gap: 4px;
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 14px;
+  color: var(--text);
+}
+
+.control-row:last-of-type {
+  border-bottom: none;
+}
+
+.control-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+  cursor: pointer;
+  flex: none;
+}
+
+.control-row select,
+.control-row input[type="number"] {
+  background: var(--bg-soft);
+  border: 1px solid var(--hairline-strong);
+  color: var(--text);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+}
+
+/* ----- Scanner / status card grid ----- */
+.cardgrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.statuscard {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+}
+
+.statuscard .head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.statuscard h3 {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.status-badge {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  border: 1px solid var(--hairline-strong);
+  white-space: nowrap;
+}
+
+.status-badge.enabled,
+.status-badge.completed,
+.status-badge.ready {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 40%, transparent);
+}
+
+.status-badge.tool_missing,
+.status-badge.not_configured,
+.status-badge.unavailable,
+.status-badge.error,
+.status-badge.failed,
+.status-badge.quota_limited,
+.status-badge.auth_failed,
+.status-badge.endpoint_unreachable,
+.status-badge.timeout {
+  color: var(--error);
+  border-color: color-mix(in srgb, var(--error) 40%, transparent);
+}
+
+.status-badge.disabled,
+.status-badge.not_applicable {
+  color: var(--muted);
+}
+
+.hint {
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--warn);
+  font-family: var(--mono);
+  word-break: break-word;
+}
+
+@media (max-width: 980px) {
+  .cardgrid {
+    grid-template-columns: 1fr;
+  }
+  .control-row {
+    flex-wrap: wrap;
+  }
+}
+
 @media (max-width: 980px) {
   .shell {
     grid-template-columns: 1fr;

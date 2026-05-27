@@ -68,7 +68,8 @@ import {
   writePatch,
   cleanupWorkspace,
   cloneGithubRepo,
-  copyProjectToWorkspace
+  copyProjectToWorkspace,
+  type Finding
 } from "../index";
 
 function tempRoot() {

@@ -1,11 +1,14 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Activity, Bell, Gauge, GitPullRequest, Radar, ReceiptText, Settings, Shield, SquareStack } from "lucide-react";
+import { Activity, Bell, Boxes, Eye, Gauge, GitPullRequest, Radar, ReceiptText, ScanLine, Settings, Shield, SquareStack } from "lucide-react";
 
 const NAV = [
   ["/", "Watch Commander", Gauge],
   ["/threat-radar", "Threat Radar", Radar],
+  ["/scanners", "Scanner Coverage", ScanLine],
+  ["/watch", "Watch Mode", Eye],
+  ["/providers", "Providers", Boxes],
   ["/blast-radius", "Blast Radius", SquareStack],
   ["/projects", "Projects", Shield],
   ["/findings", "Findings", Activity],
