@@ -2,7 +2,7 @@ import { JsonDatabase, id, now } from "./database";
 import { getEnv } from "./env";
 import { getSettings, isWithinQuietHours } from "./settings";
 import { createAuditReceipt } from "./audit";
-import { sendTelegramApproval } from "./telegram";
+import { inlineKeyboard, sendTelegramApproval, telegramCallbackData } from "./telegram";
 import type { Finding, WatchAlert, WatchRun } from "./types";
 
 /**
@@ -74,10 +74,15 @@ function telegramConfigured(): boolean {
 
 async function defaultSendAlert(finding: Finding, text: string): Promise<void> {
   const chats = (getEnv("TELEGRAM_ALLOWED_CHAT_IDS") ?? "").split(",").map((value) => value.trim()).filter(Boolean);
+  // Tap to act: "Start remediation" runs the failover ladder (with its own
+  // consent gates); "Dismiss" just acknowledges. Never auto-patches.
+  const buttons = inlineKeyboard([[
+    { text: "🚀 Start remediation", callbackData: telegramCallbackData("w", finding.id, "start") },
+    { text: "🔕 Dismiss", callbackData: telegramCallbackData("w", finding.id, "dismiss") }
+  ]]);
   for (const chatId of chats) {
-    await sendTelegramApproval({ chatId, text }).catch(() => undefined);
+    await sendTelegramApproval({ chatId, text, replyMarkup: buttons }).catch(() => undefined);
   }
-  void finding;
 }
 
 /**

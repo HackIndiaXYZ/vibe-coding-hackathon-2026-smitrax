@@ -67,6 +67,9 @@ import {
   scoreRisk,
   sendTelegramApproval,
   signApprovalPayload,
+  inlineKeyboard,
+  parseTelegramCallback,
+  telegramCallbackData,
   redactTelegramChatId,
   validateTelegramWebhookSecret,
   validatePluginManifest,
@@ -1188,6 +1191,35 @@ describe("scanner orchestration", () => {
     // No workflows in an empty temp dir.
     expect(coverage.find((entry) => entry.category === "ci")?.status).toBe("not_applicable");
     rmSync(root, { recursive: true, force: true });
+  });
+});
+
+describe("Telegram inline buttons", () => {
+  it("builds and parses short tap payloads (no long tokens)", () => {
+    const data = telegramCallbackData("a", "appr_abcdefghij", "approve");
+    expect(data).toBe("a:appr_abcdefghij:approve");
+    expect(Buffer.byteLength(data, "utf8")).toBeLessThanOrEqual(64);
+    expect(parseTelegramCallback(data)).toEqual({ kind: "a", id: "appr_abcdefghij", action: "approve" });
+    expect(parseTelegramCallback(telegramCallbackData("c", "pcon_abcdefghij", "always_allow_repo"))).toMatchObject({ kind: "c", action: "always_allow_repo" });
+    expect(parseTelegramCallback("not-a-callback")).toBeNull();
+  });
+
+  it("builds an inline keyboard and rejects oversize callback_data", () => {
+    const keyboard = inlineKeyboard([[{ text: "Approve", callbackData: "a:appr_1:approve" }, { text: "Reject", callbackData: "a:appr_1:reject" }]]);
+    expect(keyboard.inline_keyboard[0]?.[0]).toEqual({ text: "Approve", callback_data: "a:appr_1:approve" });
+    expect(() => inlineKeyboard([[{ text: "x", callbackData: "z".repeat(65) }]])).toThrow(/64-byte/);
+  });
+
+  it("includes reply_markup when buttons are supplied", async () => {
+    vi.stubEnv("TELEGRAM_BOT_TOKEN", "telegram-token-value");
+    vi.stubGlobal("fetch", vi.fn(async (_url: string | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body));
+      expect(body.reply_markup.inline_keyboard[0][0].callback_data).toBe("a:appr_1:approve");
+      return new Response(JSON.stringify({ ok: true, result: { message_id: 99 } }), { status: 200 });
+    }));
+    await expect(sendTelegramApproval({ chatId: "123", text: "Approve?", replyMarkup: inlineKeyboard([[{ text: "✅", callbackData: "a:appr_1:approve" }]]) })).resolves.toEqual({ messageId: "99" });
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 });
 

@@ -27,6 +27,59 @@ export async function sendTelegramApproval(input: { chatId: string; text: string
   return { messageId: String(body.result.message_id) };
 }
 
+export interface TelegramButton {
+  text: string;
+  callbackData: string;
+}
+
+/**
+ * Builds a Telegram inline keyboard. callback_data has a hard 64-byte limit, so
+ * we use short opaque payloads (kind:id:action) — never long signed tokens.
+ */
+export function inlineKeyboard(rows: TelegramButton[][]): { inline_keyboard: Array<Array<{ text: string; callback_data: string }>> } {
+  for (const row of rows) {
+    for (const button of row) {
+      if (Buffer.byteLength(button.callbackData, "utf8") > 64) {
+        throw new PatchPilotError("telegram_callback_too_long", "Telegram callback_data exceeds the 64-byte limit.", { callbackData: button.callbackData.slice(0, 16) });
+      }
+    }
+  }
+  return { inline_keyboard: rows.map((row) => row.map((button) => ({ text: button.text, callback_data: button.callbackData }))) };
+}
+
+/** Short tap-payload for inline buttons: `<kind>:<id>:<action>` (kind a|c|w). */
+export function telegramCallbackData(kind: "a" | "c" | "w", id: string, action: string): string {
+  return `${kind}:${id}:${action}`;
+}
+
+export function parseTelegramCallback(data: string): { kind: "a" | "c" | "w"; id: string; action: string } | null {
+  const match = data.match(/^([acw]):([^:]+):(.+)$/);
+  if (!match) return null;
+  return { kind: match[1] as "a" | "c" | "w", id: match[2]!, action: match[3]! };
+}
+
+/** Stops the button's loading spinner and shows a toast. Best-effort. */
+export async function answerTelegramCallback(callbackQueryId: string, text?: string): Promise<void> {
+  const token = getEnv("TELEGRAM_BOT_TOKEN");
+  if (!token) return;
+  await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ callback_query_id: callbackQueryId, text: text?.slice(0, 200) })
+  }).catch(() => undefined);
+}
+
+/** Replaces a message's text (e.g. to show the decision after a tap). Best-effort. */
+export async function editTelegramMessageText(chatId: string | number, messageId: number, text: string): Promise<void> {
+  const token = getEnv("TELEGRAM_BOT_TOKEN");
+  if (!token) return;
+  await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, message_id: messageId, text })
+  }).catch(() => undefined);
+}
+
 export function redactTelegramChatId(chatId: string): string {
   const value = String(chatId);
   if (value.length <= 4) return "***";

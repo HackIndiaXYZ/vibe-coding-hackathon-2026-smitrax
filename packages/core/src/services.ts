@@ -17,7 +17,6 @@ import { closePullRequest, createDraftPullRequest, deleteBranchRef, validateGith
 import { CODEX_REMEDIATION_PROMPT, codexStatus, runCodexExec, writeCodexContext } from "./codex";
 import { assertLlmProviderConfigured, classifyAgentRemediation, isLlmProvider, requestRemediationPlan, type AgentProviderId } from "./agentProviders";
 import {
-  FAILOVER_CONSENT_OPTIONS,
   PROVIDER_AUDIT_ACTIONS,
   buildFailoverConsentMessage,
   checkChainReadiness,
@@ -34,8 +33,8 @@ import { assertSafeCommitState, changedFiles, cleanupValidationArtifacts, cloneG
 import { cleanupWorkspace, copyProjectToWorkspace, isSecretLikePath, retainWorkspaces } from "./workspace";
 import { fixConfidence } from "./risk";
 import { runCommand, safeNpmInstallCommand, validationInstallScriptsAllowed } from "./validation";
-import { hashChatId, signApprovalPayload } from "./approval";
-import { sendTelegramApproval } from "./telegram";
+import { hashChatId } from "./approval";
+import { inlineKeyboard, sendTelegramApproval, telegramCallbackData } from "./telegram";
 import { createOpenAiRemediationPlan, createVercelAiRemediationPlan } from "./aiAdapters";
 import type { Finding, JobEvent, Project, ProviderConsent, RemediationJob, ScanJob, ValidationRun, Vulnerability } from "./types";
 
@@ -169,12 +168,17 @@ export class PatchPilotService {
 
     const chats = (getEnv("TELEGRAM_ALLOWED_CHAT_IDS") ?? "").split(",").map((value) => value.trim()).filter(Boolean);
     const candidateEntry = readiness.find((entry) => entry.provider === candidate) ?? { provider: candidate, status: "ready", trust, lastCheckedAt: now() } as ProviderReadiness;
-    if (getEnv("TELEGRAM_BOT_TOKEN") && getEnv("APPROVAL_HMAC_SECRET") && chats.length > 0) {
-      const exp = Math.floor((Date.now() + 60 * 60 * 1000) / 1000);
-      const tokens = FAILOVER_CONSENT_OPTIONS.map((option) => `${option}: ${signApprovalPayload({ approvalId: consentId, action: option, exp })}`);
-      const text = [buildFailoverConsentMessage(readiness, candidateEntry), "", ...tokens].join("\n");
+    if (getEnv("TELEGRAM_BOT_TOKEN") && chats.length > 0) {
+      const text = buildFailoverConsentMessage(readiness, candidateEntry);
+      // One tap per option — no tokens to copy.
+      const buttons = inlineKeyboard([
+        [{ text: "✅ Allow once", callbackData: telegramCallbackData("c", consentId, "allow_once") }],
+        [{ text: "🔓 Always allow this repo", callbackData: telegramCallbackData("c", consentId, "always_allow_repo") }],
+        [{ text: "🛠 Use deterministic fix", callbackData: telegramCallbackData("c", consentId, "use_deterministic") }],
+        [{ text: "❌ Reject", callbackData: telegramCallbackData("c", consentId, "reject") }]
+      ]);
       for (const chatId of chats) {
-        void sendTelegramApproval({ chatId, text }).catch(() => undefined);
+        void sendTelegramApproval({ chatId, text, replyMarkup: buttons }).catch(() => undefined);
       }
     } else {
       this.event("approval", consentId, "provider_consent.dashboard_only", "warn", "Telegram not configured; provider consent shown on dashboard only.");
@@ -882,8 +886,6 @@ export class PatchPilotService {
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
     for (const chatId of chats) {
       const approvalId = id("appr");
-      const approve = signApprovalPayload({ approvalId, action: "approve", exp: Math.floor(expiresAt.getTime() / 1000) });
-      const reject = signApprovalPayload({ approvalId, action: "reject", exp: Math.floor(expiresAt.getTime() / 1000) });
       const message = [
         "PatchPilot approval needed",
         "",
@@ -893,12 +895,17 @@ export class PatchPilotService {
         `Fix: ${finding.currentVersion} -> ${finding.fixedVersion ?? "manual review"}`,
         prUrl ? `PR: ${prUrl}` : "Patch: local artifact pending review",
         "",
-        `Approve token: ${approve}`,
-        `Reject token: ${reject}`
+        "Tap a button below. Nothing is merged or deployed automatically."
       ].join("\n");
+      // Inline buttons (tap, don't type). callback_data is a short opaque payload;
+      // the webhook authenticates via the Telegram secret header + chat allowlist.
       const result = await sendTelegramApproval({
         chatId,
-        text: message
+        text: message,
+        replyMarkup: inlineKeyboard([[
+          { text: "✅ Approve", callbackData: telegramCallbackData("a", approvalId, "approve") },
+          { text: "❌ Reject", callbackData: telegramCallbackData("a", approvalId, "reject") }
+        ]])
       });
       this.db.update((state) => {
         state.approvals.push({
