@@ -61,7 +61,7 @@ const pkg = JSON.parse(readFileSync("package.json", "utf8")) as { scripts: Recor
 const requiredScripts = ["typecheck", "lint", "test", "build", "audit:repo", "check:full", "check:unit", "verify:local-e2e", "demo:live"];
 for (const s of requiredScripts) if (!pkg.scripts[s]) hard.push(`missing required script: ${s}`);
 
-// SOFT: .env.example coverage of getEnv("LITERAL") keys
+// SOFT: .env.example coverage of statically-referenced env keys
 const example = existsSync(".env.example") ? readFileSync(".env.example", "utf8") : "";
 const literals = new Set<string>();
 for (const f of files) {
