@@ -11,6 +11,14 @@ import {
   assertSafeLocalPath,
   agentProviderReadiness,
   assertLlmProviderConfigured,
+  buildFailoverConsentMessage,
+  checkProviderReadiness,
+  classifyProviderError,
+  clearReadinessCache,
+  decideFailover,
+  getCachedReadiness,
+  providerTrust,
+  setCachedReadiness,
   buildLlmChatRequest,
   buildScopedCodexPrompt,
   classifyAgentRemediation,
@@ -697,6 +705,137 @@ describe("BYO agent provider layer", () => {
     const after = JSON.stringify({ packages: { "node_modules/lodash": { version: "4.17.21" } } });
     expect(diffLockfilePackage(before, after, "lodash")).toEqual({ packageName: "lodash", before: "4.17.20", after: "4.17.21", changed: true });
     expect(diffLockfilePackage(before, before, "lodash").changed).toBe(false);
+  });
+});
+
+describe("provider failover ladder", () => {
+  const settings = {
+    mode: "ask" as const,
+    chain: ["codex", "openrouter", "openai-compatible", "ollama", "deterministic"],
+    allowCloudFailover: true,
+    allowLocalFailover: false,
+    requireConsentForLowerTrust: true,
+    fast: true,
+    maxAttempts: 3,
+    readinessTimeoutMs: 3000,
+    attemptTimeoutMs: 30000,
+    readinessCacheTtlMs: 600000
+  };
+  const allReady = { codex: "ready", openrouter: "ready", "openai-compatible": "ready", ollama: "ready", deterministic: "ready" } as const;
+
+  it("classifies provider errors and trust levels", () => {
+    expect(classifyProviderError("You've hit your usage limit")).toBe("quota_limited");
+    expect(classifyProviderError("HTTP 429 too many requests")).toBe("rate_limited");
+    expect(classifyProviderError("llm_api_key_missing")).toBe("auth_failed");
+    expect(classifyProviderError("codex timed out")).toBe("timeout");
+    expect(providerTrust("codex")).toBe("codex");
+    expect(providerTrust("openrouter")).toBe("cloud");
+    expect(providerTrust("ollama")).toBe("local");
+    expect(providerTrust("deterministic")).toBe("deterministic");
+  });
+
+  it("caches readiness within TTL and expires after it", () => {
+    clearReadinessCache();
+    const t0 = Date.parse("2026-05-27T00:00:00Z");
+    setCachedReadiness({ provider: "ollama", status: "ready", trust: "local", lastCheckedAt: new Date(t0).toISOString(), latencyMs: 421 });
+    expect(getCachedReadiness("ollama", 600000, t0 + 1000)?.latencyMs).toBe(421);
+    expect(getCachedReadiness("ollama", 600000, t0 + 700000)).toBeUndefined();
+    clearReadinessCache();
+  });
+
+  it("moves cloud→cloud when the selected cloud provider fails", () => {
+    const decision = decideFailover({ chain: settings.chain, readiness: allReady, failedProvider: "openrouter", settings });
+    expect(decision).toMatchObject({ action: "use_provider", provider: "openai-compatible" });
+  });
+
+  it("requires consent before a local model in ask mode", () => {
+    const readiness = { ...allReady, openrouter: "not_configured", "openai-compatible": "not_configured" } as Record<string, string>;
+    const decision = decideFailover({ chain: settings.chain, readiness: readiness as never, failedProvider: "codex", settings });
+    expect(decision).toMatchObject({ action: "request_consent", provider: "ollama" });
+  });
+
+  it("uses local automatically only when explicitly enabled", () => {
+    const auto = { ...settings, mode: "automatic" as const, allowLocalFailover: true };
+    const readiness = { ...allReady, openrouter: "not_configured", "openai-compatible": "not_configured" } as Record<string, string>;
+    expect(decideFailover({ chain: settings.chain, readiness: readiness as never, failedProvider: "codex", settings: auto })).toMatchObject({ action: "use_provider", provider: "ollama" });
+    // automatic but local failover disallowed → skips local, lands on deterministic
+    const autoNoLocal = { ...settings, mode: "automatic" as const, allowLocalFailover: false };
+    expect(decideFailover({ chain: settings.chain, readiness: readiness as never, failedProvider: "codex", settings: autoNoLocal }).action).toBe("use_deterministic");
+  });
+
+  it("honors a per-repo always-allow-local policy without prompting", () => {
+    const readiness = { ...allReady, openrouter: "not_configured", "openai-compatible": "not_configured" } as Record<string, string>;
+    expect(decideFailover({ chain: settings.chain, readiness: readiness as never, failedProvider: "codex", settings, repoAlwaysAllowLocal: true })).toMatchObject({ action: "use_provider", provider: "ollama" });
+  });
+
+  it("falls back to deterministic when no provider is ready", () => {
+    const none = { codex: "quota_limited", openrouter: "not_configured", "openai-compatible": "not_configured", ollama: "endpoint_unreachable", deterministic: "ready" } as Record<string, string>;
+    const auto = { ...settings, mode: "automatic" as const };
+    expect(decideFailover({ chain: settings.chain, readiness: none as never, failedProvider: "codex", settings: auto }).action).toBe("use_deterministic");
+  });
+
+  it("disabled failover goes straight to deterministic", () => {
+    expect(decideFailover({ chain: settings.chain, readiness: allReady, failedProvider: "codex", settings: { ...settings, mode: "disabled" } }).action).toBe("use_deterministic");
+  });
+
+  it("builds a consent message with statuses and the candidate, no secrets", () => {
+    const readiness = [
+      { provider: "codex", status: "quota_limited" as const, trust: "codex" as const, lastCheckedAt: new Date().toISOString() },
+      { provider: "ollama", model: "qwen2.5-coder:7b", status: "ready" as const, trust: "local" as const, lastCheckedAt: new Date().toISOString(), latencyMs: 421 }
+    ];
+    const message = buildFailoverConsentMessage(readiness, readiness[1]!);
+    expect(message).toContain("provider failover needed");
+    expect(message).toContain("qwen2.5-coder:7b");
+    expect(message).toContain("421ms");
+    expect(message).toContain("ask for final approval");
+  });
+
+  it("in ask mode requests consent and does NOT run the local model first", async () => {
+    vi.unstubAllEnvs();
+    clearReadinessCache();
+    const root = tempRoot();
+    const projectRoot = path.join(root, "project");
+    mkdirSync(projectRoot);
+    writeFileSync(path.join(projectRoot, "package.json"), JSON.stringify({ dependencies: { lodash: "4.17.20" } }));
+    vi.stubEnv("PATCHPILOT_DATA_FILE", path.join(root, "db.json"));
+    vi.stubEnv("CODEX_ENABLED", "false");          // selected provider (codex) unavailable
+    vi.stubEnv("TELEGRAM_ALLOWED_CHAT_IDS", "");    // no real Telegram send
+    vi.stubEnv("PATCHPILOT_LLM_API_KEY", "");       // openrouter/openai-compatible not configured
+    vi.stubEnv("PATCHPILOT_LLM_BASE_URL", "");
+    // Ollama endpoint answers as ready.
+    vi.stubGlobal("fetch", vi.fn(async (url: string | URL) => {
+      if (String(url).includes("/api/tags")) return new Response(JSON.stringify({ models: [{ name: "qwen2.5-coder:7b" }] }), { status: 200 });
+      return new Response("{}", { status: 200 });
+    }));
+    const db = new JsonDatabase(path.join(root, "db.json"));
+    db.write({
+      ...emptyState(),
+      projects: [{ id: "proj", name: "fixture", sourceType: "local", localPath: projectRoot, isPathAllowlisted: true, packageManager: "npm", deploymentProvider: "none", productionExposed: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }],
+      vulnerabilities: [{ id: "OSV-X", source: "osv", cveIds: ["CVE-2021-23337"], ghsaIds: [], summary: "lodash", severity: "high", references: [] }],
+      findings: [{ id: "find", projectId: "proj", vulnerabilityId: "OSV-X", packageName: "lodash", ecosystem: "npm", currentVersion: "4.17.20", fixedVersion: "4.17.21", dependencyType: "direct", riskScore: 70, riskLevel: "high", riskFactors: [], missingRiskData: [], fixStrategy: "safe_patch", status: "fix_available", scanConfidence: "direct_manifest_only", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }]
+    });
+    const result = await new PatchPilotService(db).startGuardedRemediation("find");
+    expect(result.outcome).toBe("consent_requested");
+    expect(result.decision?.provider).toBe("ollama");
+    expect(result.consent?.status).toBe("pending");
+    // The local model must NOT have run before consent.
+    expect(db.read().remediationJobs.some((job) => job.agent === "ollama")).toBe(false);
+    expect(db.read().providerConsents?.[0]?.candidateProvider).toBe("ollama");
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("skips unconfigured providers with no network call", async () => {
+    vi.unstubAllEnvs();
+    vi.stubEnv("PATCHPILOT_LLM_API_KEY", "");
+    const fetchSpy = vi.fn(async () => new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchSpy);
+    const readiness = await checkProviderReadiness("openrouter");
+    expect(readiness.status).toBe("not_configured");
+    expect(fetchSpy).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 });
 

@@ -8,7 +8,16 @@ function base64url(input: string | Buffer): string {
 
 export interface ApprovalPayload {
   approvalId: string;
-  action: "approve" | "reject" | "review" | "retry_safer_fix" | "rollback";
+  action:
+    | "approve"
+    | "reject"
+    | "review"
+    | "retry_safer_fix"
+    | "rollback"
+    // provider-failover consent actions
+    | "allow_once"
+    | "always_allow_repo"
+    | "use_deterministic";
   exp: number;
 }
 

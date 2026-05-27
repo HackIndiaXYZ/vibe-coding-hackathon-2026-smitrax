@@ -14,7 +14,20 @@ import { scanAgentConfig } from "./agentConfigScanner";
 import { createAuditReceipt } from "./audit";
 import { createDraftPullRequest, validateGithubRepo } from "./github";
 import { CODEX_REMEDIATION_PROMPT, codexStatus, runCodexExec, writeCodexContext } from "./codex";
-import { assertLlmProviderConfigured, isLlmProvider, requestRemediationPlan, type AgentProviderId } from "./agentProviders";
+import { assertLlmProviderConfigured, classifyAgentRemediation, isLlmProvider, requestRemediationPlan, type AgentProviderId } from "./agentProviders";
+import {
+  FAILOVER_CONSENT_OPTIONS,
+  PROVIDER_AUDIT_ACTIONS,
+  buildFailoverConsentMessage,
+  checkChainReadiness,
+  classifyProviderError,
+  decideFailover,
+  providerTrust,
+  type FailoverConsentOption,
+  type FailoverDecision,
+  type ProviderReadiness
+} from "./providerChain";
+import { getSettings, setRepoFailoverPolicy } from "./settings";
 import { diffLockfilePackage, updateManifestDependencyVersion } from "./manifest";
 import { assertSafeCommitState, changedFiles, cleanupValidationArtifacts, cloneGithubRepo, commitAll, createBranch, ensureCommitGitignore, initBaselineRepo, pushBranch, writePatch, applyPatch, scrubGithubRemote } from "./gitOps";
 import { cleanupWorkspace, copyProjectToWorkspace, isSecretLikePath, retainWorkspaces } from "./workspace";
@@ -23,10 +36,190 @@ import { runCommand, safeNpmInstallCommand, validationInstallScriptsAllowed } fr
 import { hashChatId, signApprovalPayload } from "./approval";
 import { sendTelegramApproval } from "./telegram";
 import { createOpenAiRemediationPlan, createVercelAiRemediationPlan } from "./aiAdapters";
-import type { Finding, JobEvent, Project, RemediationJob, ScanJob, ValidationRun, Vulnerability } from "./types";
+import type { Finding, JobEvent, Project, ProviderConsent, RemediationJob, ScanJob, ValidationRun, Vulnerability } from "./types";
+
+export interface ProviderTimelineEntry {
+  provider: string;
+  model?: string;
+  status: string;
+  latencyMs?: number;
+  reason?: string;
+}
+
+export interface GuardedRemediationResult {
+  job?: RemediationJob;
+  outcome: "completed" | "consent_requested" | "deterministic" | "failed";
+  timeline: ProviderTimelineEntry[];
+  decision?: FailoverDecision;
+  consent?: ProviderConsent;
+}
 
 export class PatchPilotService {
   constructor(public db = new JsonDatabase()) {}
+
+  /** Maps a provider id to the remediation agent that implements it. */
+  private providerToAgent(provider: string): RemediationJob["agent"] | undefined {
+    if (provider === "deterministic") return "deterministic-npm";
+    if (provider === "codex" || provider === "openrouter" || provider === "openai-compatible" || provider === "ollama") return provider;
+    return undefined;
+  }
+
+  /**
+   * Runs the failover ladder for a finding: try the selected provider, and on a
+   * retriable failure consult the chain. Cloud→cloud failover proceeds when
+   * allowed; a lower-trust (local/deterministic) switch in "ask" mode creates a
+   * Telegram consent request and does NOT run the lower-trust provider until the
+   * user approves. Never silently switches provider class.
+   */
+  async startGuardedRemediation(findingId: string): Promise<GuardedRemediationResult> {
+    const settings = getSettings(this.db);
+    const finding = this.db.read().findings.find((item) => item.id === findingId);
+    if (!finding) throw new PatchPilotError("finding_not_found", "Finding was not found.", { findingId }, 404);
+    const chain = settings.failover.chain.length > 0 ? settings.failover.chain : ["codex", "deterministic"];
+    const selected = chain[0] ?? "codex";
+    const timeline: ProviderTimelineEntry[] = [];
+    createAuditReceipt(this.db, {
+      projectId: finding.projectId,
+      actorType: "system",
+      action: PROVIDER_AUDIT_ACTIONS.chainStarted,
+      targetType: "finding",
+      targetId: findingId,
+      outputSummary: { chain, mode: settings.failover.mode, selected }
+    });
+
+    // 1) Attempt the selected provider only.
+    let selectedJob: RemediationJob | undefined;
+    const firstAgent = this.providerToAgent(selected);
+    if (firstAgent) {
+      createAuditReceipt(this.db, { projectId: finding.projectId, actorType: "system", agent: selected, action: PROVIDER_AUDIT_ACTIONS.attemptStarted, targetType: "finding", targetId: findingId, outputSummary: { provider: selected } });
+      selectedJob = await this.startRemediation(findingId, firstAgent);
+      const outcome = classifyAgentRemediation(selectedJob);
+      if (outcome.completed) {
+        timeline.push({ provider: selected, status: "completed" });
+        createAuditReceipt(this.db, { projectId: finding.projectId, actorType: "system", agent: selected, action: PROVIDER_AUDIT_ACTIONS.attemptCompleted, targetType: "remediation_job", targetId: selectedJob.id, changedFiles: selectedJob.changedFiles, outputSummary: { provider: selected } });
+        return { job: selectedJob, outcome: "completed", timeline };
+      }
+      const status = classifyProviderError(selectedJob.errorMessage ?? selectedJob.errorCode ?? "");
+      timeline.push({ provider: selected, status, reason: selectedJob.errorCode });
+      createAuditReceipt(this.db, { projectId: finding.projectId, actorType: "system", agent: selected, action: PROVIDER_AUDIT_ACTIONS.attemptFailed, targetType: "remediation_job", targetId: selectedJob.id, outputSummary: { provider: selected, status, errorCode: selectedJob.errorCode } });
+    } else {
+      timeline.push({ provider: selected, status: "not_configured", reason: "provider not implemented" });
+    }
+
+    // 2) Check chain readiness (cached) and decide the next step.
+    const readiness = await checkChainReadiness(chain, settings.failover);
+    createAuditReceipt(this.db, { projectId: finding.projectId, actorType: "system", action: PROVIDER_AUDIT_ACTIONS.readinessChecked, targetType: "finding", targetId: findingId, outputSummary: { readiness: readiness.map((entry) => ({ provider: entry.provider, status: entry.status, latencyMs: entry.latencyMs })) } });
+    for (const entry of readiness) {
+      if (!timeline.some((item) => item.provider === entry.provider)) {
+        timeline.push({ provider: entry.provider, model: entry.model, status: entry.status, latencyMs: entry.latencyMs, reason: entry.failureReason });
+      }
+    }
+    const statusMap = Object.fromEntries(readiness.map((entry) => [entry.provider, entry.status]));
+    const repoAlwaysAllowLocal = settings.repoPolicies[finding.projectId]?.alwaysAllowLocal;
+    const decision = decideFailover({ chain, readiness: statusMap, failedProvider: selected, settings: settings.failover, repoAlwaysAllowLocal });
+
+    if (decision.action === "use_provider" && decision.provider) {
+      const agent = this.providerToAgent(decision.provider);
+      if (!agent) return { job: selectedJob, outcome: "failed", timeline, decision };
+      createAuditReceipt(this.db, { projectId: finding.projectId, actorType: "system", agent: decision.provider, action: PROVIDER_AUDIT_ACTIONS.attemptStarted, targetType: "finding", targetId: findingId, outputSummary: { provider: decision.provider, reason: decision.reason } });
+      const job2 = await this.startRemediation(findingId, agent);
+      if (decision.trust === "local") {
+        createAuditReceipt(this.db, { projectId: finding.projectId, actorType: "system", agent: decision.provider, action: PROVIDER_AUDIT_ACTIONS.localModelUsed, targetType: "remediation_job", targetId: job2.id, outputSummary: { provider: decision.provider } });
+      }
+      const outcome2 = classifyAgentRemediation(job2);
+      timeline.push({ provider: decision.provider, status: outcome2.completed ? "completed" : classifyProviderError(job2.errorMessage ?? job2.errorCode ?? "") });
+      return { job: job2, outcome: outcome2.completed ? "completed" : "failed", timeline, decision };
+    }
+
+    if (decision.action === "use_deterministic") {
+      const jobD = await this.startRemediation(findingId, "deterministic-npm");
+      createAuditReceipt(this.db, { projectId: finding.projectId, actorType: "system", agent: "deterministic-npm", action: PROVIDER_AUDIT_ACTIONS.deterministicUsed, targetType: "remediation_job", targetId: jobD.id, changedFiles: jobD.changedFiles, outputSummary: { reason: decision.reason } });
+      timeline.push({ provider: "deterministic", status: classifyAgentRemediation(jobD).completed ? "completed" : "failed" });
+      return { job: jobD, outcome: "deterministic", timeline, decision };
+    }
+
+    if (decision.action === "request_consent" && decision.provider) {
+      const consent = this.requestProviderConsent(finding, selected, decision.provider, decision.trust ?? providerTrust(decision.provider), readiness);
+      return { job: selectedJob, outcome: "consent_requested", timeline, decision, consent };
+    }
+
+    return { job: selectedJob, outcome: "failed", timeline, decision };
+  }
+
+  /** Records a provider-failover consent request and sends Telegram options (if configured). */
+  private requestProviderConsent(finding: Finding, failedProvider: string, candidate: string, trust: ProviderConsent["candidateTrust"], readiness: ProviderReadiness[]): ProviderConsent {
+    const consentId = id("pcon");
+    const consent: ProviderConsent = {
+      id: consentId,
+      findingId: finding.id,
+      projectId: finding.projectId,
+      failedProvider,
+      candidateProvider: candidate,
+      candidateTrust: trust,
+      status: "pending",
+      readinessSummary: readiness.map((entry) => ({ provider: entry.provider, status: entry.status, latencyMs: entry.latencyMs, failureReason: entry.failureReason })),
+      createdAt: now(),
+      updatedAt: now()
+    };
+    this.db.update((state) => {
+      state.providerConsents = state.providerConsents ?? [];
+      state.providerConsents.push(consent);
+    });
+
+    const chats = (getEnv("TELEGRAM_ALLOWED_CHAT_IDS") ?? "").split(",").map((value) => value.trim()).filter(Boolean);
+    const candidateEntry = readiness.find((entry) => entry.provider === candidate) ?? { provider: candidate, status: "ready", trust, lastCheckedAt: now() } as ProviderReadiness;
+    if (getEnv("TELEGRAM_BOT_TOKEN") && getEnv("APPROVAL_HMAC_SECRET") && chats.length > 0) {
+      const exp = Math.floor((Date.now() + 60 * 60 * 1000) / 1000);
+      const tokens = FAILOVER_CONSENT_OPTIONS.map((option) => `${option}: ${signApprovalPayload({ approvalId: consentId, action: option, exp })}`);
+      const text = [buildFailoverConsentMessage(readiness, candidateEntry), "", ...tokens].join("\n");
+      for (const chatId of chats) {
+        void sendTelegramApproval({ chatId, text }).catch(() => undefined);
+      }
+    } else {
+      this.event("approval", consentId, "provider_consent.dashboard_only", "warn", "Telegram not configured; provider consent shown on dashboard only.");
+    }
+    createAuditReceipt(this.db, { projectId: finding.projectId, actorType: "system", action: PROVIDER_AUDIT_ACTIONS.consentRequested, targetType: "provider_consent", targetId: consentId, outputSummary: { failedProvider, candidate, trust } });
+    return consent;
+  }
+
+  /** Resolves a provider-failover consent decision (from Telegram or dashboard). */
+  async resolveProviderConsent(consentId: string, option: FailoverConsentOption, actorId?: string): Promise<{ status: string; job?: RemediationJob }> {
+    const consent = this.db.read().providerConsents?.find((item) => item.id === consentId);
+    if (!consent) throw new PatchPilotError("provider_consent_not_found", "Provider consent request was not found.", { consentId }, 404);
+    if (consent.status !== "pending") return { status: consent.status };
+
+    if (option === "reject") {
+      this.updateConsent(consentId, { status: "rejected" });
+      createAuditReceipt(this.db, { projectId: consent.projectId, actorType: "user", actorId, action: PROVIDER_AUDIT_ACTIONS.consentRejected, targetType: "provider_consent", targetId: consentId, outputSummary: { option } });
+      return { status: "rejected" };
+    }
+
+    if (option === "always_allow_repo") {
+      setRepoFailoverPolicy(this.db, consent.projectId, { alwaysAllowLocal: true });
+    }
+    const targetProvider = option === "use_deterministic" ? "deterministic" : consent.candidateProvider;
+    const agent = this.providerToAgent(targetProvider);
+    if (!agent) {
+      this.updateConsent(consentId, { status: "resolved" });
+      return { status: "resolved" };
+    }
+    createAuditReceipt(this.db, { projectId: consent.projectId, actorType: "user", actorId, action: PROVIDER_AUDIT_ACTIONS.consentApproved, targetType: "provider_consent", targetId: consentId, outputSummary: { option, provider: targetProvider } });
+    const job = await this.startRemediation(consent.findingId, agent);
+    if (agent === "deterministic-npm") {
+      createAuditReceipt(this.db, { projectId: consent.projectId, actorType: "system", agent, action: PROVIDER_AUDIT_ACTIONS.deterministicUsed, targetType: "remediation_job", targetId: job.id, changedFiles: job.changedFiles, outputSummary: { viaConsent: true } });
+    } else if (providerTrust(targetProvider) === "local") {
+      createAuditReceipt(this.db, { projectId: consent.projectId, actorType: "system", agent, action: PROVIDER_AUDIT_ACTIONS.localModelUsed, targetType: "remediation_job", targetId: job.id, outputSummary: { viaConsent: true } });
+    }
+    this.updateConsent(consentId, { status: "resolved", resultRemediationJobId: job.id });
+    return { status: "resolved", job };
+  }
+
+  private updateConsent(consentId: string, patch: Partial<ProviderConsent>): void {
+    this.db.update((state) => {
+      const index = (state.providerConsents ?? []).findIndex((item) => item.id === consentId);
+      if (index >= 0 && state.providerConsents) state.providerConsents[index] = { ...state.providerConsents[index]!, ...patch, updatedAt: now() };
+    });
+  }
 
   async createProject(input: {
     sourceType: Project["sourceType"];

@@ -257,6 +257,7 @@ export interface PatchPilotState {
   settings?: StoredSettings;
   watchRuns?: WatchRun[];
   watchAlerts?: WatchAlert[];
+  providerConsents?: ProviderConsent[];
 }
 
 /** Persisted partial settings overrides (env provides the defaults). */
@@ -299,6 +300,20 @@ export interface PatchPilotSettings {
   failover: FailoverSettings;
   repoPolicies: Record<string, RepoFailoverPolicy>;
   scannerToggles: Record<string, boolean>;
+}
+
+export interface ProviderConsent {
+  id: string;
+  findingId: string;
+  projectId: string;
+  failedProvider: string;
+  candidateProvider: string;
+  candidateTrust: "codex" | "cloud" | "local" | "deterministic";
+  status: "pending" | "approved" | "rejected" | "resolved" | "expired";
+  readinessSummary: Array<{ provider: string; status: string; latencyMs?: number; failureReason?: string }>;
+  resultRemediationJobId?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface WatchAlert {

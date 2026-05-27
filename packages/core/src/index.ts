@@ -17,6 +17,7 @@ export * from "./scanners";
 export * from "./validation";
 export * from "./codex";
 export * from "./agentProviders";
+export * from "./providerChain";
 export * from "./manifest";
 export * from "./github";
 export * from "./telegram";

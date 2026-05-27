@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { JsonDatabase, PatchPilotError, apiError, applyPatch, chatAllowed, createAuditReceipt, getEnv, now, validateTelegramWebhookSecret, verifyApprovalToken } from "@patchpilot/core";
+import { FAILOVER_CONSENT_OPTIONS, JsonDatabase, PatchPilotError, PatchPilotService, apiError, applyPatch, chatAllowed, createAuditReceipt, getEnv, now, validateTelegramWebhookSecret, verifyApprovalToken } from "@patchpilot/core";
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,6 +21,14 @@ export async function POST(request: NextRequest) {
     }
     const payload = verifyApprovalToken(callback.data);
     const db = new JsonDatabase();
+
+    // Provider-failover consent: the token's approvalId references a providerConsent.
+    const consent = db.read().providerConsents?.find((item) => item.id === payload.approvalId);
+    if (consent && (FAILOVER_CONSENT_OPTIONS as readonly string[]).includes(payload.action)) {
+      const result = await new PatchPilotService(db).resolveProviderConsent(consent.id, payload.action as (typeof FAILOVER_CONSENT_OPTIONS)[number], String(chatId));
+      return NextResponse.json({ ok: true, consent: result.status });
+    }
+
     let status = "pending";
     db.update((state) => {
       const approval = state.approvals.find((item) => item.id === payload.approvalId);
