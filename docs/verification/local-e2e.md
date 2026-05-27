@@ -1,6 +1,6 @@
 # Local E2E Verification
 
-Generated: 2026-05-27T05:28:07.055Z
+Generated: 2026-05-27T05:58:34.162Z
 
 ## Flow
 
@@ -8,14 +8,14 @@ local fixture project -> scan -> OSV finding -> risk score -> deterministic reme
 
 ## Result
 
-- Project: proj_zhZPvKUbqH (patchpilot-local-e2e-fixture)
-- Scan: scan_EBgZcj7sOE, status completed, scanner osv-api
-- Finding: find_A8Jlp29tSC, lodash 4.17.20 -> 4.17.21
+- Project: proj_fVhFZpe8-5 (patchpilot-local-e2e-fixture)
+- Scan: scan_muPEJwIfFh, status completed, scanner osv-api
+- Finding: find_-luic6r6Gx, lodash 4.17.20 -> 4.17.21
 - Risk: 33/100 medium
 - Scan confidence: direct_manifest_only
-- Remediation: rem_ghdR2Xpw08, status pr_ready, confidence 65
+- Remediation: rem_OZbHFJq1rH, status pr_ready, confidence 65
 - Changed files: package.json, .gitignore, package-lock.json
-- Patch artifact: C:\Users\MOHITH~1\AppData\Local\Temp\patchpilot-local-e2e-1779859678966\logs\patches\rem_ghdR2Xpw08.patch
+- Patch artifact: C:\Users\MOHITH~1\AppData\Local\Temp\patchpilot-local-e2e-1779861505991\logs\patches\rem_OZbHFJq1rH.patch
 - Saved patch copy: docs/verification/local-e2e.patch
 - Patch includes package.json: true
 - Patch includes package-lock.json: true
@@ -25,9 +25,9 @@ local fixture project -> scan -> OSV finding -> risk score -> deterministic reme
 
 ## Workspace Handling
 
-- Disposable root: C:\Users\MOHITH~1\AppData\Local\Temp\patchpilot-local-e2e-1779859678966
+- Disposable root: C:\Users\MOHITH~1\AppData\Local\Temp\patchpilot-local-e2e-1779861505991
 - Remediation workspace cleanup expected: true
-- Workspace directory exists only for retained/debug runs: C:\Users\MOHITH~1\AppData\Local\Temp\patchpilot-local-e2e-1779859678966\workspaces
+- Workspace directory exists only for retained/debug runs: C:\Users\MOHITH~1\AppData\Local\Temp\patchpilot-local-e2e-1779861505991\workspaces
 
 ## Notes
 
