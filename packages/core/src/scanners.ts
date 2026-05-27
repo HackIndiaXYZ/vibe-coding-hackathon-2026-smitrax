@@ -110,8 +110,21 @@ function scannerTimeoutMs(): number {
   return Number.isFinite(value) && value > 0 ? value : 120000;
 }
 
+// Robust Windows-safe tool spawn:
+// - .cmd/.bat → run through cmd.exe (argv-quoted, handles spaces)
+// - absolute .exe / path → spawn directly, no shell (handles spaces)
+// - bare name → shell (PATH/PATHEXT resolution)
+function spawnTool(command: string, args: string[], options: { cwd?: string; timeoutMs?: number; maxBuffer?: number }) {
+  const base = { encoding: "utf8" as const, cwd: options.cwd, timeout: options.timeoutMs, maxBuffer: options.maxBuffer };
+  if (process.platform === "win32" && /\.(cmd|bat)$/i.test(command)) {
+    return spawnSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/c", command, ...args], base);
+  }
+  const bare = !command.includes("\\") && !command.includes("/");
+  return spawnSync(command, args, { ...base, shell: bare && process.platform === "win32" });
+}
+
 function probeVersion(command: string): string | undefined {
-  const result = spawnSync(command, ["--version"], { encoding: "utf8", timeout: 5000, shell: process.platform === "win32" });
+  const result = spawnTool(command, ["--version"], { timeoutMs: 5000 });
   if ((result.status ?? 1) !== 0) return undefined;
   return redact((result.stdout || result.stderr || "").split(/\r?\n/)[0]?.trim() ?? "").slice(0, 80) || undefined;
 }
@@ -543,7 +556,7 @@ function elapsed(startedAt: string): number {
 }
 
 function runExternal(command: string, args: string[], cwd: string, timeoutMs: number): { status: number; stdout: string; stderr: string; timedOut: boolean } {
-  const result = spawnSync(command, args, { cwd, encoding: "utf8", timeout: timeoutMs, shell: process.platform === "win32", maxBuffer: 64 * 1024 * 1024 });
+  const result = spawnTool(command, args, { cwd, timeoutMs, maxBuffer: 64 * 1024 * 1024 });
   const errnoCode = result.error && "code" in result.error ? (result.error as NodeJS.ErrnoException).code : undefined;
   return { status: result.status ?? 1, stdout: result.stdout ?? "", stderr: redact(result.stderr ?? ""), timedOut: errnoCode === "ETIMEDOUT" };
 }
