@@ -11,6 +11,8 @@
     "worker:watch": "tsx scripts/watch-worker.ts",
     "verify:postgres": "tsx scripts/verify-postgres.ts",
     "verify:queue": "tsx scripts/verify-queue.ts",
+    "db:status": "tsx scripts/db-status.ts",
+    "db:hydrate": "tsx scripts/db-hydrate.ts",
     "verify:sbom": "tsx scripts/verify-sbom.ts",
     "verify:container": "tsx scripts/verify-container.ts",
     "install:scanners": "node scripts/install-scanners.mjs",
