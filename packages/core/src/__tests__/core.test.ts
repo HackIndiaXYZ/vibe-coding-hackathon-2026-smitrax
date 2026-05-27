@@ -11,6 +11,7 @@ import {
   assertSafeLocalPath,
   agentProviderReadiness,
   assertLlmProviderConfigured,
+  buildAnthropicRequest,
   buildFailoverConsentMessage,
   checkProviderReadiness,
   classifyProviderError,
@@ -522,6 +523,37 @@ describe("scoped Codex remediation", () => {
     expect(scoped).toContain("Stop after the edit");
     // A bounded edit prompt should stay short.
     expect(scoped.length).toBeLessThan(CODEX_REMEDIATION_PROMPT.length);
+  });
+
+  it("supports grok (OpenAI-compatible) and anthropic (messages API) providers", () => {
+    vi.unstubAllEnvs();
+    // grok = OpenAI-compatible against xAI
+    vi.stubEnv("PATCHPILOT_GROK_API_KEY", "grok-secret-key");
+    vi.stubEnv("PATCHPILOT_AGENT_MODEL", "grok-2-latest");
+    expect(() => assertLlmProviderConfigured("grok")).not.toThrow();
+    const grok = buildLlmChatRequest("grok", { x: 1 });
+    expect(grok.url).toBe("https://api.x.ai/v1/chat/completions");
+    expect(grok.headers.authorization).toBe("Bearer grok-secret-key");
+    expect(grok.body.response_format).toEqual({ type: "json_object" });
+
+    // anthropic = messages API with x-api-key + version
+    vi.stubEnv("PATCHPILOT_ANTHROPIC_API_KEY", "anthropic-secret-key");
+    const anth = buildAnthropicRequest({ x: 1 });
+    expect(anth.url).toBe("https://api.anthropic.com/v1/messages");
+    expect(anth.headers["x-api-key"]).toBe("anthropic-secret-key");
+    expect(anth.headers["anthropic-version"]).toBe("2023-06-01");
+    expect(anth.body.messages[0]?.role).toBe("user");
+    expect(anth.body.system).toContain("PatchPilot");
+
+    // readiness reflects configuration (env names only)
+    const readiness = agentProviderReadiness();
+    expect(readiness.find((p) => p.id === "grok")?.status).toBe("configured");
+    expect(readiness.find((p) => p.id === "anthropic")?.status).toBe("configured");
+    vi.unstubAllEnvs();
+    // without keys → not_configured, and assert throws name the right env
+    expect(() => assertLlmProviderConfigured("grok")).toThrow(/PATCHPILOT_GROK_API_KEY/);
+    expect(() => assertLlmProviderConfigured("anthropic")).toThrow(/PATCHPILOT_ANTHROPIC_API_KEY/);
+    expect(agentProviderReadiness().find((p) => p.id === "grok")?.status).toBe("not_configured");
   });
 
   it("does not ask Codex to run npm install, test, or build", () => {

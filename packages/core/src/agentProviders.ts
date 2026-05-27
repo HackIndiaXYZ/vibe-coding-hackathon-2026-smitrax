@@ -14,11 +14,18 @@ import { codexStatus } from "./codex";
  * validates and then applies itself. Models never run commands and never edit
  * files directly.
  */
-export type AgentProviderId = "codex" | "openrouter" | "openai-compatible" | "ollama" | "deterministic";
+export type AgentProviderId = "codex" | "openrouter" | "openai-compatible" | "anthropic" | "grok" | "ollama" | "deterministic";
 
-export const AGENT_PROVIDER_IDS: AgentProviderId[] = ["codex", "openrouter", "openai-compatible", "ollama", "deterministic"];
+export const AGENT_PROVIDER_IDS: AgentProviderId[] = ["codex", "openrouter", "openai-compatible", "anthropic", "grok", "ollama", "deterministic"];
 
-export const LLM_PROVIDER_IDS: AgentProviderId[] = ["openrouter", "openai-compatible", "ollama"];
+export const LLM_PROVIDER_IDS: AgentProviderId[] = ["openrouter", "openai-compatible", "anthropic", "grok", "ollama"];
+
+/** Resolves the API key for a provider (dedicated key falls back to the shared key). */
+function providerApiKey(provider: AgentProviderId): string | undefined {
+  if (provider === "grok") return getEnv("PATCHPILOT_GROK_API_KEY") ?? getEnv("PATCHPILOT_LLM_API_KEY");
+  if (provider === "anthropic") return getEnv("PATCHPILOT_ANTHROPIC_API_KEY") ?? getEnv("PATCHPILOT_LLM_API_KEY");
+  return getEnv("PATCHPILOT_LLM_API_KEY");
+}
 
 export function isLlmProvider(provider: AgentProviderId): boolean {
   return LLM_PROVIDER_IDS.includes(provider);
@@ -35,18 +42,27 @@ interface LlmEndpoint {
   baseUrl?: string;
   requiresKey: boolean;
   defaultModel: string;
+  /** Wire format: OpenAI chat-completions, or Anthropic messages API. */
+  api: "openai" | "anthropic";
 }
 
 function llmEndpoint(provider: AgentProviderId): LlmEndpoint {
   const baseUrl = getEnv("PATCHPILOT_LLM_BASE_URL");
   if (provider === "openrouter") {
-    return { baseUrl: baseUrl ?? "https://openrouter.ai/api/v1", requiresKey: true, defaultModel: "openai/gpt-4o-mini" };
+    return { baseUrl: baseUrl ?? "https://openrouter.ai/api/v1", requiresKey: true, defaultModel: "openai/gpt-4o-mini", api: "openai" };
+  }
+  if (provider === "grok") {
+    // xAI is OpenAI-compatible.
+    return { baseUrl: getEnv("PATCHPILOT_GROK_BASE_URL") ?? baseUrl ?? "https://api.x.ai/v1", requiresKey: true, defaultModel: "grok-2-latest", api: "openai" };
+  }
+  if (provider === "anthropic") {
+    return { baseUrl: getEnv("PATCHPILOT_ANTHROPIC_BASE_URL") ?? "https://api.anthropic.com", requiresKey: true, defaultModel: "claude-3-5-sonnet-latest", api: "anthropic" };
   }
   if (provider === "ollama") {
-    return { baseUrl: baseUrl ?? "http://localhost:11434/v1", requiresKey: false, defaultModel: "llama3.1" };
+    return { baseUrl: baseUrl ?? "http://localhost:11434/v1", requiresKey: false, defaultModel: "llama3.1", api: "openai" };
   }
   // openai-compatible has no safe default base URL.
-  return { baseUrl, requiresKey: true, defaultModel: "gpt-4o-mini" };
+  return { baseUrl, requiresKey: true, defaultModel: "gpt-4o-mini", api: "openai" };
 }
 
 export function agentProviderModel(provider: AgentProviderId): string {
@@ -75,8 +91,9 @@ export function assertLlmProviderConfigured(provider: AgentProviderId): void {
   if (provider === "openai-compatible" && !endpoint.baseUrl) {
     throw new PatchPilotError("llm_base_url_missing", "Set PATCHPILOT_LLM_BASE_URL for the openai-compatible provider.", { requiredEnv: "PATCHPILOT_LLM_BASE_URL" });
   }
-  if (endpoint.requiresKey && !getEnv("PATCHPILOT_LLM_API_KEY")) {
-    throw new PatchPilotError("llm_api_key_missing", `Set PATCHPILOT_LLM_API_KEY for the ${provider} provider.`, { requiredEnv: "PATCHPILOT_LLM_API_KEY", provider });
+  if (endpoint.requiresKey && !providerApiKey(provider)) {
+    const keyEnv = provider === "grok" ? "PATCHPILOT_GROK_API_KEY" : provider === "anthropic" ? "PATCHPILOT_ANTHROPIC_API_KEY" : "PATCHPILOT_LLM_API_KEY";
+    throw new PatchPilotError("llm_api_key_missing", `Set ${keyEnv} for the ${provider} provider.`, { requiredEnv: keyEnv, provider });
   }
 }
 
@@ -140,6 +157,26 @@ export function agentProviderReadiness(): AgentProviderReadiness[] {
       applyStrategy: "patchpilot-applies-plan",
       message: hasKey && hasBaseUrl ? "Returns a strict JSON remediation plan; PatchPilot applies the safe version bump itself." : "Set PATCHPILOT_LLM_BASE_URL and PATCHPILOT_LLM_API_KEY to enable an OpenAI-compatible endpoint.",
       requiredEnv: ["PATCHPILOT_LLM_BASE_URL", "PATCHPILOT_LLM_API_KEY", "PATCHPILOT_AGENT_MODEL"]
+    },
+    {
+      id: "anthropic",
+      label: "Anthropic Claude (plan advisor)",
+      selected: selected === "anthropic",
+      status: providerApiKey("anthropic") ? "configured" : "not_configured",
+      modelEditsRepo: false,
+      applyStrategy: "patchpilot-applies-plan",
+      message: providerApiKey("anthropic") ? "Returns a strict JSON remediation plan via the Anthropic messages API; PatchPilot applies the change itself." : "Set PATCHPILOT_ANTHROPIC_API_KEY (or PATCHPILOT_LLM_API_KEY) to enable Anthropic Claude.",
+      requiredEnv: ["PATCHPILOT_ANTHROPIC_API_KEY", "PATCHPILOT_AGENT_MODEL"]
+    },
+    {
+      id: "grok",
+      label: "Grok / xAI (plan advisor)",
+      selected: selected === "grok",
+      status: providerApiKey("grok") ? "configured" : "not_configured",
+      modelEditsRepo: false,
+      applyStrategy: "patchpilot-applies-plan",
+      message: providerApiKey("grok") ? "Returns a strict JSON remediation plan via the xAI OpenAI-compatible API; PatchPilot applies the change itself." : "Set PATCHPILOT_GROK_API_KEY (or PATCHPILOT_LLM_API_KEY) to enable Grok / xAI.",
+      requiredEnv: ["PATCHPILOT_GROK_API_KEY", "PATCHPILOT_AGENT_MODEL"]
     },
     {
       id: "ollama",
@@ -272,7 +309,7 @@ export function buildLlmChatRequest(provider: AgentProviderId, context: unknown)
   if (!endpoint.baseUrl) {
     throw new PatchPilotError("llm_base_url_missing", "No base URL resolved for the provider.", { provider });
   }
-  const apiKey = getEnv("PATCHPILOT_LLM_API_KEY");
+  const apiKey = providerApiKey(provider);
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (apiKey) headers.authorization = `Bearer ${apiKey}`;
   if (provider === "openrouter") {
@@ -295,6 +332,38 @@ export function buildLlmChatRequest(provider: AgentProviderId, context: unknown)
   };
 }
 
+export interface AnthropicRequest {
+  url: string;
+  headers: Record<string, string>;
+  body: {
+    model: string;
+    max_tokens: number;
+    system: string;
+    messages: Array<{ role: "user"; content: string }>;
+  };
+}
+
+/** Builds an Anthropic messages-API request. Pure and testable. */
+export function buildAnthropicRequest(context: unknown): AnthropicRequest {
+  const endpoint = llmEndpoint("anthropic");
+  const apiKey = providerApiKey("anthropic");
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    "anthropic-version": getEnv("PATCHPILOT_ANTHROPIC_VERSION") ?? "2023-06-01"
+  };
+  if (apiKey) headers["x-api-key"] = apiKey;
+  return {
+    url: `${endpoint.baseUrl!.replace(/\/$/, "")}/v1/messages`,
+    headers,
+    body: {
+      model: agentProviderModel("anthropic"),
+      max_tokens: 1024,
+      system: REMEDIATION_PLAN_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: JSON.stringify(context) }]
+    }
+  };
+}
+
 export interface RemediationPlanResult {
   plan: RemediationPlan;
   raw: string;
@@ -309,7 +378,8 @@ export async function requestRemediationPlan(
   expected: RemediationPlanExpectation
 ): Promise<RemediationPlanResult> {
   assertLlmProviderConfigured(provider);
-  const request = buildLlmChatRequest(provider, context);
+  const isAnthropic = llmEndpoint(provider).api === "anthropic";
+  const request = isAnthropic ? buildAnthropicRequest(context) : buildLlmChatRequest(provider, context);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), llmTimeoutMs());
   let response: Response;
@@ -330,8 +400,9 @@ export async function requestRemediationPlan(
     const text = await response.text().catch(() => "");
     throw new PatchPilotError("llm_request_failed", `LLM provider returned HTTP ${response.status}.`, { provider, body: redact(text).slice(0, 300) });
   }
-  const data = await response.json().catch(() => ({})) as { choices?: Array<{ message?: { content?: string } }> };
-  const content = data.choices?.[0]?.message?.content;
+  const data = await response.json().catch(() => ({})) as { choices?: Array<{ message?: { content?: string } }>; content?: Array<{ text?: string }> };
+  // Anthropic returns content[].text; OpenAI-compatible returns choices[].message.content.
+  const content = isAnthropic ? data.content?.[0]?.text : data.choices?.[0]?.message?.content;
   if (!content || content.trim().length === 0) {
     throw new PatchPilotError("llm_empty_response", "LLM provider returned an empty message.", { provider });
   }

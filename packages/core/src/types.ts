@@ -117,7 +117,7 @@ export interface RemediationJob {
   findingId: string;
   projectId: string;
   status: JobStatus;
-  agent: "codex" | "manual" | "openai" | "openrouter" | "openai-compatible" | "ollama" | "deterministic-npm";
+  agent: "codex" | "manual" | "openai" | "openrouter" | "openai-compatible" | "anthropic" | "grok" | "ollama" | "deterministic-npm";
   workspacePath?: string;
   branchName?: string;
   baseBranch?: string;

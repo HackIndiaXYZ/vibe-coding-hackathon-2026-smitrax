@@ -118,8 +118,13 @@ function providerConfigured(provider: string): { configured: boolean; reason?: s
     if (!getEnv("PATCHPILOT_LLM_BASE_URL")) return { configured: false, reason: "PATCHPILOT_LLM_BASE_URL missing" };
     return getEnv("PATCHPILOT_LLM_API_KEY") ? { configured: true } : { configured: false, reason: "PATCHPILOT_LLM_API_KEY missing" };
   }
+  if (provider === "grok") {
+    return getEnv("PATCHPILOT_GROK_API_KEY") ?? getEnv("PATCHPILOT_LLM_API_KEY") ? { configured: true } : { configured: false, reason: "PATCHPILOT_GROK_API_KEY missing" };
+  }
+  if (provider === "anthropic") {
+    return getEnv("PATCHPILOT_ANTHROPIC_API_KEY") ?? getEnv("PATCHPILOT_LLM_API_KEY") ? { configured: true } : { configured: false, reason: "PATCHPILOT_ANTHROPIC_API_KEY missing" };
+  }
   if (provider === "ollama") return { configured: true };
-  // anthropic / grok / others are listed in chains but not implemented here.
   return { configured: false, reason: `${provider} provider is not implemented` };
 }
 
@@ -169,10 +174,22 @@ export async function checkProviderReadiness(provider: string, options: { timeou
       const cold = options.model ? !names.some((name) => name === options.model || name.startsWith(`${options.model}`)) : false;
       return base("ready", { cold });
     }
-    // openrouter / openai-compatible: quick model list probe.
-    const baseUrl = (provider === "openrouter" ? getEnv("PATCHPILOT_LLM_BASE_URL") ?? "https://openrouter.ai/api/v1" : getEnv("PATCHPILOT_LLM_BASE_URL")!).replace(/\/$/, "");
+    if (provider === "anthropic") {
+      const baseUrl = (getEnv("PATCHPILOT_ANTHROPIC_BASE_URL") ?? "https://api.anthropic.com").replace(/\/$/, "");
+      const key = getEnv("PATCHPILOT_ANTHROPIC_API_KEY") ?? getEnv("PATCHPILOT_LLM_API_KEY");
+      const response = await fetchWithTimeout(`${baseUrl}/v1/models`, timeoutMs, { headers: { "x-api-key": key ?? "", "anthropic-version": getEnv("PATCHPILOT_ANTHROPIC_VERSION") ?? "2023-06-01" } });
+      if (response.status === 401 || response.status === 403) return base("auth_failed", { failureReason: `HTTP ${response.status}` });
+      if (!response.ok) return base("endpoint_unreachable", { failureReason: `HTTP ${response.status}` });
+      return base("ready");
+    }
+    // openrouter / grok / openai-compatible: quick OpenAI-style model list probe.
+    const baseUrl = (provider === "openrouter"
+      ? getEnv("PATCHPILOT_LLM_BASE_URL") ?? "https://openrouter.ai/api/v1"
+      : provider === "grok"
+        ? getEnv("PATCHPILOT_GROK_BASE_URL") ?? getEnv("PATCHPILOT_LLM_BASE_URL") ?? "https://api.x.ai/v1"
+        : getEnv("PATCHPILOT_LLM_BASE_URL")!).replace(/\/$/, "");
     const headers: Record<string, string> = {};
-    const key = getEnv("PATCHPILOT_LLM_API_KEY");
+    const key = provider === "grok" ? getEnv("PATCHPILOT_GROK_API_KEY") ?? getEnv("PATCHPILOT_LLM_API_KEY") : getEnv("PATCHPILOT_LLM_API_KEY");
     if (key) headers.authorization = `Bearer ${key}`;
     const response = await fetchWithTimeout(`${baseUrl}/models`, timeoutMs, { headers });
     if (response.status === 401 || response.status === 403) return base("auth_failed", { failureReason: `HTTP ${response.status}` });

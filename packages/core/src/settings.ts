@@ -4,7 +4,7 @@ import type { FailoverMode, FailoverSettings, PatchPilotSettings, RepoFailoverPo
 
 export type { PatchPilotSettings } from "./types";
 
-const DEFAULT_CHAIN = ["codex", "openrouter", "openai-compatible", "ollama", "deterministic"];
+const DEFAULT_CHAIN = ["codex", "openrouter", "anthropic", "grok", "openai-compatible", "ollama", "deterministic"];
 
 function envBool(name: string, fallback: boolean): boolean {
   const value = getEnv(name);

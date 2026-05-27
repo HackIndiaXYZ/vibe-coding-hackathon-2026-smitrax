@@ -8,6 +8,8 @@ PatchPilot supports a bring-your-own model provider layer. Select one with
 | `codex` (default) | Workspace editor | Codex CLI, in a disposable secret-scrubbed workspace | `CODEX_BIN`, `CODEX_ENABLED` |
 | `openrouter` | Strict-JSON plan advisor | **PatchPilot** applies the plan | `PATCHPILOT_LLM_API_KEY`, `PATCHPILOT_AGENT_MODEL` |
 | `openai-compatible` | Strict-JSON plan advisor | **PatchPilot** applies the plan | `PATCHPILOT_LLM_BASE_URL`, `PATCHPILOT_LLM_API_KEY`, `PATCHPILOT_AGENT_MODEL` |
+| `anthropic` | Strict-JSON plan advisor (Claude messages API) | **PatchPilot** applies the plan | `PATCHPILOT_ANTHROPIC_API_KEY` (or `PATCHPILOT_LLM_API_KEY`), `PATCHPILOT_AGENT_MODEL` |
+| `grok` | Strict-JSON plan advisor (xAI, OpenAI-compatible) | **PatchPilot** applies the plan | `PATCHPILOT_GROK_API_KEY` (or `PATCHPILOT_LLM_API_KEY`), `PATCHPILOT_AGENT_MODEL` |
 | `ollama` | Strict-JSON plan advisor (local) | **PatchPilot** applies the plan | `PATCHPILOT_LLM_BASE_URL` (default `http://localhost:11434/v1`), `PATCHPILOT_AGENT_MODEL` |
 | `deterministic` | No model | **PatchPilot** updates to the OSV-known fixed version | — |
 

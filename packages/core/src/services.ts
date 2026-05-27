@@ -60,7 +60,7 @@ export class PatchPilotService {
   /** Maps a provider id to the remediation agent that implements it. */
   private providerToAgent(provider: string): RemediationJob["agent"] | undefined {
     if (provider === "deterministic") return "deterministic-npm";
-    if (provider === "codex" || provider === "openrouter" || provider === "openai-compatible" || provider === "ollama") return provider;
+    if (provider === "codex" || provider === "openrouter" || provider === "openai-compatible" || provider === "anthropic" || provider === "grok" || provider === "ollama") return provider;
     return undefined;
   }
 
