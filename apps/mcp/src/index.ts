@@ -1,7 +1,14 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { JsonDatabase, PatchPilotService, createAuditReceipt } from "@patchpilot/core";
+import { JsonDatabase, PatchPilotService, agentProviderReadiness, createAuditReceipt, detectScannerTools, scannerCoverage, watchStatus } from "@patchpilot/core";
+
+const PROVIDER_ACTIONS = new Set([
+  "provider_chain_started", "provider_readiness_checked", "provider_attempt_started",
+  "provider_attempt_failed", "provider_attempt_completed", "provider_failover_consent_requested",
+  "provider_failover_consent_approved", "provider_failover_consent_rejected",
+  "local_model_used", "deterministic_fallback_used"
+]);
 
 const db = new JsonDatabase();
 const service = new PatchPilotService(db);
@@ -65,5 +72,54 @@ server.tool("patchpilot.get_audit_receipts", {}, async () => ({
 server.tool("patchpilot.rollback", { remediationJobId: z.string() }, async ({ remediationJobId }) => ({
   content: [{ type: "text", text: JSON.stringify(await service.rollback(remediationJobId), null, 2) }]
 }));
+
+// --- Watch Commander command-center tools (real data, no secrets) ---
+
+server.tool("patchpilot.get_provider_readiness", {}, async () => ({
+  // agentProviderReadiness exposes env var NAMES only — never secret values.
+  content: [{ type: "text", text: JSON.stringify(agentProviderReadiness(), null, 2) }]
+}));
+
+server.tool("patchpilot.get_provider_failover_timeline", {}, async () => {
+  const timeline = db.read().auditReceipts
+    .filter((receipt) => PROVIDER_ACTIONS.has(receipt.action))
+    .slice(-30).reverse()
+    .map((receipt) => ({ action: receipt.action, at: receipt.createdAt, agent: receipt.agent, summary: receipt.outputSummary }));
+  return { content: [{ type: "text", text: JSON.stringify(timeline, null, 2) }] };
+});
+
+server.tool("patchpilot.get_scanner_coverage", {}, async () => ({
+  content: [{ type: "text", text: JSON.stringify({ coverage: scannerCoverage(), tools: detectScannerTools() }, null, 2) }]
+}));
+
+server.tool("patchpilot.get_watch_status", {}, async () => ({
+  content: [{ type: "text", text: JSON.stringify(watchStatus(db), null, 2) }]
+}));
+
+server.tool("patchpilot.get_approval_queue", {}, async () => {
+  const state = db.read();
+  const queue = {
+    remediationApprovals: state.approvals.filter((approval) => approval.status === "pending"),
+    providerConsents: (state.providerConsents ?? []).filter((consent) => consent.status === "pending"),
+    watchAlerts: (state.watchAlerts ?? []).slice(-15).reverse()
+  };
+  return { content: [{ type: "text", text: JSON.stringify(queue, null, 2) }] };
+});
+
+server.tool("patchpilot.start_scan", { projectId: z.string() }, async ({ projectId }) => ({
+  content: [{ type: "text", text: JSON.stringify(await service.scanProject(projectId), null, 2) }]
+}));
+
+server.tool("patchpilot.request_remediation", { findingId: z.string() }, async ({ findingId }) => {
+  // Runs the failover ladder; respects consent gates (never silently uses a
+  // lower-trust provider, never auto-merges/deploys).
+  const result = await service.startGuardedRemediation(findingId);
+  return { content: [{ type: "text", text: JSON.stringify({ outcome: result.outcome, decision: result.decision, timeline: result.timeline, jobStatus: result.job?.status, consent: result.consent?.status }, null, 2) }] };
+});
+
+server.tool("patchpilot.request_provider_failover", { findingId: z.string() }, async ({ findingId }) => {
+  const result = await service.startGuardedRemediation(findingId);
+  return { content: [{ type: "text", text: JSON.stringify({ outcome: result.outcome, timeline: result.timeline, consent: result.consent ? { status: result.consent.status, candidateProvider: result.consent.candidateProvider } : undefined }, null, 2) }] };
+});
 
 await server.connect(new StdioServerTransport());
