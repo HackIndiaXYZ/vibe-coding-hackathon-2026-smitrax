@@ -1,0 +1,44 @@
+# Local dev infrastructure for PatchPilot durable persistence + queue.
+# These are LOCAL DEV containers only — the credentials below are throwaway and
+# must never be used in production. Start with: docker compose up -d
+#
+# Then in .env:
+#   PATCHPILOT_PERSIST_POSTGRES=true
+#   DATABASE_URL=postgresql://patchpilot:patchpilot@localhost:5432/patchpilot
+#   PATCHPILOT_QUEUE_MODE=redis
+#   REDIS_URL=redis://localhost:6379
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: patchpilot-postgres
+    environment:
+      POSTGRES_USER: patchpilot
+      POSTGRES_PASSWORD: patchpilot
+      POSTGRES_DB: patchpilot
+    ports:
+      - "5432:5432"
+    volumes:
+      - patchpilot-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U patchpilot -d patchpilot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: patchpilot-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - patchpilot-redisdata:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  patchpilot-pgdata:
+  patchpilot-redisdata:

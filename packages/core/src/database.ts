@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { nanoid } from "nanoid";
 import { dataFilePath } from "./env";
+import { loadStateFromPostgres, mirrorStateToPostgres, postgresEnabled } from "./postgresStore";
 import type { PatchPilotState } from "./types";
 
 export const emptyState = (): PatchPilotState => ({
@@ -39,6 +40,8 @@ export class JsonDatabase {
   write(state: PatchPilotState): PatchPilotState {
     mkdirSync(path.dirname(this.filePath), { recursive: true });
     writeFileSync(this.filePath, JSON.stringify(state, null, 2));
+    // Durable mirror to Postgres when enabled (best-effort, never blocks).
+    mirrorStateToPostgres(state);
     return state;
   }
 
@@ -47,6 +50,19 @@ export class JsonDatabase {
     mutator(state);
     return this.write(state);
   }
+}
+
+/**
+ * Hydrates the local file store from Postgres (durable system of record) when
+ * Postgres persistence is enabled and has a stored document. Returns true when
+ * the local file was (re)written from Postgres.
+ */
+export async function hydrateFromPostgres(db = new JsonDatabase()): Promise<boolean> {
+  if (!postgresEnabled()) return false;
+  const remote = await loadStateFromPostgres();
+  if (!remote) return false;
+  db.write({ ...emptyState(), ...remote });
+  return true;
 }
 
 export function id(prefix: string): string {
