@@ -7,6 +7,7 @@
     "dev": "pnpm --filter @patchpilot/web dev",
     "start": "pnpm --filter @patchpilot/web start",
     "worker:dev": "pnpm --filter @patchpilot/worker dev",
+    "worker:watch": "tsx scripts/watch-worker.ts",
     "mcp:dev": "pnpm --filter @patchpilot/mcp dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
@@ -26,6 +27,15 @@
     "verify:openrouter-live": "tsx scripts/verify-provider-live.ts openrouter",
     "verify:openai-compatible-live": "tsx scripts/verify-provider-live.ts openai-compatible",
     "verify:ollama-live": "tsx scripts/verify-provider-live.ts ollama",
+    "verify:provider-chain": "tsx scripts/verify-provider-chain.ts",
+    "verify:provider-failover-consent": "tsx scripts/verify-provider-failover-consent.ts",
+    "verify:watch-mode": "tsx scripts/verify-watch-mode.ts",
+    "verify:scanner-tools": "tsx scripts/verify-scanner-tools.ts",
+    "verify:scanners": "tsx scripts/verify-scanners.ts",
+    "scan:project-full": "tsx scripts/scan-project-full.ts",
+    "demo:scanner-coverage": "tsx scripts/demo-scanner-coverage.ts",
+    "demo:watch": "tsx scripts/demo-watch.ts",
+    "demo:provider-failover": "tsx scripts/demo-provider-failover.ts",
     "demo:live": "tsx scripts/demo-live.ts"
   },
   "devDependencies": {

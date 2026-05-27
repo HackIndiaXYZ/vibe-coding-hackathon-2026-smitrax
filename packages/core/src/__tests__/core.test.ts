@@ -36,7 +36,11 @@ import {
   scanMaliciousPackages,
   scanSecretsLightweight,
   scannerCoverage,
+  runWatchCycle,
   updateManifestDependencyVersion,
+  updateSettings,
+  watchDedupeKey,
+  watchStatus,
   createAuditReceipt,
   emptyState,
   enrichVulnerability,
@@ -705,6 +709,83 @@ describe("BYO agent provider layer", () => {
     const after = JSON.stringify({ packages: { "node_modules/lodash": { version: "4.17.21" } } });
     expect(diffLockfilePackage(before, after, "lodash")).toEqual({ packageName: "lodash", before: "4.17.20", after: "4.17.21", changed: true });
     expect(diffLockfilePackage(before, before, "lodash").changed).toBe(false);
+  });
+});
+
+describe("watch mode", () => {
+  function seedProject(db: JsonDatabase) {
+    db.write({ ...emptyState(), projects: [{ id: "proj", name: "fixture", sourceType: "local", localPath: "/tmp/x", isPathAllowlisted: true, packageManager: "npm", deploymentProvider: "none", productionExposed: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }] });
+  }
+  function finding(id: string, level: "high" | "critical" = "high"): Finding {
+    return { id, projectId: "proj", vulnerabilityId: "OSV-1", packageName: "lodash", ecosystem: "npm", currentVersion: "4.17.20", fixedVersion: "4.17.21", dependencyType: "direct", riskScore: 70, riskLevel: level, riskFactors: [], missingRiskData: [], fixStrategy: "safe_patch", status: "fix_available", scanConfidence: "direct_manifest_only", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+  }
+
+  it("is disabled by default and does not scan", async () => {
+    vi.unstubAllEnvs();
+    const root = tempRoot();
+    const db = new JsonDatabase(path.join(root, "db.json"));
+    seedProject(db);
+    const scanAll = vi.fn(async () => undefined);
+    const run = await runWatchCycle({ db, scanAll });
+    expect(run.status).toBe("skipped_quiet_hours");
+    expect(scanAll).not.toHaveBeenCalled();
+    expect(watchStatus(db).enabled).toBe(false);
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("scans when enabled, alerts once, and never auto-patches", async () => {
+    vi.unstubAllEnvs();
+    vi.stubEnv("TELEGRAM_ALLOWED_CHAT_IDS", "");
+    const root = tempRoot();
+    const db = new JsonDatabase(path.join(root, "db.json"));
+    seedProject(db);
+    updateSettings(db, { watch: { enabled: true, intervalMinutes: 30, telegramAlerts: true } });
+    const sent: string[] = [];
+    const run = await runWatchCycle({
+      db,
+      scanAll: async () => db.update((state) => state.findings.push(finding("f1"))),
+      sendAlert: async (_f, text) => { sent.push(text); }
+    });
+    expect(run.status).toBe("completed");
+    expect(run.newFindings).toBe(1);
+    expect(run.alertsSent).toBe(1);
+    expect(db.read().remediationJobs).toHaveLength(0);
+    expect(db.read().watchAlerts).toHaveLength(1);
+    const status = watchStatus(db);
+    expect(status.lastRunAt).toBeDefined();
+    expect(status.nextRunAt).toBeDefined();
+    expect(status.totalCycles).toBe(1);
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("deduplicates the same finding across cycles", async () => {
+    vi.unstubAllEnvs();
+    vi.stubEnv("TELEGRAM_ALLOWED_CHAT_IDS", "");
+    const root = tempRoot();
+    const db = new JsonDatabase(path.join(root, "db.json"));
+    seedProject(db);
+    updateSettings(db, { watch: { enabled: true } });
+    await runWatchCycle({ db, scanAll: async () => db.update((state) => state.findings.push(finding("f1"))) });
+    // Re-scan replaces the finding with a new id but the same dedupe key.
+    const second = await runWatchCycle({ db, scanAll: async () => db.update((state) => { state.findings = [finding("f2")]; }) });
+    expect(second.newFindings).toBe(1);
+    expect(second.alertsSent).toBe(0);
+    expect(second.dedupedFindings).toBe(1);
+    expect(watchDedupeKey("proj", "OSV-1", "lodash", "4.17.20")).toContain("OSV-1");
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("suppresses non-critical alerts during quiet hours", async () => {
+    vi.unstubAllEnvs();
+    vi.stubEnv("TELEGRAM_ALLOWED_CHAT_IDS", "");
+    const root = tempRoot();
+    const db = new JsonDatabase(path.join(root, "db.json"));
+    seedProject(db);
+    updateSettings(db, { watch: { enabled: true, quietHours: "00:00-23:59" } });
+    const run = await runWatchCycle({ db, scanAll: async () => db.update((state) => state.findings.push(finding("f1", "high"))), at: new Date("2026-05-27T03:00:00") });
+    expect(run.alertsSent).toBe(0);
+    expect(run.dedupedFindings).toBe(1);
+    rmSync(root, { recursive: true, force: true });
   });
 });
 

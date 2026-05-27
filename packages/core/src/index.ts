@@ -14,6 +14,7 @@ export * from "./audit";
 export * from "./approval";
 export * from "./agentConfigScanner";
 export * from "./scanners";
+export * from "./watch";
 export * from "./validation";
 export * from "./codex";
 export * from "./agentProviders";
