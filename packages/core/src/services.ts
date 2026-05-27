@@ -29,6 +29,8 @@ import {
 } from "./providerChain";
 import { getSettings, setRepoFailoverPolicy } from "./settings";
 import { diffLockfilePackage, updateManifestDependencyVersion, updateRequirementsVersion } from "./manifest";
+import { collectFirstPartyImports, reachabilityForFinding } from "./reachability";
+import { attestRemediation, attestationLine } from "./attestation";
 import { assertSafeCommitState, changedFiles, cleanupValidationArtifacts, cloneGithubRepo, commitAll, createBranch, ensureCommitGitignore, initBaselineRepo, pushBranch, writePatch, applyPatch, scrubGithubRemote } from "./gitOps";
 import { cleanupWorkspace, copyProjectToWorkspace, isSecretLikePath, retainWorkspaces } from "./workspace";
 import { fixConfidence } from "./risk";
@@ -327,6 +329,9 @@ export class PatchPilotService {
       })));
       const cves = [...new Set(normalized.flatMap((finding) => finding.vulnerability.cveIds))];
       const [epss, kev] = await Promise.all([fetchEpss(cves), fetchKev(cves)]);
+      // Reachability / VEX-lite: scan first-party source once, then triage each
+      // finding by whether the vulnerable package is actually imported.
+      const firstPartyImports = collectFirstPartyImports(projectPath);
       const savedFindings: Finding[] = [];
       this.db.update((draft) => {
         const projectIndex = draft.projects.findIndex((item) => item.id === project.id);
@@ -360,6 +365,10 @@ export class PatchPilotService {
             isInKev: bestKev ? true : false,
             scanConfidence: osvResult.scanConfidence
           });
+          const reach = reachabilityForFinding(
+            { packageName: item.packageName, ecosystem: item.ecosystem, dependencyType: item.dependencyType },
+            firstPartyImports
+          );
           const finding: Finding = {
             id: id("find"),
             projectId: project.id,
@@ -380,6 +389,8 @@ export class PatchPilotService {
             fixStrategy: item.fixedVersion ? "safe_patch" : "manual_review",
             status: item.fixedVersion ? "fix_available" : "open",
             scanConfidence: osvResult.scanConfidence,
+            reachability: reach.status,
+            reachabilityEvidence: reach.note,
             createdAt: now(),
             updatedAt: now()
           };
@@ -673,6 +684,25 @@ export class PatchPilotService {
         return this.failRemediation(job, "validation_failed", "Validation failed; PR/approval creation is blocked.", { status: "validation_failed" });
       }
 
+      // Provenance attestation (SLSA-lite): a signed, verifiable statement of
+      // what was upgraded and how it was validated. Goes into the PR body +
+      // audit receipt so a reviewer can confirm the fix's origin.
+      const validationOutcome: "passed" | "skipped" | "not_run" =
+        validations.length === 0 ? "not_run" : validations.every((run) => run.status === "skipped_no_script") ? "skipped" : "passed";
+      const attestation = attestRemediation({
+        package: finding.packageName,
+        ecosystem: finding.ecosystem,
+        fromVersion: lockfileDiff?.before || finding.currentVersion,
+        toVersion: lockfileDiff?.after || finding.fixedVersion || "unknown",
+        fixStrategy: finding.fixStrategy,
+        validation: validationOutcome,
+        vulnerabilityIds: [...vulnerability.cveIds, vulnerability.osvId].filter((v): v is string => Boolean(v)),
+        changedFiles: commitFiles,
+        remediationJobId: job.id,
+        agent: job.agent
+      });
+      this.event("remediation", job.id, "attestation.created", "info", "Provenance attestation generated.", { signed: attestation.signed, keyId: attestation.keyId });
+
       if (project.sourceType === "github" && project.githubOwner && project.githubRepo) {
         commitAll(workspace, `fix(security): patch ${finding.packageName} vulnerability`, commitFiles);
         pushBranch(workspace, job.branchName!, project.githubOwner, project.githubRepo);
@@ -684,7 +714,7 @@ export class PatchPilotService {
           targetType: "remediation_job",
           targetId: job.id,
           changedFiles: commitFiles,
-          outputSummary: { confidence, lockfileDiff }
+          outputSummary: { confidence, lockfileDiff, attestation }
         });
         const pr = await createDraftPullRequest({
           owner: project.githubOwner,
@@ -692,7 +722,7 @@ export class PatchPilotService {
           title: `fix(security): patch ${finding.packageName} vulnerability`,
           head: job.branchName!,
           base: project.githubDefaultBranch ?? "main",
-          body: prBody({ finding, vulnerability, validationRuns: validations, receiptId: receipt.id, confidence, changedFiles: commitFiles })
+          body: prBody({ finding, vulnerability, validationRuns: validations, receiptId: receipt.id, confidence, changedFiles: commitFiles, attestation })
         });
         this.db.update((draft) => {
           draft.pullRequests.push({
@@ -726,7 +756,7 @@ export class PatchPilotService {
           targetId: job.id,
           changedFiles: commitFiles,
           commandLogsRef: patchPath,
-          outputSummary: { confidence, patchPath, lockfileDiff }
+          outputSummary: { confidence, patchPath, lockfileDiff, attestation }
         });
         await this.trySendApproval(job.id, project, finding);
       }
@@ -1086,6 +1116,7 @@ function prBody(input: {
   receiptId: string;
   confidence: number;
   changedFiles: string[];
+  attestation: ReturnType<typeof attestRemediation>;
 }): string {
   return `# PatchPilot security fix
 
@@ -1110,6 +1141,20 @@ ${input.validationRuns.map((run) => `| ${run.command} | ${run.status}${typeof ru
 ## Approval
 
 Status: awaiting phone approval
+
+## Reachability (VEX-lite)
+
+${input.finding.reachability ?? "unknown"} — ${input.finding.reachabilityEvidence ?? "Not analyzed."}
+
+## Provenance attestation
+
+${attestationLine(input.attestation)}
+
+\`\`\`json
+${JSON.stringify({ statement: input.attestation.statement, signature: input.attestation.signature, algorithm: input.attestation.algorithm }, null, 2)}
+\`\`\`
+
+Verify with \`verifyAttestation(statement, signature)\` using the same \`${input.attestation.keyId ?? "PATCHPILOT_ATTESTATION_SECRET"}\` secret.
 
 ## Audit receipt
 

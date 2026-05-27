@@ -27,6 +27,8 @@ export * from "./manifest";
 export * from "./github";
 export * from "./telegram";
 export * from "./plugin";
+export * from "./reachability";
+export * from "./attestation";
 export * from "./sbom";
 export * from "./gitOps";
 export * from "./workspace";

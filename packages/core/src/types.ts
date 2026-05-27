@@ -92,6 +92,10 @@ export interface Finding {
   fixStrategy: "safe_patch" | "minor_upgrade" | "major_upgrade" | "mitigation" | "manual_review" | "no_fix";
   status: "open" | "fix_available" | "fix_running" | "pr_ready" | "awaiting_approval" | "approved" | "rejected" | "ignored" | "resolved";
   scanConfidence: "lockfile" | "direct_manifest_only" | "unknown";
+  // Reachability / VEX-lite triage: is the vulnerable package actually imported
+  // in first-party source? Used to de-prioritize likely-unreachable findings.
+  reachability?: "imported" | "not_imported" | "indirect" | "unknown";
+  reachabilityEvidence?: string;
   createdAt: string;
   updatedAt: string;
 }

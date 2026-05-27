@@ -85,6 +85,11 @@ import {
   cleanupWorkspace,
   cloneGithubRepo,
   copyProjectToWorkspace,
+  collectFirstPartyImports,
+  reachabilityForFinding,
+  attestRemediation,
+  verifyAttestation,
+  attestationLine,
   type Finding
 } from "../index";
 
@@ -1668,6 +1673,109 @@ describe("Codex prompt and SBOM errors", () => {
   it("fails clearly when SBOM tool is missing", () => {
     vi.stubEnv("SYFT_BIN", "definitely-not-installed-syft");
     expect(() => generateSbom(process.cwd())).toThrow(/SBOM generation requires Syft/);
+    vi.unstubAllEnvs();
+  });
+});
+
+describe("reachability / VEX-lite", () => {
+  function project() {
+    const root = tempRoot();
+    writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "x", dependencies: { lodash: "^4", express: "^4" } }));
+    mkdirSync(path.join(root, "src"));
+    writeFileSync(path.join(root, "src", "app.ts"), `import express from "express";\nimport { join } from "node:path";\nconst _ = require("@scope/used/sub");\nimport "./local";\n`);
+    writeFileSync(path.join(root, "app.py"), `import requests\nfrom flask import Flask\nimport os\n`);
+    return root;
+  }
+
+  it("collects first-party npm + python imports, skipping relative/builtin", () => {
+    const root = project();
+    const imports = collectFirstPartyImports(root);
+    expect(imports.npm.has("express")).toBe(true);
+    expect(imports.npm.has("@scope/used")).toBe(true);
+    expect(imports.npm.has("node:path")).toBe(false);
+    expect(imports.python.has("requests")).toBe(true);
+    expect(imports.python.has("flask")).toBe(true);
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("marks an imported direct npm dep as reachable", () => {
+    const root = project();
+    const imports = collectFirstPartyImports(root);
+    const result = reachabilityForFinding({ packageName: "express", ecosystem: "npm", dependencyType: "direct" }, imports);
+    expect(result.status).toBe("imported");
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("flags a never-imported direct npm dep as not_imported (de-prioritize)", () => {
+    const root = project();
+    const imports = collectFirstPartyImports(root);
+    const result = reachabilityForFinding({ packageName: "lodash", ecosystem: "npm", dependencyType: "direct" }, imports);
+    expect(result.status).toBe("not_imported");
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("marks transitive deps as indirect regardless of imports", () => {
+    const imports = { npm: new Set<string>(), python: new Set<string>() };
+    const result = reachabilityForFinding({ packageName: "ms", ecosystem: "npm", dependencyType: "transitive" }, imports);
+    expect(result.status).toBe("indirect");
+  });
+
+  it("treats unimported python deps as unknown (name aliasing honesty)", () => {
+    const root = project();
+    const imports = collectFirstPartyImports(root);
+    const result = reachabilityForFinding({ packageName: "pyyaml", ecosystem: "pypi", dependencyType: "direct" }, imports);
+    expect(result.status).toBe("unknown");
+    rmSync(root, { recursive: true, force: true });
+  });
+});
+
+describe("provenance attestation", () => {
+  const base = {
+    package: "lodash",
+    ecosystem: "npm",
+    fromVersion: "4.17.20",
+    toVersion: "4.17.21",
+    validation: "passed" as const,
+    vulnerabilityIds: ["CVE-2021-23337"],
+    changedFiles: ["package.json", "package-lock.json"],
+    remediationJobId: "rem_123",
+    agent: "codex"
+  };
+
+  it("signs and round-trip verifies when a secret is set", () => {
+    vi.stubEnv("PATCHPILOT_ATTESTATION_SECRET", "test-attestation-secret");
+    const att = attestRemediation(base);
+    expect(att.signed).toBe(true);
+    expect(att.signature).toBeTruthy();
+    expect(att.keyId).toBe("PATCHPILOT_ATTESTATION_SECRET");
+    expect(verifyAttestation(att.statement, att.signature!)).toBe(true);
+    vi.unstubAllEnvs();
+  });
+
+  it("detects tampering with the statement", () => {
+    vi.stubEnv("PATCHPILOT_ATTESTATION_SECRET", "test-attestation-secret");
+    const att = attestRemediation(base);
+    const tampered = { ...att.statement, toVersion: "9.9.9" };
+    expect(verifyAttestation(tampered, att.signature!)).toBe(false);
+    vi.unstubAllEnvs();
+  });
+
+  it("falls back to APPROVAL_HMAC_SECRET when no dedicated secret", () => {
+    vi.stubEnv("PATCHPILOT_ATTESTATION_SECRET", "");
+    vi.stubEnv("APPROVAL_HMAC_SECRET", "shared-secret");
+    const att = attestRemediation(base);
+    expect(att.signed).toBe(true);
+    expect(att.keyId).toBe("APPROVAL_HMAC_SECRET");
+    vi.unstubAllEnvs();
+  });
+
+  it("returns an honest unsigned attestation when no secret is configured", () => {
+    vi.stubEnv("PATCHPILOT_ATTESTATION_SECRET", "");
+    vi.stubEnv("APPROVAL_HMAC_SECRET", "");
+    const att = attestRemediation(base);
+    expect(att.signed).toBe(false);
+    expect(att.signature).toBeNull();
+    expect(attestationLine(att)).toContain("unsigned");
     vi.unstubAllEnvs();
   });
 });
