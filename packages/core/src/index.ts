@@ -1,6 +1,7 @@
 export * from "./types";
 export * from "./database";
 export * from "./env";
+export * from "./settings";
 export * from "./errors";
 export * from "./redaction";
 export * from "./pathSafety";
@@ -12,6 +13,7 @@ export * from "./risk";
 export * from "./audit";
 export * from "./approval";
 export * from "./agentConfigScanner";
+export * from "./scanners";
 export * from "./validation";
 export * from "./codex";
 export * from "./agentProviders";

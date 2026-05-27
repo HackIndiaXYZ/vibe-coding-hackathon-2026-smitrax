@@ -228,6 +228,18 @@ export interface IntegrationHealth {
   requiredEnv?: string[];
 }
 
+export interface WatchRun {
+  id: string;
+  startedAt: string;
+  finishedAt?: string;
+  scannedProjects: number;
+  newFindings: number;
+  alertsSent: number;
+  dedupedFindings: number;
+  status: "running" | "completed" | "failed" | "skipped_quiet_hours";
+  errorMessage?: string;
+}
+
 export interface PatchPilotState {
   projects: Project[];
   scanJobs: ScanJob[];
@@ -241,4 +253,62 @@ export interface PatchPilotState {
   approvals: ApprovalRequest[];
   auditReceipts: AuditReceipt[];
   agentFindings: AgentConfigFinding[];
+  // Optional/late-added collections (merged from emptyState for older DBs).
+  settings?: StoredSettings;
+  watchRuns?: WatchRun[];
+  watchAlerts?: WatchAlert[];
+}
+
+/** Persisted partial settings overrides (env provides the defaults). */
+export interface StoredSettings {
+  watch?: Partial<WatchSettings>;
+  failover?: Partial<FailoverSettings>;
+  repoPolicies?: Record<string, RepoFailoverPolicy>;
+  scannerToggles?: Record<string, boolean>;
+}
+
+export interface WatchSettings {
+  enabled: boolean;
+  intervalMinutes: number;
+  quietHours?: string;
+  telegramAlerts: boolean;
+}
+
+export type FailoverMode = "ask" | "automatic" | "disabled";
+
+export interface FailoverSettings {
+  mode: FailoverMode;
+  chain: string[];
+  allowCloudFailover: boolean;
+  allowLocalFailover: boolean;
+  requireConsentForLowerTrust: boolean;
+  fast: boolean;
+  maxAttempts: number;
+  readinessTimeoutMs: number;
+  attemptTimeoutMs: number;
+  readinessCacheTtlMs: number;
+}
+
+export interface RepoFailoverPolicy {
+  alwaysAllowLocal?: boolean;
+}
+
+/** Fully resolved settings (env defaults overlaid with persisted overrides). */
+export interface PatchPilotSettings {
+  watch: WatchSettings;
+  failover: FailoverSettings;
+  repoPolicies: Record<string, RepoFailoverPolicy>;
+  scannerToggles: Record<string, boolean>;
+}
+
+export interface WatchAlert {
+  id: string;
+  projectId: string;
+  dedupeKey: string;
+  findingId?: string;
+  packageName: string;
+  advisoryId: string;
+  severity: string;
+  channel: "telegram" | "dashboard";
+  sentAt: string;
 }

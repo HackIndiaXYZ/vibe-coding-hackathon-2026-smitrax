@@ -18,8 +18,16 @@ import {
   codexExecArgs,
   commitAll,
   diffLockfilePackage,
+  detectScannerTools,
+  parseGitleaksJson,
   parseRemediationPlan,
+  parseSemgrepJson,
+  parseTrivyJson,
   resolveAgentProvider,
+  scanCiHardening,
+  scanMaliciousPackages,
+  scanSecretsLightweight,
+  scannerCoverage,
   updateManifestDependencyVersion,
   createAuditReceipt,
   emptyState,
@@ -689,6 +697,92 @@ describe("BYO agent provider layer", () => {
     const after = JSON.stringify({ packages: { "node_modules/lodash": { version: "4.17.21" } } });
     expect(diffLockfilePackage(before, after, "lodash")).toEqual({ packageName: "lodash", before: "4.17.20", after: "4.17.21", changed: true });
     expect(diffLockfilePackage(before, before, "lodash").changed).toBe(false);
+  });
+});
+
+describe("scanner orchestration", () => {
+  it("detects external tools honestly (disabled / tool_missing)", () => {
+    vi.unstubAllEnvs();
+    vi.stubEnv("PATCHPILOT_SCANNER_GITLEAKS_ENABLED", "true");
+    vi.stubEnv("PATCHPILOT_SCANNER_GITLEAKS_PATH", "definitely-not-installed-gitleaks");
+    vi.stubEnv("PATCHPILOT_SCANNER_SEMGREP_ENABLED", "false");
+    const tools = detectScannerTools();
+    expect(tools.find((tool) => tool.id === "gitleaks")?.status).toBe("tool_missing");
+    expect(tools.find((tool) => tool.id === "semgrep")?.status).toBe("disabled");
+    // tool_missing entries always carry an install hint.
+    expect(tools.find((tool) => tool.id === "gitleaks")?.installHint).toMatch(/Install Gitleaks/);
+    vi.unstubAllEnvs();
+  });
+
+  it("parses Gitleaks JSON and never stores the raw secret", () => {
+    const raw = JSON.stringify([{ RuleID: "aws-key", Description: "AWS key", File: "config.js", StartLine: 4, Secret: "AKIAIOSFODNN7EXAMPLE" }]);
+    const findings = parseGitleaksJson(raw);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.evidenceLine).toBe(4);
+    expect(JSON.stringify(findings)).not.toContain("AKIAIOSFODNN7EXAMPLE");
+    expect(findings[0]?.redactedEvidence).toContain("***");
+  });
+
+  it("parses Semgrep and Trivy JSON into categorized findings", () => {
+    const semgrep = parseSemgrepJson(JSON.stringify({ results: [{ check_id: "rule.x", path: "a.js", start: { line: 9 }, extra: { message: "bad", severity: "ERROR" } }] }));
+    expect(semgrep[0]).toMatchObject({ category: "sast", severity: "high", evidenceLine: 9 });
+    const trivy = parseTrivyJson(JSON.stringify({
+      Results: [
+        { Target: "package-lock.json", Vulnerabilities: [{ VulnerabilityID: "CVE-2021-23337", PkgName: "lodash", InstalledVersion: "4.17.20", FixedVersion: "4.17.21", Severity: "HIGH", Title: "cmd injection" }] },
+        { Target: "Dockerfile", Misconfigurations: [{ ID: "DS002", Title: "root user", Severity: "MEDIUM", Message: "runs as root" }] },
+        { Target: "x", Licenses: [{ PkgName: "left-pad", Name: "GPL-3.0", Severity: "HIGH" }] }
+      ]
+    }));
+    expect(trivy.find((f) => f.category === "container")?.cveIds).toContain("CVE-2021-23337");
+    expect(trivy.some((f) => f.category === "iac")).toBe(true);
+    expect(trivy.some((f) => f.category === "license")).toBe(true);
+  });
+
+  it("returns [] for malformed scanner JSON instead of throwing", () => {
+    expect(parseGitleaksJson("not json")).toEqual([]);
+    expect(parseSemgrepJson("{")).toEqual([]);
+    expect(parseTrivyJson("garbage")).toEqual([]);
+  });
+
+  it("detects risky GitHub Actions workflows", () => {
+    const root = tempRoot();
+    mkdirSync(path.join(root, ".github", "workflows"), { recursive: true });
+    writeFileSync(path.join(root, ".github", "workflows", "ci.yml"), "permissions: write-all\njobs:\n  a:\n    steps:\n      - uses: actions/checkout@v4\n");
+    const findings = scanCiHardening(root);
+    expect(findings.some((f) => f.title.includes("write-all"))).toBe(true);
+    expect(findings.some((f) => f.title.includes("Unpinned action"))).toBe(true);
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("runs the lightweight secret detector storing only masked evidence", () => {
+    const root = tempRoot();
+    writeFileSync(path.join(root, "leak.env"), "AWS_KEY=AKIAIOSFODNN7EXAMPLE\n");
+    const findings = scanSecretsLightweight(root);
+    expect(findings.length).toBeGreaterThan(0);
+    expect(findings[0]?.confidence).toBe("low");
+    expect(JSON.stringify(findings)).not.toContain("AKIAIOSFODNN7EXAMPLE");
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("labels packages suspicious (not malicious) without a configured source", () => {
+    const root = tempRoot();
+    writeFileSync(path.join(root, "package.json"), JSON.stringify({ dependencies: { lodash: "4.17.20" }, scripts: { postinstall: "node x.js" } }));
+    const findings = scanMaliciousPackages(root);
+    expect(findings.some((f) => f.title.includes("postinstall"))).toBe(true);
+    expect(findings.some((f) => f.title.toLowerCase().includes("known malicious"))).toBe(false);
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("reports honest coverage with not_applicable when files are absent", () => {
+    const root = tempRoot();
+    const coverage = scannerCoverage(root);
+    const categories = coverage.map((entry) => entry.category);
+    expect(categories).toContain("sca");
+    expect(categories).toContain("secret");
+    expect(categories).toContain("sbom");
+    // No workflows in an empty temp dir.
+    expect(coverage.find((entry) => entry.category === "ci")?.status).toBe("not_applicable");
+    rmSync(root, { recursive: true, force: true });
   });
 });
 

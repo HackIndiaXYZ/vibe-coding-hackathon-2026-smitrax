@@ -16,7 +16,10 @@ export const emptyState = (): PatchPilotState => ({
   pullRequests: [],
   approvals: [],
   auditReceipts: [],
-  agentFindings: []
+  agentFindings: [],
+  settings: {},
+  watchRuns: [],
+  watchAlerts: []
 });
 
 export class JsonDatabase {
