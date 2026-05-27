@@ -21,6 +21,7 @@
     "verify:github-live": "tsx scripts/verify-github-live.ts",
     "verify:github-pr-live": "tsx scripts/verify-github-pr-live.ts",
     "verify:telegram-live": "tsx scripts/verify-telegram-live.ts",
+    "demo:telegram-buttons": "tsx scripts/demo-telegram-buttons.ts",
     "verify:codex-cli": "tsx scripts/verify-codex-cli.ts",
     "verify:codex-live": "tsx scripts/verify-codex-live.ts",
     "verify:agent-provider": "tsx scripts/verify-agent-provider.ts",
