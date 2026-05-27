@@ -20,7 +20,8 @@ export const emptyState = (): PatchPilotState => ({
   settings: {},
   watchRuns: [],
   watchAlerts: [],
-  providerConsents: []
+  providerConsents: [],
+  scannerFindings: []
 });
 
 export class JsonDatabase {

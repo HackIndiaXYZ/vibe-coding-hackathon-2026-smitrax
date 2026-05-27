@@ -11,8 +11,9 @@ import { queryOsvFindings } from "./osv";
 import { enrichVulnerability } from "./advisoryEnrichment";
 import { scoreRisk } from "./risk";
 import { scanAgentConfig } from "./agentConfigScanner";
+import { runProjectScanners } from "./scanners";
 import { createAuditReceipt } from "./audit";
-import { createDraftPullRequest, validateGithubRepo } from "./github";
+import { closePullRequest, createDraftPullRequest, deleteBranchRef, validateGithubRepo } from "./github";
 import { CODEX_REMEDIATION_PROMPT, codexStatus, runCodexExec, writeCodexContext } from "./codex";
 import { assertLlmProviderConfigured, classifyAgentRemediation, isLlmProvider, requestRemediationPlan, type AgentProviderId } from "./agentProviders";
 import {
@@ -384,13 +385,16 @@ export class PatchPilotService {
         const jobIndex = draft.scanJobs.findIndex((job) => job.id === scanJob.id);
         draft.scanJobs[jobIndex] = { ...scanJob, scanner: osvResult.scanner, status: "completed", finishedAt: now() };
       });
+      // Run the non-SCA scanner matrix (built-ins always; external tools when
+      // installed). Failures here never break the dependency scan.
+      const scannerCounts = this.runAndStoreScanners(project.id, projectPath);
       createAuditReceipt(this.db, {
         projectId: project.id,
         actorType: "system",
         action: "scan.completed",
         targetType: "scan_job",
         targetId: scanJob.id,
-        outputSummary: { findings: savedFindings.length, agentWarnings: agentFindings.length }
+        outputSummary: { findings: savedFindings.length, agentWarnings: agentFindings.length, scannerFindings: scannerCounts }
       });
       if (cleanupSource && sourcePath) cleanupWorkspace(sourcePath);
       return { ...scanJob, scanner: osvResult.scanner, status: "completed", finishedAt: now() };
@@ -433,17 +437,28 @@ export class PatchPilotService {
 
   threatRadar() {
     const state = this.db.read();
+    const scannerFindings = state.scannerFindings ?? [];
+    const byCategory = (category: string) => scannerFindings.filter((finding) => finding.category === category).length;
     return {
       advisoriesScanned: state.vulnerabilities.length,
       relevantAdvisories: new Set(state.findings.map((finding) => finding.vulnerabilityId)).size,
       affectedProjects: new Set(state.findings.map((finding) => finding.projectId)).size,
       criticalHighRisks: state.findings.filter((finding) => ["critical", "high"].includes(finding.riskLevel)).length,
       activelyExploited: state.riskSignals.filter((signal) => signal.isInKev).length,
-      maliciousPackageAlerts: state.riskSignals.filter((signal) => signal.notes.some((note) => note.toLowerCase().includes("malicious"))).length,
+      maliciousPackageAlerts: state.riskSignals.filter((signal) => signal.notes.some((note) => note.toLowerCase().includes("malicious"))).length + byCategory("malware"),
       fixesAvailable: state.findings.filter((finding) => Boolean(finding.fixedVersion)).length,
       fixesBlocked: state.findings.filter((finding) => !finding.fixedVersion || finding.status === "rejected").length,
       jobsRunning: state.remediationJobs.filter((job) => ["queued", "running"].includes(job.status)).length,
       approvalsPending: state.approvals.filter((approval) => approval.status === "pending").length,
+      // Aggregated scanner-matrix signals (real findings only).
+      exposedSecrets: byCategory("secret"),
+      sastFindings: byCategory("sast"),
+      riskyWorkflows: byCategory("ci"),
+      agentConfigRisks: byCategory("agent"),
+      licenseIssues: byCategory("license"),
+      containerIacIssues: byCategory("container") + byCategory("iac"),
+      pendingProviderConsents: (state.providerConsents ?? []).filter((consent) => consent.status === "pending").length,
+      watchAlerts: (state.watchAlerts ?? []).length,
       source: "real_database_state"
     };
   }
@@ -692,7 +707,8 @@ export class PatchPilotService {
         });
         this.event("remediation", job.id, "github.pr.created", "info", "Draft pull request created.", { url: pr.url });
         await this.trySendApproval(job.id, project, finding, pr.url);
-        this.updateJob(job.id, { status: "approval_sent", finishedAt: now(), rollbackStatus: "not_available" });
+        // Rollback for a GitHub draft PR = close the PR + delete the branch.
+        this.updateJob(job.id, { status: "approval_sent", finishedAt: now(), rollbackStatus: "available" });
       } else {
         const patchPath = writePatch(workspace, job.id, commitFiles);
         this.updateJob(job.id, { patchPath, status: "pr_ready", finishedAt: now(), rollbackStatus: "not_available" });
@@ -732,11 +748,21 @@ export class PatchPilotService {
     }
     this.updateJob(job.id, { rollbackStatus: "requested" });
     try {
-      if (project.localPath && job.patchPath && job.patchAppliedAt) {
+      const pr = state.pullRequests.find((item) => item.remediationJobId === job.id && item.provider === "github" && item.status === "created");
+      if (project.sourceType === "github" && pr && typeof pr.number === "number") {
+        // Close the draft PR and delete its branch (no merge ever happened).
+        await closePullRequest(pr.owner, pr.repo, pr.number);
+        await deleteBranchRef(pr.owner, pr.repo, pr.branchName);
+        this.db.update((draft) => {
+          const stored = draft.pullRequests.find((item) => item.id === pr.id);
+          if (stored) stored.status = "closed";
+        });
+        this.updateJob(job.id, { rollbackStatus: "completed" });
+      } else if (project.localPath && job.patchPath && job.patchAppliedAt) {
         applyPatch(project.localPath, job.patchPath, true);
         this.updateJob(job.id, { rollbackStatus: "completed" });
       } else {
-        throw new PatchPilotError("rollback_not_available", "Rollback requires an applied local patch or a real PR/commit integration.", { remediationJobId });
+        throw new PatchPilotError("rollback_not_available", "Rollback requires an applied local patch or an open GitHub PR.", { remediationJobId });
       }
       createAuditReceipt(this.db, {
         projectId: project.id,
@@ -933,6 +959,38 @@ export class PatchPilotService {
         lint: "npm run lint when configured"
       }
     };
+  }
+
+  /** Runs the non-SCA scanner matrix and persists findings for the project. Never throws. */
+  private runAndStoreScanners(projectId: string, projectPath: string): Record<string, number> {
+    const counts: Record<string, number> = {};
+    try {
+      const results = runProjectScanners(projectPath, projectId, { categories: ["secret", "ci", "agent", "malware", "sast", "container", "iac", "license"] });
+      const stored = results.flatMap((result) => result.findings.map((finding) => ({
+        id: finding.id,
+        projectId,
+        scanner: finding.scanner,
+        category: finding.category,
+        severity: finding.severity,
+        title: finding.title,
+        description: finding.description,
+        evidencePath: finding.evidencePath,
+        evidenceLine: finding.evidenceLine,
+        redactedEvidence: finding.redactedEvidence,
+        packageName: finding.packageName,
+        source: finding.source,
+        confidence: finding.confidence,
+        remediation: finding.remediation,
+        createdAt: now()
+      })));
+      for (const finding of stored) counts[finding.category] = (counts[finding.category] ?? 0) + 1;
+      this.db.update((state) => {
+        state.scannerFindings = [...(state.scannerFindings ?? []).filter((finding) => finding.projectId !== projectId), ...stored];
+      });
+    } catch (error) {
+      this.event("scan", projectId, "scanner.matrix.error", "warn", "Scanner matrix failed; dependency scan unaffected.", { message: error instanceof Error ? error.message : String(error) });
+    }
+    return counts;
   }
 
   private applyDeterministicNpmFix(workspace: string, finding: Finding): string {

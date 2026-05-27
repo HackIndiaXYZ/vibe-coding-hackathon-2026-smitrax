@@ -352,6 +352,32 @@ describe("rollback states", () => {
     rmSync(root, { recursive: true, force: true });
   });
 
+  it("rolls back a GitHub draft PR by closing it and deleting the branch", async () => {
+    vi.unstubAllEnvs();
+    vi.stubEnv("GITHUB_TOKEN", "ghp_faketokenfortest1234567890abcd");
+    const root = tempRoot();
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string | URL, init?: RequestInit) => {
+      calls.push(`${init?.method ?? "GET"} ${String(url)}`);
+      return new Response(JSON.stringify({ state: "closed" }), { status: 200 });
+    }));
+    const db = new JsonDatabase(path.join(root, "db.json"));
+    db.write({
+      ...emptyState(),
+      projects: [{ id: "proj", name: "owner/repo", sourceType: "github", githubOwner: "owner", githubRepo: "repo", githubDefaultBranch: "main", isPathAllowlisted: false, packageManager: "npm", deploymentProvider: "none", productionExposed: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }],
+      remediationJobs: [{ id: "rem", findingId: "find", projectId: "proj", status: "approval_sent", agent: "codex", branchName: "patchpilot/fix-x", changedFiles: ["package.json"], rollbackStatus: "available", createdAt: new Date().toISOString() }],
+      pullRequests: [{ id: "pr", remediationJobId: "rem", provider: "github", owner: "owner", repo: "repo", number: 7, url: "https://github.com/owner/repo/pull/7", branchName: "patchpilot/fix-x", baseBranch: "main", draft: true, status: "created", createdAt: new Date().toISOString() }]
+    });
+    const result = await new PatchPilotService(db).rollback("rem");
+    expect(result.rollbackStatus).toBe("completed");
+    expect(db.read().pullRequests[0]?.status).toBe("closed");
+    expect(calls.some((c) => c.startsWith("PATCH") && c.includes("/pulls/7"))).toBe(true);
+    expect(calls.some((c) => c.startsWith("DELETE") && c.includes("git/refs"))).toBe(true);
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    rmSync(root, { recursive: true, force: true });
+  });
+
   it("rolls back an applied local patch with the stored reverse patch", async () => {
     const root = tempRoot();
     const workspace = path.join(root, "workspace");

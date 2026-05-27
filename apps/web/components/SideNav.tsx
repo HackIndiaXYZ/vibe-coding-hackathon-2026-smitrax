@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Activity, Bell, Boxes, Eye, Gauge, GitPullRequest, Radar, ReceiptText, ScanLine, Settings, Shield, SquareStack } from "lucide-react";
+import { Activity, Bell, Boxes, CheckSquare, Eye, Gauge, GitPullRequest, Radar, ReceiptText, ScanLine, Settings, Shield, SquareStack } from "lucide-react";
 
 const NAV = [
   ["/", "Watch Commander", Gauge],
@@ -14,6 +14,7 @@ const NAV = [
   ["/findings", "Findings", Activity],
   ["/remediations", "Remediation Jobs", GitPullRequest],
   ["/approvals", "Approvals", Bell],
+  ["/approval-queue", "Approval Queue", CheckSquare],
   ["/audit", "Audit Receipts", ReceiptText],
   ["/settings", "Settings", Settings]
 ] as const;

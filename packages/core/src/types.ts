@@ -258,6 +258,7 @@ export interface PatchPilotState {
   watchRuns?: WatchRun[];
   watchAlerts?: WatchAlert[];
   providerConsents?: ProviderConsent[];
+  scannerFindings?: StoredScannerFinding[];
 }
 
 /** Persisted partial settings overrides (env provides the defaults). */
@@ -300,6 +301,25 @@ export interface PatchPilotSettings {
   failover: FailoverSettings;
   repoPolicies: Record<string, RepoFailoverPolicy>;
   scannerToggles: Record<string, boolean>;
+}
+
+/** Persisted scanner finding (structurally compatible with ScannerFinding + projectId). */
+export interface StoredScannerFinding {
+  id: string;
+  projectId: string;
+  scanner: string;
+  category: string;
+  severity: string;
+  title: string;
+  description: string;
+  evidencePath?: string;
+  evidenceLine?: number;
+  redactedEvidence?: string;
+  packageName?: string;
+  source: string;
+  confidence: string;
+  remediation?: string;
+  createdAt: string;
 }
 
 export interface ProviderConsent {
