@@ -36,6 +36,7 @@ import {
   parseTrivyJson,
   resolveAgentProvider,
   typosquatTarget,
+  sbomDiff,
   scanCiHardening,
   scanMaliciousPackages,
   updateRequirementsVersion,
@@ -783,6 +784,17 @@ describe("BYO agent provider layer", () => {
     expect(out).toContain("Requests==2.31.0  # http"); // comment preserved, pinned
     expect(updateRequirementsVersion(reqPath, "not-present", "9.9.9")).toBe(false);
     rmSync(root, { recursive: true, force: true });
+  });
+
+  it("diffs SBOM components before/after (added/removed/changed)", () => {
+    const before = JSON.stringify({ components: [{ name: "lodash", version: "4.17.20" }, { name: "left-pad", version: "1.0.0" }] });
+    const after = JSON.stringify({ components: [{ name: "lodash", version: "4.17.21" }, { name: "chalk", version: "5.0.0" }] });
+    const diff = sbomDiff(before, after);
+    expect(diff.beforeCount).toBe(2);
+    expect(diff.afterCount).toBe(2);
+    expect(diff.changed).toContainEqual({ name: "lodash", before: "4.17.20", after: "4.17.21" });
+    expect(diff.added).toContain("chalk");
+    expect(diff.removed).toContain("left-pad");
   });
 
   it("normalizes OSV findings for non-npm ecosystems (PyPI)", () => {

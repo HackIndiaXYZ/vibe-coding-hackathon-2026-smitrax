@@ -602,6 +602,23 @@ function runTrivyFs(projectPath: string, command: string, timeoutMs: number): Sc
   return { scanner: "trivy", category: "container", status: "completed", version: probeVersion(command), startedAt, finishedAt: now(), durationMs: elapsed(startedAt), findings: parseTrivyJson(result.stdout, { licensePolicy: loadLicensePolicy() }), errors: [], complete: true };
 }
 
+/**
+ * Scans a container image with Trivy (explicit opt-in: caller must supply an
+ * image; PatchPilot never pulls/scans images by default). Returns tool_missing
+ * when Trivy is absent.
+ */
+export function scanContainerImage(image: string, timeoutMs = scannerTimeoutMs()): ScannerResult {
+  const tool = detectScannerTools().find((t) => t.id === "trivy")!;
+  if (tool.status !== "enabled") {
+    return { scanner: "trivy", category: "container", status: tool.status === "disabled" ? "disabled" : "tool_missing", findings: [], errors: [], installHint: tool.installHint, complete: false };
+  }
+  const startedAt = now();
+  const result = runExternal(tool.command, ["image", "--format", "json", "--quiet", "--scanners", "vuln", image], process.cwd(), timeoutMs);
+  if (result.timedOut) return { scanner: "trivy", category: "container", status: "error", startedAt, finishedAt: now(), durationMs: elapsed(startedAt), findings: [], errors: [`trivy image timed out after ${timeoutMs}ms`], complete: false };
+  if (!result.stdout.trim()) return { scanner: "trivy", category: "container", status: "error", startedAt, finishedAt: now(), durationMs: elapsed(startedAt), findings: [], errors: [result.stderr.slice(0, 300) || "trivy image produced no output"], complete: false };
+  return { scanner: "trivy", category: "container", status: "completed", startedAt, finishedAt: now(), durationMs: elapsed(startedAt), findings: parseTrivyJson(result.stdout), errors: [], complete: true };
+}
+
 // ---------- coverage (dashboard) ----------
 
 export interface ScannerCoverageEntry {
