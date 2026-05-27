@@ -38,6 +38,7 @@ import {
   typosquatTarget,
   scanCiHardening,
   scanMaliciousPackages,
+  updateRequirementsVersion,
   scanSecretsLightweight,
   scannerCoverage,
   runProjectScanners,
@@ -769,6 +770,28 @@ describe("BYO agent provider layer", () => {
     expect(serialized).toContain("PATCHPILOT_LLM_API_KEY");
     expect(serialized).toContain("openrouter");
     vi.unstubAllEnvs();
+  });
+
+  it("remediates a PyPI requirements.txt pin (multi-ecosystem)", () => {
+    const root = tempRoot();
+    const reqPath = path.join(root, "requirements.txt");
+    writeFileSync(reqPath, "flask==2.0.0\nRequests>=2.20.0  # http\nnumpy\n");
+    expect(updateRequirementsVersion(reqPath, "requests", "2.31.0")).toBe(true); // case/normalized name
+    expect(updateRequirementsVersion(reqPath, "flask", "2.0.1")).toBe(true);
+    const out = readFileSync(reqPath, "utf8");
+    expect(out).toContain("flask==2.0.1");
+    expect(out).toContain("Requests==2.31.0  # http"); // comment preserved, pinned
+    expect(updateRequirementsVersion(reqPath, "not-present", "9.9.9")).toBe(false);
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("normalizes OSV findings for non-npm ecosystems (PyPI)", () => {
+    const finding = normalizeOsvVulnerability(
+      { id: "GHSA-x", aliases: ["CVE-2023-1"], summary: "flask issue", affected: [{ ranges: [{ events: [{ introduced: "0" }, { fixed: "2.0.1" }] }] }] },
+      "flask", "2.0.0", "direct", "PyPI"
+    );
+    expect(finding.ecosystem).toBe("PyPI");
+    expect(finding.fixedVersion).toBe("2.0.1");
   });
 
   it("diffs a package-lock before/after for the vulnerable package", () => {

@@ -25,6 +25,31 @@ export function updateManifestDependencyVersion(manifestPath: string, packageNam
   return updated;
 }
 
+/**
+ * Updates a dependency version in a Python requirements.txt. Handles `pkg==x`,
+ * `pkg===x`, and `pkg>=x` style pins (case-insensitive name, PEP 503 normalized).
+ * Pure filesystem edit. Returns true when a line changed.
+ */
+export function updateRequirementsVersion(requirementsPath: string, packageName: string, version: string): boolean {
+  if (!existsSync(requirementsPath)) {
+    throw new PatchPilotError("manifest_missing", "requirements.txt is missing from the remediation workspace.", { requirementsPath });
+  }
+  const normalize = (name: string) => name.toLowerCase().replace(/[-_.]+/g, "-");
+  const target = normalize(packageName);
+  let updated = false;
+  const lines = readFileSync(requirementsPath, "utf8").split(/\r?\n/).map((line) => {
+    const match = line.match(/^(\s*)([A-Za-z0-9._-]+)(\s*)(==|===|>=|~=)(\s*)([^\s#;]+)(.*)$/);
+    if (!match) return line;
+    const [, lead, name, sp1, op, sp2, , rest] = match;
+    if (normalize(name!) !== target) return line;
+    updated = true;
+    // Pin exactly to the fixed version regardless of original operator.
+    return `${lead}${name}${sp1}==${sp2}${version}${rest}`;
+  });
+  if (updated) writeFileSync(requirementsPath, lines.join("\n"));
+  return updated;
+}
+
 export interface LockfilePackageDiff {
   packageName: string;
   before?: string;

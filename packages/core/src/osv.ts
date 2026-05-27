@@ -109,7 +109,8 @@ export function parseOsvScannerJson(raw: string, manifest: PackageManifest): Nor
       const version = pkg.package?.version;
       if (!packageName || !version) return [];
       const dependencyType = manifest.dependencies[packageName] || manifest.devDependencies[packageName] || manifest.optionalDependencies[packageName] ? "direct" : "transitive";
-      return (pkg.vulnerabilities ?? []).map((vulnerability) => normalizeOsvVulnerability(vulnerability, packageName, version, dependencyType));
+      const ecosystem = pkg.package?.ecosystem ?? "npm";
+      return (pkg.vulnerabilities ?? []).map((vulnerability) => normalizeOsvVulnerability(vulnerability, packageName, version, dependencyType, ecosystem));
     })
   );
 }
@@ -125,7 +126,8 @@ export function normalizeOsvVulnerability(
   vuln: OsvVulnerability,
   packageName: string,
   currentVersion: string,
-  dependencyType: "direct" | "transitive" | "unknown"
+  dependencyType: "direct" | "transitive" | "unknown",
+  ecosystem = "npm"
 ): NormalizedOsvFinding {
   const cveIds = (vuln.aliases ?? []).filter((alias) => alias.startsWith("CVE-"));
   const ghsaIds = [vuln.id, ...(vuln.aliases ?? [])].filter((alias) => alias.startsWith("GHSA-"));
@@ -151,9 +153,10 @@ export function normalizeOsvVulnerability(
       references: (vuln.references ?? []).map((reference) => reference.url)
     },
     packageName,
-    ecosystem: "npm",
+    ecosystem,
     currentVersion,
-    fixedVersion: fixedVersions.sort(semver.compare)[0],
+    // Non-npm ecosystems (e.g. PyPI) aren't semver — only sort when all are valid.
+    fixedVersion: (fixedVersions.every((v) => semver.valid(v)) ? [...fixedVersions].sort(semver.compare) : fixedVersions)[0],
     affectedRanges: (vuln.affected ?? []).flatMap((affected) =>
       (affected.ranges ?? []).flatMap((range) => (range.events ?? []).map((event) => JSON.stringify(event)))
     ),

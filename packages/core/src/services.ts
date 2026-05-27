@@ -28,7 +28,7 @@ import {
   type ProviderReadiness
 } from "./providerChain";
 import { getSettings, setRepoFailoverPolicy } from "./settings";
-import { diffLockfilePackage, updateManifestDependencyVersion } from "./manifest";
+import { diffLockfilePackage, updateManifestDependencyVersion, updateRequirementsVersion } from "./manifest";
 import { assertSafeCommitState, changedFiles, cleanupValidationArtifacts, cloneGithubRepo, commitAll, createBranch, ensureCommitGitignore, initBaselineRepo, pushBranch, writePatch, applyPatch, scrubGithubRemote } from "./gitOps";
 import { cleanupWorkspace, copyProjectToWorkspace, isSecretLikePath, retainWorkspaces } from "./workspace";
 import { fixConfidence } from "./risk";
@@ -1002,7 +1002,19 @@ export class PatchPilotService {
 
   private applyDeterministicNpmFix(workspace: string, finding: Finding): string {
     if (!finding.fixedVersion) throw new PatchPilotError("fixed_version_missing", "Deterministic fixer requires a known fixed version.");
+    // Multi-ecosystem routing: PyPI edits requirements.txt; npm edits package.json + lockfile.
+    if (/^pypi$|^pip$|^python$/i.test(finding.ecosystem)) {
+      return this.applyPypiVersionFix(workspace, finding.packageName, finding.fixedVersion);
+    }
     return this.applyNpmVersionFix(workspace, finding.packageName, finding.fixedVersion, finding.ecosystem);
+  }
+
+  /** PatchPilot-owned safe PyPI update: pins the dependency in requirements.txt. */
+  private applyPypiVersionFix(workspace: string, packageName: string, version: string): string {
+    const requirementsPath = path.join(workspace, "requirements.txt");
+    const updated = updateRequirementsVersion(requirementsPath, packageName, version);
+    if (!updated) throw new PatchPilotError("dependency_not_direct", "PatchPilot can only update direct requirements.txt dependencies.", { packageName });
+    return `Updated ${packageName} to ${version} in requirements.txt.`;
   }
 
   /**
