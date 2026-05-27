@@ -36,6 +36,7 @@ import {
   scanMaliciousPackages,
   scanSecretsLightweight,
   scannerCoverage,
+  runProjectScanners,
   runWatchCycle,
   updateManifestDependencyVersion,
   updateSettings,
@@ -46,6 +47,7 @@ import {
   enrichVulnerability,
   fixConfidence,
   generateSbom,
+  getSettings,
   ensureCommitGitignore,
   initBaselineRepo,
   normalizeOsvVulnerability,
@@ -908,6 +910,56 @@ describe("provider failover ladder", () => {
     rmSync(root, { recursive: true, force: true });
   });
 
+  it("resolves provider consent: reject stops, allow routes to the candidate", async () => {
+    vi.unstubAllEnvs();
+    const root = tempRoot();
+    const projectRoot = path.join(root, "project");
+    mkdirSync(projectRoot);
+    writeFileSync(path.join(projectRoot, "package.json"), JSON.stringify({ dependencies: { lodash: "4.17.20" } }));
+    vi.stubEnv("PATCHPILOT_DATA_FILE", path.join(root, "db.json"));
+    vi.stubEnv("PATCHPILOT_WORKSPACE_DIR", path.join(root, "ws"));
+    vi.stubEnv("PATCHPILOT_LOG_DIR", path.join(root, "logs"));
+    vi.stubEnv("TELEGRAM_ALLOWED_CHAT_IDS", "");
+    // Ollama plan request fails fast → routing is proven without a live model.
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("error", { status: 500 })));
+
+    function seedConsent(consentId: string) {
+      const db = new JsonDatabase(path.join(root, "db.json"));
+      db.write({
+        ...emptyState(),
+        projects: [{ id: "proj", name: "fixture", sourceType: "local", localPath: projectRoot, isPathAllowlisted: true, packageManager: "npm", deploymentProvider: "none", productionExposed: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }],
+        vulnerabilities: [{ id: "OSV-X", source: "osv", cveIds: ["CVE-2021-23337"], ghsaIds: [], summary: "lodash", severity: "high", references: [] }],
+        findings: [{ id: "find", projectId: "proj", vulnerabilityId: "OSV-X", packageName: "lodash", ecosystem: "npm", currentVersion: "4.17.20", fixedVersion: "4.17.21", dependencyType: "direct", riskScore: 70, riskLevel: "high", riskFactors: [], missingRiskData: [], fixStrategy: "safe_patch", status: "fix_available", scanConfidence: "direct_manifest_only", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }],
+        providerConsents: [{ id: consentId, findingId: "find", projectId: "proj", failedProvider: "codex", candidateProvider: "ollama", candidateTrust: "local", status: "pending", readinessSummary: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }]
+      });
+      return db;
+    }
+
+    // reject → no remediation job, consent rejected
+    const rejectDb = seedConsent("pcon_reject");
+    const rejected = await new PatchPilotService(rejectDb).resolveProviderConsent("pcon_reject", "reject", "tester");
+    expect(rejected.status).toBe("rejected");
+    expect(rejectDb.read().remediationJobs).toHaveLength(0);
+    expect(rejectDb.read().providerConsents?.[0]?.status).toBe("rejected");
+
+    // allow_once → routes to the candidate (ollama) and resolves
+    const allowDb = seedConsent("pcon_allow");
+    const allowed = await new PatchPilotService(allowDb).resolveProviderConsent("pcon_allow", "allow_once", "tester");
+    expect(allowed.status).toBe("resolved");
+    expect(allowDb.read().remediationJobs.some((job) => job.agent === "ollama")).toBe(true);
+    expect(allowDb.read().auditReceipts.some((receipt) => receipt.action === "provider_failover_consent_approved")).toBe(true);
+    expect(allowDb.read().providerConsents?.[0]?.status).toBe("resolved");
+
+    // always_allow_repo → sets the per-repo policy
+    const policyDb = seedConsent("pcon_policy");
+    await new PatchPilotService(policyDb).resolveProviderConsent("pcon_policy", "always_allow_repo", "tester");
+    expect(getSettings(policyDb).repoPolicies.proj?.alwaysAllowLocal).toBe(true);
+
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    rmSync(root, { recursive: true, force: true });
+  });
+
   it("skips unconfigured providers with no network call", async () => {
     vi.unstubAllEnvs();
     vi.stubEnv("PATCHPILOT_LLM_API_KEY", "");
@@ -991,6 +1043,48 @@ describe("scanner orchestration", () => {
     const findings = scanMaliciousPackages(root);
     expect(findings.some((f) => f.title.includes("postinstall"))).toBe(true);
     expect(findings.some((f) => f.title.toLowerCase().includes("known malicious"))).toBe(false);
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("runs external scanners via their CLIs (fake binaries) and redacts secrets", () => {
+    vi.unstubAllEnvs();
+    const root = tempRoot();
+    const project = path.join(root, "project");
+    const bin = path.join(root, "bin");
+    mkdirSync(project, { recursive: true });
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(path.join(project, "package.json"), JSON.stringify({ dependencies: { lodash: "4.17.20" } }));
+
+    function fakeTool(name: string, body: string) {
+      const js = path.join(bin, `${name}.js`);
+      writeFileSync(js, `const fs=require("fs");const args=process.argv.slice(2);if(args[0]==="--version"){console.log("${name} 1.0.0");process.exit(0);}\n${body}`);
+      const cmd = path.join(bin, process.platform === "win32" ? `${name}.cmd` : `${name}.sh`);
+      if (process.platform === "win32") writeFileSync(cmd, `@echo off\r\nnode "${js}" %*\r\n`);
+      else { writeFileSync(cmd, `#!/usr/bin/env sh\nnode "${js}" "$@"\n`); chmodSync(cmd, 0o755); }
+      return cmd;
+    }
+
+    const gitleaks = fakeTool("gitleaks", `const i=args.indexOf("--report-path");fs.writeFileSync(args[i+1],JSON.stringify([{RuleID:"aws-key",Description:"AWS",File:"leak.env",StartLine:1,Secret:"AKIAIOSFODNN7EXAMPLE"}]));process.exit(1);`);
+    const semgrep = fakeTool("semgrep", `console.log(JSON.stringify({results:[{check_id:"rule.x",path:"a.js",start:{line:3},extra:{message:"bad",severity:"ERROR"}}]}));`);
+    const trivy = fakeTool("trivy", `console.log(JSON.stringify({Results:[{Target:"package-lock.json",Vulnerabilities:[{VulnerabilityID:"CVE-2021-23337",PkgName:"lodash",InstalledVersion:"4.17.20",FixedVersion:"4.17.21",Severity:"HIGH",Title:"cmd injection"}]}]}));`);
+
+    vi.stubEnv("PATCHPILOT_SCANNER_GITLEAKS_PATH", gitleaks);
+    vi.stubEnv("PATCHPILOT_SCANNER_SEMGREP_PATH", semgrep);
+    vi.stubEnv("PATCHPILOT_SCANNER_TRIVY_PATH", trivy);
+
+    const results = runProjectScanners(project, "p", { categories: ["secret", "sast", "container"] });
+    const secret = results.find((r) => r.scanner === "gitleaks");
+    const sast = results.find((r) => r.scanner === "semgrep");
+    const container = results.find((r) => r.scanner === "trivy");
+
+    expect(secret?.status).toBe("completed");
+    expect(secret?.findings.length).toBe(1);
+    expect(JSON.stringify(secret)).not.toContain("AKIAIOSFODNN7EXAMPLE"); // raw secret masked
+    expect(sast?.status).toBe("completed");
+    expect(sast?.findings[0]?.severity).toBe("high");
+    expect(container?.status).toBe("completed");
+    expect(container?.findings[0]?.cveIds).toContain("CVE-2021-23337");
+    vi.unstubAllEnvs();
     rmSync(root, { recursive: true, force: true });
   });
 
