@@ -284,7 +284,7 @@ Request for local:
 {
   "sourceType": "local",
   "name": "local-chat-app",
-  "localPath": "C:/Users/Mohith S/Desktop/chat-app"
+  "localPath": "C:/path/to/your/chat-app"
 }
 ```
 

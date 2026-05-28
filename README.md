@@ -18,7 +18,7 @@ Open `http://127.0.0.1:3000`.
 To scan a local folder, set `PATCHPILOT_LOCAL_ROOTS` in `.env` to the parent folder that contains the project. Local scanning rejects paths outside this allowlist.
 
 ```bash
-$env:PATCHPILOT_LOCAL_ROOTS="C:\Users\Mohith S\Desktop\patchpilot\tests\fixtures"
+$env:PATCHPILOT_LOCAL_ROOTS="<absolute path to>\patchpilot\tests\fixtures"
 pnpm scan:fixture
 ```
 

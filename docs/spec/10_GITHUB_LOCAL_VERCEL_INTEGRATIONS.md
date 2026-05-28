@@ -91,8 +91,8 @@ Phase 2:
 Use `PATCHPILOT_LOCAL_ROOTS`:
 
 ```text
-C:/Users/Mohith S/Desktop
-/home/mohith/projects
+C:/path/to/your/projects
+/home/<user>/projects
 ```
 
 Only allow paths inside these roots.

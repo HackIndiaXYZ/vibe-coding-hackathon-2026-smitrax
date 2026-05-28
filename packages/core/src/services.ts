@@ -31,6 +31,8 @@ import { getSettings, setRepoFailoverPolicy } from "./settings";
 import { diffLockfilePackage, updateManifestDependencyVersion, updateRequirementsVersion } from "./manifest";
 import { collectFirstPartyImports, reachabilityForFinding } from "./reachability";
 import { attestRemediation, attestationLine } from "./attestation";
+import { sanitizeForLlmContext } from "./promptInjection";
+import { classifyLlmOutput } from "./llmOutputGuard";
 import { assertSafeCommitState, changedFiles, cleanupValidationArtifacts, cloneGithubRepo, commitAll, createBranch, ensureCommitGitignore, initBaselineRepo, pushBranch, writePatch, applyPatch, scrubGithubRemote } from "./gitOps";
 import { cleanupWorkspace, copyProjectToWorkspace, isSecretLikePath, retainWorkspaces } from "./workspace";
 import { fixConfidence } from "./risk";
@@ -605,6 +607,10 @@ export class PatchPilotService {
           model: planResult.model,
           toVersion: planResult.plan.toVersion
         });
+        const planGuard = classifyLlmOutput(planResult.plan.summary);
+        if (planGuard.suspicious) {
+          this.event("remediation", job.id, "llm.plan.suspicious_output", "warn", "LLM plan summary triggered output guard.", { reasons: planGuard.reasons });
+        }
         agentSummary = this.applyNpmVersionFix(workspace, finding.packageName, planResult.plan.toVersion, finding.ecosystem)
           + ` (plan by ${planResult.provider}/${planResult.model}: ${planResult.plan.summary})`;
         this.event("remediation", job.id, "llm.plan.applied", "info", "PatchPilot applied the validated plan.", { summary: agentSummary });
@@ -612,6 +618,10 @@ export class PatchPilotService {
         this.event("remediation", job.id, "codex.started", "info", "Codex CLI execution started.");
         const result = runCodexExec(workspace, options.codexPrompt ?? CODEX_REMEDIATION_PROMPT, { timeoutMs: options.codexTimeoutMs });
         agentSummary = result.stdout.slice(0, 4000);
+        const codexGuard = classifyLlmOutput(agentSummary);
+        if (codexGuard.suspicious) {
+          this.event("remediation", job.id, "codex.suspicious_output", "warn", "Codex stdout triggered output guard.", { reasons: codexGuard.reasons });
+        }
         this.event("remediation", job.id, "codex.completed", result.status === 0 ? "info" : "error", "Codex CLI execution completed.", {
           status: result.status,
           durationMs: result.durationMs,
@@ -1006,7 +1016,11 @@ export class PatchPilotService {
         currentVersion: finding.currentVersion,
         fixedVersion: finding.fixedVersion,
         vulnerabilityIds: [...vulnerability.cveIds, vulnerability.osvId].filter(Boolean),
-        summary: vulnerability.summary,
+        // Sanitize the advisory text before it enters the Codex context.
+        // CVE summaries are attacker-controllable; this strips known
+        // prompt-injection markers (instruction overrides, role flips, tool
+        // invocations, exfil commands, zero-width smuggling) and bounds length.
+        summary: sanitizeForLlmContext(vulnerability.summary).sanitized,
         riskScore: finding.riskScore,
         riskLevel: finding.riskLevel
       },

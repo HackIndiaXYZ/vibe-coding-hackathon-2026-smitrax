@@ -3,7 +3,7 @@
 PatchPilot has a separate local Codex plugin at:
 
 ```text
-C:\Users\Mohith S\plugins\patchpilot
+<your-codex-plugins-dir>\patchpilot
 ```
 
 The plugin is intentionally separate from PatchPilot's in-app plugin registry.
@@ -15,7 +15,7 @@ with one command:
   "mcpServers": {
     "patchpilot": {
       "command": "pnpm",
-      "args": ["--dir", "C:\\Users\\Mohith S\\Desktop\\patchpilot", "mcp:dev"]
+      "args": ["--dir", "<absolute path to your patchpilot checkout>", "mcp:dev"]
     }
   }
 }
