@@ -54,6 +54,12 @@ try {
 
   const slideCount = await page.evaluate(() => document.querySelectorAll(".slide").length);
   console.log("[deck] slides found:", slideCount);
+  // Measure each slide's actual content height vs the viewport so we can tell
+  // when content overflows and the bottom would be clipped in the screenshot.
+  const heights = await page.evaluate(() =>
+    [...document.querySelectorAll(".slide")].map((s) => Math.ceil(s.scrollHeight))
+  );
+  console.log("[deck] slide content heights (viewport is " + H + "):", heights.join(", "));
 
   const buffers = [];
   for (let i = 0; i < slideCount; i++) {
