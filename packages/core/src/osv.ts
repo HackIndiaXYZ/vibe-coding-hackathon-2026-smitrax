@@ -91,6 +91,11 @@ export async function queryOsvApi(manifest: PackageManifest): Promise<Normalized
 
 export async function queryOsvFindings(projectPath: string, manifests: PackageManifest[]): Promise<OsvScanResult> {
   const directNames = new Set(manifests.flatMap((manifest) => Object.keys({ ...manifest.dependencies, ...manifest.devDependencies, ...manifest.optionalDependencies })));
+  const queryDirectManifests = async (): Promise<OsvScanResult> => {
+    const apiFindings: NormalizedOsvFinding[] = [];
+    for (const manifest of manifests) apiFindings.push(...await queryOsvApi(manifest));
+    return { findings: apiFindings, scanner: "osv-api", scanConfidence: "direct_manifest_only" };
+  };
   if (canRunOsvScanner(projectPath)) {
     const bin = osvScannerBin();
     const args = ["--format", "json", "--recursive", projectPath];
@@ -100,14 +105,13 @@ export async function queryOsvFindings(projectPath: string, manifests: PackageMa
       ? spawnSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/c", bin, ...args], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 })
       : spawnSync(bin, args, { encoding: "utf8", shell: bare && process.platform === "win32", maxBuffer: 64 * 1024 * 1024 });
     if ((result.status ?? 1) !== 0 && !result.stdout) {
+      if ((result.stderr ?? "").includes("No package sources found")) return await queryDirectManifests();
       throw new PatchPilotError("osv_scanner_failed", "OSV-Scanner failed before producing JSON output.", { stderr: result.stderr }, 502);
     }
     const findings = parseOsvScannerJson(result.stdout, directNames);
     return { findings, scanner: "osv-scanner", scanConfidence: "lockfile" };
   }
-  const apiFindings: NormalizedOsvFinding[] = [];
-  for (const manifest of manifests) apiFindings.push(...await queryOsvApi(manifest));
-  return { findings: apiFindings, scanner: "osv-api", scanConfidence: "direct_manifest_only" };
+  return await queryDirectManifests();
 }
 
 export function parseOsvScannerJson(raw: string, directNames: Set<string>): NormalizedOsvFinding[] {

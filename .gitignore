@@ -11,6 +11,7 @@ node_modules/
 *.pfx
 *token*
 *secret*
+!packages/core/src/secrets.ts
 
 # Build output / caches
 .next/

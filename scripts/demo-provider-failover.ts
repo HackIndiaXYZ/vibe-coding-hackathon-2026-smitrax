@@ -13,6 +13,7 @@ loadDotenvFile();
 // 4. The approved provider returns a strict JSON plan; PatchPilot applies it,
 //    validates, and produces a draft PR / local patch. Honest about the outcome.
 async function main() {
+  if (!optionalEnv("PATCHPILOT_AGENT_MODEL")) process.env.PATCHPILOT_AGENT_MODEL = "qwen2.5-coder:7b";
   const model = optionalEnv("PATCHPILOT_AGENT_MODEL");
   const root = path.join(os.tmpdir(), `patchpilot-failover-demo-${Date.now()}`);
   const fixture = path.join(root, "fixture");
@@ -41,12 +42,16 @@ async function main() {
       const result = await service.resolveProviderConsent(ladder.consent.id, "allow_once", "demo");
       resolved = { status: result.status, jobStatus: result.job?.status, agent: result.job?.agent };
     }
-    const finalJob = db.read().remediationJobs.slice(-1)[0];
+    let finalJob = db.read().remediationJobs.slice(-1)[0];
+    if (finalJob && !classifyAgentRemediation(finalJob).completed && finding.fixedVersion) {
+      finalJob = await service.startRemediation(finding.id, "deterministic-npm");
+    }
     const completed = finalJob ? classifyAgentRemediation(finalJob).completed : false;
+    const ok = Boolean(finalJob) && completed;
 
     console.log(safeJson({
-      ok: true,
-      agentModel: model ?? "(default; set PATCHPILOT_AGENT_MODEL=qwen2.5-coder:7b for local demo)",
+      ok,
+      agentModel: model,
       ladderOutcome: ladder.outcome,
       timeline: ladder.timeline,
       decision: ladder.decision,
@@ -54,6 +59,7 @@ async function main() {
       finalJob: finalJob ? { agent: finalJob.agent, status: finalJob.status, changedFiles: finalJob.changedFiles, patchPath: finalJob.patchPath, completed } : undefined,
       note: "If no local model is reachable, the ladder honestly lands on deterministic fallback — never a faked success."
     }));
+    if (!ok) process.exit(1);
   } finally {
     if (process.env.PATCHPILOT_RETAIN_WORKSPACES !== "true" && existsSync(root)) rmSync(root, { recursive: true, force: true });
   }

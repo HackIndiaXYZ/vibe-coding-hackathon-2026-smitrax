@@ -78,7 +78,7 @@ pnpm smoke:app http://127.0.0.1:3000
 - Implemented and verified locally: local fixture scan, risk score, deterministic remediation, validation with ignored install scripts, local patch artifact, audit receipt, dashboard/API smoke, production `pnpm start`.
 - Implemented but requires credentials for live proof: GitHub repo scan against github.com, GitHub PR creation, Telegram send, live Codex remediation.
 - Implemented but not live-tested here: OSV-Scanner CLI path, NVD API key path, GitHub Advisory authenticated path.
-- Not implemented: Redis/BullMQ durable queue, GitHub PR rollback execution, OpenClaw native plugin, signed plugin registry, SBOM before/after diff, Vercel preview verification.
+- Optional/partial: Redis/BullMQ durable queue and Postgres persistence are opt-in Docker paths; GitHub PR rollback closes draft PRs and deletes branches; signed plugin registry, SBOM generation/diff helpers, and deployment URL verification are implemented/config-gated. OpenClaw remains documented/config-gated rather than a native plugin.
 
 ## Documentation
 

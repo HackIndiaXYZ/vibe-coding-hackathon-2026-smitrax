@@ -4,10 +4,10 @@ PatchPilot has four executable surfaces:
 
 - `apps/web`: Next.js dashboard and API route handlers.
 - `packages/core`: scanner, risk, inventory, audit, approval, validation, integration, and plugin services.
-- `apps/worker`: local inline worker entrypoint for scan-all. Redis/BullMQ is not implemented.
+- `apps/worker`: local inline worker entrypoint for scan-all. Redis/BullMQ is available as an opt-in Docker-backed queue/scheduler path.
 - `apps/mcp`: stdio MCP server exposing PatchPilot tools.
 
-State is stored in a local JSON file by `JsonDatabase`. Services are written so a Postgres/Supabase adapter can replace this without changing API or MCP tool behavior.
+State is stored in a local JSON file by `JsonDatabase` by default. An opt-in Postgres write-through/hydration path is available for local durable verification without changing API or MCP tool behavior.
 
 Data flow:
 

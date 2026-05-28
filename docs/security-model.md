@@ -27,10 +27,14 @@ Controls implemented:
 - Agent Supply-Chain Shield for `.env`, private keys, risky Codex config, MCP/package scripts, and risky GitHub Actions.
 - Audit receipt hash chain.
 
+Controls implemented/config-gated:
+
+- Signed plugin registry with HMAC verification when `PATCHPILOT_PLUGIN_SIGNING_SECRET` is set.
+- GitHub draft PR rollback by closing the PR and deleting the PatchPilot branch.
+- Secret-manager file indirection through `PATCHPILOT_SECRETS_FILE`.
+
 Controls planned:
 
 - Docker/container worker isolation.
 - Postgres row-level/multi-user controls.
 - GitHub App scoped installation tokens.
-- Signed plugin registry.
-- Rollback execution for real PRs.

@@ -32,7 +32,7 @@ function reseed(mutator: (state: ReturnType<JsonDatabase["read"]>) => void) {
   state.projects = state.projects.filter((p) => p.id !== "proj_tap");
   state.findings = state.findings.filter((f) => f.id !== "find_tap");
   state.vulnerabilities = state.vulnerabilities.filter((v) => v.id !== "OSV-tap");
-  state.remediationJobs = (state.remediationJobs ?? []).filter((j) => !j.id.startsWith("rem_tap"));
+  state.remediationJobs = (state.remediationJobs ?? []).filter((j) => j.findingId !== "find_tap");
   state.approvals = (state.approvals ?? []).filter((a) => !a.id.startsWith("appr_tap"));
   state.providerConsents = (state.providerConsents ?? []).filter((c) => !c.id.startsWith("pcon_tap"));
   state.projects.push(project() as never);
@@ -122,6 +122,8 @@ async function main() {
     state.projects = state.projects.filter((p) => p.id !== "proj_tap");
     state.findings = state.findings.filter((f) => f.id !== "find_tap");
     state.vulnerabilities = state.vulnerabilities.filter((v) => v.id !== "OSV-tap");
+    state.remediationJobs = (state.remediationJobs ?? []).filter((j) => j.findingId !== "find_tap");
+    state.approvals = (state.approvals ?? []).filter((a) => !a.id.startsWith("appr_tap"));
     state.providerConsents = (state.providerConsents ?? []).filter((c) => !c.id.startsWith("pcon_tap"));
     db.write(state);
     rmSync(fixture, { recursive: true, force: true });

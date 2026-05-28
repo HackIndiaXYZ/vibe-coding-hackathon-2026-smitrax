@@ -64,5 +64,11 @@ export function retainWorkspaces(): boolean {
 
 export function cleanupWorkspace(workspace: string): void {
   if (retainWorkspaces()) return;
-  rmSync(workspace, { recursive: true, force: true });
+  try {
+    rmSync(workspace, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  } catch {
+    // Windows can briefly hold file handles after validation/model subprocesses.
+    // Cleanup is best-effort; a transient deletion failure must not turn a
+    // completed remediation into a webhook/API failure.
+  }
 }
