@@ -16,6 +16,7 @@
     "verify:sbom": "tsx scripts/verify-sbom.ts",
     "verify:container": "tsx scripts/verify-container.ts",
     "install:scanners": "node scripts/install-scanners.mjs",
+    "deck:pptx": "node scripts/build-deck-pptx.mjs",
     "mcp:dev": "pnpm --filter @patchpilot/mcp dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
@@ -64,6 +65,8 @@
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "pptxgenjs": "^4.0.1",
+    "puppeteer-core": "^25.1.0",
     "typescript": "^5.9.0",
     "vitest": "^3.2.0"
   }
