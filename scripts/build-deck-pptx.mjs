@@ -12,7 +12,7 @@
  * for hackathon submission and screen-share that's a feature, not a bug. The
  * authoritative editable source remains docs/pitch-deck.html.
  */
-import { existsSync } from "node:fs";
+import { existsSync, renameSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import puppeteer from "puppeteer-core";
@@ -90,8 +90,22 @@ try {
     });
   }
 
-  await pptx.writeFile({ fileName: outFile });
-  console.log("[deck] wrote", outFile);
+  // Write to a temp filename first, then swap into place. This avoids EBUSY
+  // when the user has the .pptx open in PowerPoint / WPS during regeneration.
+  const tmpFile = outFile.replace(/\.pptx$/i, ".new.pptx");
+  if (existsSync(tmpFile)) unlinkSync(tmpFile);
+  await pptx.writeFile({ fileName: tmpFile });
+  try {
+    renameSync(tmpFile, outFile);
+    console.log("[deck] wrote", outFile);
+  } catch (err) {
+    if (err && (err.code === "EBUSY" || err.code === "EPERM")) {
+      console.log("[deck] target file is locked (open in PowerPoint?). Wrote alongside as:", tmpFile);
+      console.log("[deck] close the viewer and rename .new.pptx -> .pptx, or rerun this script.");
+    } else {
+      throw err;
+    }
+  }
 } finally {
   await browser.close();
 }
