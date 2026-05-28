@@ -44,9 +44,9 @@ const browser = await puppeteer.launch({
 
 try {
   const page = await browser.newPage();
-  // deviceScaleFactor 3 -> 5760x3240 physical pixels per slide. Crisp on 4K
-  // projectors and laptop screens in PowerPoint slideshow mode. Costs ~6 MB.
-  await page.setViewport({ width: W, height: H, deviceScaleFactor: 3 });
+  // deviceScaleFactor 4 -> 7680x4320 physical pixels per slide (8K).
+  // Maximum sharpness for slideshow rendering on any display.
+  await page.setViewport({ width: W, height: H, deviceScaleFactor: 4 });
   await page.goto(pathToFileURL(deckHtml).href, { waitUntil: "networkidle0", timeout: 60_000 });
   // Wait for fonts to load and any initial animations to settle.
   await page.evaluateHandle("document.fonts.ready");
