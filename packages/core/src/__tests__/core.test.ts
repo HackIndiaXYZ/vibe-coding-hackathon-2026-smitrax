@@ -657,6 +657,15 @@ describe("Codex remediation outcome classification", () => {
     expect(outcome.shouldFallback).toBe(true);
   });
 
+  it("classifies Codex usage limits separately from generic failures", () => {
+    const outcome = classifyCodexRemediation({ status: "failed", errorCode: "codex_quota_limited", changedFiles: [] });
+    expect(outcome).toMatchObject({
+      codexStatus: "quota_limited",
+      codexCompleted: false,
+      shouldFallback: true
+    });
+  });
+
   it("treats unavailable Codex as a fallback", () => {
     expect(classifyCodexRemediation({ status: "codex_not_executed", errorCode: "codex_unavailable" })).toMatchObject({
       codexStatus: "unavailable",
@@ -1106,6 +1115,23 @@ describe("scanner orchestration", () => {
     // tool_missing entries always carry an install hint.
     expect(tools.find((tool) => tool.id === "gitleaks")?.installHint).toMatch(/Install Gitleaks/);
     vi.unstubAllEnvs();
+  });
+
+  it("does not mark a broken scanner executable as enabled", () => {
+    vi.unstubAllEnvs();
+    const root = tempRoot();
+    const bin = path.join(root, process.platform === "win32" ? "broken-scanner.cmd" : "broken-scanner.sh");
+    if (process.platform === "win32") writeFileSync(bin, "@echo off\r\nexit /b 1\r\n");
+    else { writeFileSync(bin, "#!/usr/bin/env sh\nexit 1\n"); chmodSync(bin, 0o755); }
+
+    vi.stubEnv("PATCHPILOT_SCANNER_GITLEAKS_ENABLED", "true");
+    vi.stubEnv("PATCHPILOT_SCANNER_GITLEAKS_PATH", bin);
+    const tool = detectScannerTools().find((item) => item.id === "gitleaks");
+    expect(tool?.status).toBe("tool_missing");
+    expect(tool?.installHint).toMatch(/did not return a usable --version response/);
+
+    vi.unstubAllEnvs();
+    rmSync(root, { recursive: true, force: true });
   });
 
   it("parses Gitleaks JSON and never stores the raw secret", () => {

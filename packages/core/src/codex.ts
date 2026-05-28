@@ -65,7 +65,7 @@ export interface CodexCliResult {
 }
 
 export interface CodexRemediationOutcome {
-  codexStatus: "completed" | "timeout" | "failed" | "unavailable" | "no_changes";
+  codexStatus: "completed" | "timeout" | "quota_limited" | "rate_limited" | "auth_failed" | "failed" | "unavailable" | "no_changes";
   /** Real Codex completion: a finished job whose detected file changes were captured. */
   codexCompleted: boolean;
   /** Whether PatchPilot should run the deterministic fallback for this outcome. */
@@ -84,6 +84,9 @@ export function classifyCodexRemediation(
   const errorCode = job?.errorCode ?? "";
   const changedFiles = job?.changedFiles ?? [];
   if (errorCode === "codex_timeout") return { codexStatus: "timeout", codexCompleted: false, shouldFallback: true };
+  if (errorCode === "codex_quota_limited") return { codexStatus: "quota_limited", codexCompleted: false, shouldFallback: true };
+  if (errorCode === "codex_rate_limited") return { codexStatus: "rate_limited", codexCompleted: false, shouldFallback: true };
+  if (errorCode === "codex_auth_failed") return { codexStatus: "auth_failed", codexCompleted: false, shouldFallback: true };
   if (errorCode === "codex_unavailable" || errorCode === "codex_safety_unavailable") {
     return { codexStatus: "unavailable", codexCompleted: false, shouldFallback: true };
   }

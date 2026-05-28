@@ -59,7 +59,7 @@ function llmEndpoint(provider: AgentProviderId): LlmEndpoint {
     return { baseUrl: getEnv("PATCHPILOT_ANTHROPIC_BASE_URL") ?? "https://api.anthropic.com", requiresKey: true, defaultModel: "claude-3-5-sonnet-latest", api: "anthropic" };
   }
   if (provider === "ollama") {
-    return { baseUrl: baseUrl ?? "http://localhost:11434/v1", requiresKey: false, defaultModel: "llama3.1", api: "openai" };
+    return { baseUrl: baseUrl ?? "http://localhost:11434/v1", requiresKey: false, defaultModel: "qwen2.5-coder:7b", api: "openai" };
   }
   // openai-compatible has no safe default base URL.
   return { baseUrl, requiresKey: true, defaultModel: "gpt-4o-mini", api: "openai" };

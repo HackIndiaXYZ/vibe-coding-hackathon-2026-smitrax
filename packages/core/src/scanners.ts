@@ -139,7 +139,11 @@ export function detectScannerTools(): ScannerToolInfo[] {
     if (!commandExists(command)) {
       return { id: tool.id, category: tool.category, label: tool.label, status: "tool_missing" as const, command, installHint: tool.installHint };
     }
-    return { id: tool.id, category: tool.category, label: tool.label, status: "enabled" as const, command, version: probeVersion(command), installHint: tool.installHint };
+    const version = probeVersion(command);
+    if (!version) {
+      return { id: tool.id, category: tool.category, label: tool.label, status: "tool_missing" as const, command, installHint: `${tool.installHint} The configured command exists but did not return a usable --version response.` };
+    }
+    return { id: tool.id, category: tool.category, label: tool.label, status: "enabled" as const, command, version, installHint: tool.installHint };
   });
 }
 
@@ -774,4 +778,3 @@ export function runProjectScanners(projectPath: string, projectId?: string, opti
 }
 
 export { toolInfo as scannerToolInfo };
-

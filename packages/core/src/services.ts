@@ -619,7 +619,26 @@ export class PatchPilotService {
         });
         if (result.status !== 0) {
           const timedOut = result.timedOut || result.status === 124;
-          return this.failRemediation(job, timedOut ? "codex_timeout" : "codex_failed", timedOut ? "Codex CLI timed out before producing a safe remediation." : "Codex CLI returned a non-zero exit code.", { summary: result.stderr || result.stdout });
+          const providerError = classifyProviderError(result.stderr || result.stdout);
+          const code = timedOut
+            ? "codex_timeout"
+            : providerError === "quota_limited"
+              ? "codex_quota_limited"
+              : providerError === "rate_limited"
+                ? "codex_rate_limited"
+                : providerError === "auth_failed"
+                  ? "codex_auth_failed"
+                  : "codex_failed";
+          const message = timedOut
+            ? "Codex CLI timed out before producing a safe remediation."
+            : code === "codex_quota_limited"
+              ? "Codex CLI is usage-limited; PatchPilot did not treat this as a code success."
+              : code === "codex_rate_limited"
+                ? "Codex CLI is rate-limited; PatchPilot did not treat this as a code success."
+                : code === "codex_auth_failed"
+                  ? "Codex CLI authentication failed; PatchPilot did not treat this as a code success."
+                  : "Codex CLI returned a non-zero exit code.";
+          return this.failRemediation(job, code, message, { summary: result.stderr || result.stdout });
         }
       }
 

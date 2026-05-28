@@ -6,6 +6,17 @@ Run:
 pnpm mcp:dev
 ```
 
+Verify the Codex plugin wiring:
+
+```bash
+pnpm verify:plugin-mcp
+```
+
+The verifier reads the local Codex plugin config from
+`~/plugins/patchpilot/.mcp.json`, starts the configured MCP server, lists tools,
+and calls `patchpilot.get_scanner_coverage`. It prints only counts/status bytes,
+not secrets.
+
 Tools exposed:
 
 - `patchpilot.list_projects`
