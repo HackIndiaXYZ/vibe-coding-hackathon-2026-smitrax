@@ -14,11 +14,11 @@ or use the CLI.
 ## Scan any project in one command
 
 ```bash
-# from this repo (no publish needed)
-pnpm scan:cli /absolute/path/to/your/project
+# from anywhere — published on npm
+npx patchpilot-cli scan ./my-app --fail-on high
 
-# or, once published, from anywhere
-npx @patchpilot/cli scan ./my-app --fail-on high
+# or from this repo
+pnpm scan:cli /absolute/path/to/your/project
 ```
 
 The CLI runs a real OSV scan and tags each finding with the **reachability

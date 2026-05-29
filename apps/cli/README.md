@@ -7,12 +7,12 @@ folder (npm + PyPI) against the real OSV database and tags each finding with the
 ## Usage
 
 ```bash
-# From a published package (after publish — see below)
-npx @patchpilot/cli scan ./my-app
-npx @patchpilot/cli scan . --fail-on high
-npx @patchpilot/cli scan . --json > findings.json
+# Published on npm — run from anywhere
+npx patchpilot-cli scan ./my-app
+npx patchpilot-cli scan . --fail-on high
+npx patchpilot-cli scan . --json > findings.json
 
-# From this monorepo (works today, no publish needed)
+# From this monorepo
 pnpm scan:cli /absolute/path/to/project
 ```
 
@@ -45,12 +45,14 @@ pnpm cli:bundle           # → apps/cli/dist/index.js (esbuild, ESM, node18+)
 node apps/cli/dist/index.js scan ./my-app   # verify
 ```
 
-## Publishing (do this only when ready)
+## Publishing a new version
+
+The published package (`patchpilot-cli` on npm) is a single bundled file with no
+runtime dependencies (core is inlined). To cut a new version, bundle, then
+publish a clean manifest (name `patchpilot-cli`, no workspace deps):
 
 ```bash
-pnpm cli:bundle
-cd apps/cli
-npm publish --access public      # requires npm login + the @patchpilot scope
+pnpm cli:bundle                  # → apps/cli/dist/index.js
+# stage dist/ + README + LICENSE + a deps-free package.json, then:
+npm publish --access public      # requires npm login as the package owner
 ```
-
-Until then, use `pnpm scan:cli` from the repo.
