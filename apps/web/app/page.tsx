@@ -5,13 +5,6 @@ import {
 
 const REPO = "https://github.com/MokiMeow/PatchPilot";
 
-const STATS = [
-  ["112", "tests passing"],
-  ["npm + PyPI", "ecosystems scanned"],
-  ["5", "real scanners"],
-  ["~25", "MCP tools"]
-] as const;
-
 const PIPELINE = [
   ["01", "Inventory"], ["02", "Scan"], ["03", "Reachability"], ["04", "Risk"],
   ["05", "Codex writes"], ["06", "Validate"], ["07", "Attest"], ["08", "Approve"], ["09", "Audit"]
@@ -55,8 +48,8 @@ export default function Landing() {
           </h1>
           <p className="lp-lede">
             PatchPilot finds the CVEs that actually reach your code, lets OpenAI Codex write the fix
-            in a sandbox, signs the result, and waits for a tap on your phone. No auto-merge.
-            No data leak. No faked integrations.
+            in a sandbox, signs the result, and waits for a tap on your phone. Every integration runs
+            live — Codex, OSV, GitHub, Telegram — with a full audit trail behind each change.
           </p>
           <div className="lp-cta">
             <a className="lp-btn" href="/dashboard">Open the dashboard <ArrowRight size={16} /></a>
@@ -88,16 +81,6 @@ export default function Landing() {
             <div className="t-line t-dim">{"  "}Fix the reachable ones first.</div>
           </div>
         </div>
-      </section>
-
-      {/* ===== Stats ===== */}
-      <section className="lp-stats">
-        {STATS.map(([n, l]) => (
-          <div className="lp-stat" key={l}>
-            <div className="lp-stat-n">{n}</div>
-            <div className="lp-stat-l">{l}</div>
-          </div>
-        ))}
       </section>
 
       {/* ===== How it works ===== */}
@@ -132,7 +115,7 @@ export default function Landing() {
 
       {/* ===== Stack ===== */}
       <section className="lp-section">
-        <span className="lp-section-label"><Terminal size={13} /> Built on real tools — no faked integrations</span>
+        <span className="lp-section-label"><Terminal size={13} /> Integrated with the tools you already trust</span>
         <div className="lp-stack">
           {STACK.map((s) => <span className="lp-chip" key={s}>{s}</span>)}
         </div>

@@ -11,7 +11,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <SideNav />
         <div className="sidebar-foot">
           <ShieldCheck size={15} />
-          <span>Real integrations only. Missing credentials show unavailable — never faked.</span>
+          <span>Live integrations. Anything not configured is labeled clearly, so the dashboard reflects reality.</span>
         </div>
       </aside>
       <main className="main">

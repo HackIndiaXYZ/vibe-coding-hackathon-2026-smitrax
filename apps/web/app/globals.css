@@ -735,16 +735,6 @@ td:first-child {
 .lp-term-body .t-yel { color: var(--warn); font-weight: 500; }
 .lp-term-body .t-acc { color: var(--primary-active); }
 
-/* Stats strip */
-.lp-stats {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
-  border: 1px solid var(--hairline); border-radius: var(--radius-lg); overflow: hidden;
-  background: var(--hairline);
-}
-.lp-stat { background: var(--surface); padding: 22px 24px; }
-.lp-stat-n { font-family: var(--mono); font-size: 28px; font-weight: 500; letter-spacing: -1px; color: var(--text); }
-.lp-stat-l { margin-top: 4px; font-size: 13px; color: var(--muted); }
-
 .lp-section { padding: 60px 0 0; }
 .lp-section-label {
   display: inline-flex; align-items: center; gap: 8px;
@@ -757,26 +747,28 @@ td:first-child {
 }
 .lp-note { margin: 22px 0 0; max-width: 70ch; font-size: 14.5px; line-height: 1.6; color: var(--muted); }
 
-/* Pipeline with connectors */
+/* Pipeline — clean uniform step cards (no connector line) */
 .lp-pipeline {
   margin-top: 28px; display: grid; grid-template-columns: repeat(9, 1fr); gap: 10px;
-  position: relative;
-}
-.lp-pipeline::before {
-  content: ""; position: absolute; top: 50%; left: 2%; right: 2%; height: 1px;
-  background: var(--hairline-strong); z-index: 0;
 }
 .lp-step {
-  position: relative; z-index: 1;
-  padding: 16px 8px; border-radius: 10px; text-align: center;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
+  padding: 18px 14px; border-radius: 12px;
   background: var(--surface); border: 1px solid var(--hairline);
   transition: transform 120ms ease, border-color 120ms ease;
 }
 .lp-step:hover { transform: translateY(-3px); border-color: var(--hairline-strong); }
-.lp-step.hot { border-color: var(--primary); background: var(--primary-soft); }
-.lp-step-n { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 1px; }
-.lp-step.hot .lp-step-n { color: var(--primary-active); }
-.lp-step-name { display: block; margin-top: 8px; font-weight: 500; font-size: 13px; letter-spacing: -0.2px; color: var(--text); }
+.lp-step.hot {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--hairline));
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+}
+.lp-step-n {
+  font-family: var(--mono); font-size: 12px; color: var(--muted-soft); letter-spacing: 1px;
+  width: 26px; height: 26px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg-soft); border: 1px solid var(--hairline);
+}
+.lp-step.hot .lp-step-n { color: var(--on-primary); background: var(--primary); border-color: var(--primary); }
+.lp-step-name { display: block; font-weight: 500; font-size: 13.5px; letter-spacing: -0.2px; color: var(--text); line-height: 1.25; }
 
 /* Feature cards */
 .lp-features { margin-top: 30px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
@@ -825,9 +817,7 @@ td:first-child {
   .lp-hero { grid-template-columns: 1fr; gap: 36px; padding: 44px 0; }
   .lp-h1 { font-size: 40px; letter-spacing: -1.4px; }
   .lp-lede { font-size: 16px; }
-  .lp-stats { grid-template-columns: repeat(2, 1fr); }
   .lp-pipeline { grid-template-columns: repeat(3, 1fr); }
-  .lp-pipeline::before { display: none; }
   .lp-features { grid-template-columns: 1fr; }
   .lp-h2, .lp-final-h { font-size: 26px; }
   .lp-final { padding: 40px 24px; }

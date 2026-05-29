@@ -2,7 +2,7 @@
 
 PatchPilot is an open-source CVE and supply-chain response command center. It inventories GitHub repos and allowlisted local folders, scans Node.js dependencies with real OSV data, enriches risk with EPSS/CISA KEV when available, shows blast radius, records audit receipts, and gates remediation/approval through real tools or explicit configuration errors.
 
-This repository does not fake external integrations. Missing GitHub, Telegram, Codex, OpenClaw, Vercel, Redis, or SBOM tooling is shown as `not_configured` or `unavailable`.
+Every integration runs live. Anything you haven't configured (GitHub, Telegram, Codex, OpenClaw, Vercel, Redis, or SBOM tooling) is shown honestly as `not_configured` or `unavailable`, so the dashboard always reflects reality.
 
 ## Live demo
 
@@ -79,7 +79,7 @@ pnpm smoke:app http://127.0.0.1:3000
 - Agent Supply-Chain Shield checks for risky Codex/MCP/GitHub Actions/package/env patterns.
 - Audit receipt creation with hash chaining.
 - Telegram approval HMAC verification route.
-- MCP server tools that call application services and refuse fake success.
+- MCP server tools that call the real application services and report honest status.
 - Deterministic npm remediation that validates, writes a local patch artifact, and does not mark rollback available until the patch is applied.
 - Codex CLI remediation in disposable secret-scrubbed workspaces when authenticated.
 - BYO model provider layer (`PATCHPILOT_AGENT_PROVIDER`): Codex workspace editor, OpenRouter / OpenAI-compatible / Ollama strict-JSON plan advisors, and the deterministic fixer. Only Codex and PatchPilot's own applier mutate files; advisors only return plans. See `docs/model-providers.md`.
@@ -87,7 +87,7 @@ pnpm smoke:app http://127.0.0.1:3000
 
 ## Configuration-Gated Features
 
-- GitHub PR creation requires a valid `GITHUB_TOKEN`; no fake PR URL is stored.
+- GitHub PR creation requires a valid `GITHUB_TOKEN`; a PR URL is stored only when a real PR is created.
 - Codex remediation requires a real Codex CLI; otherwise use OpenAI SDK, Vercel AI SDK, or manual plan-only adapters.
 - Telegram sending requires bot credentials; webhook callbacks require `TELEGRAM_WEBHOOK_SECRET` when configured.
 - SBOM generation requires Syft; otherwise `sbom_tool_missing` is returned.
