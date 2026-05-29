@@ -1,6 +1,6 @@
 {
   "name": "@patchpilot/cli",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "PatchPilot CLI — standalone supply-chain scanner (npm + PyPI) with reachability (VEX-lite) triage.",
   "license": "MIT",
   "type": "module",

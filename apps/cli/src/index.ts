@@ -157,7 +157,9 @@ async function main(): Promise<void> {
   if (json) {
     console.log(JSON.stringify({ target, scanner: result.scanner, count: findings.length, findings }, null, 2));
   } else {
-    printReport(findings, result.scanner);
+    const groups = groupByPackage(findings);
+    await resolveRealFixes(groups);
+    printReport(groups, findings.length, result.scanner);
   }
 
   if (failOn && SEVERITY_RANK[failOn] !== undefined) {
@@ -180,8 +182,15 @@ function maxVersion(a: string | null, b: string | null): string | null {
 }
 
 interface Group {
-  package: string; currentVersion: string; severity: string;
+  package: string; ecosystem: string; currentVersion: string; severity: string;
   fixedVersion: string | null; reachability: string; count: number;
+}
+
+const isStable = (v: string) => /^\d+\.\d+\.\d+$/.test(v);
+function cmpVersion(a: string, b: string): number {
+  const pa = a.split(".").map((n) => parseInt(n, 10)), pb = b.split(".").map((n) => parseInt(n, 10));
+  for (let i = 0; i < 3; i++) { const x = pa[i] ?? 0, y = pb[i] ?? 0; if (x !== y) return x - y; }
+  return 0;
 }
 
 /** Groups per-advisory findings into one row per package. */
@@ -191,7 +200,7 @@ function groupByPackage(findings: Array<Record<string, any>>): Group[] {
     const key = `${f.package}@${f.currentVersion}`;
     const g = map.get(key);
     if (!g) {
-      map.set(key, { package: f.package, currentVersion: f.currentVersion, severity: f.severity,
+      map.set(key, { package: f.package, ecosystem: f.ecosystem, currentVersion: f.currentVersion, severity: f.severity,
         fixedVersion: f.fixedVersion, reachability: f.reachability, count: 1 });
     } else {
       if ((SEVERITY_RANK[f.severity] ?? 0) > (SEVERITY_RANK[g.severity] ?? 0)) g.severity = f.severity;
@@ -207,15 +216,57 @@ function groupByPackage(findings: Array<Record<string, any>>): Group[] {
   });
 }
 
-function printReport(findings: Array<Record<string, any>>, scanner: string): void {
-  if (findings.length === 0) {
+/**
+ * OSV "fixed" bounds are sometimes synthetic (e.g. lodash 4.18.0, which was
+ * never published). Resolve each group's fix to the lowest *real* published
+ * stable version that is >= the OSV target, so the recommendation is installable.
+ */
+async function resolveRealFixes(groups: Group[]): Promise<void> {
+  await Promise.all(groups.map(async (g) => {
+    if (!g.fixedVersion) return;
+    try {
+      const versions = await registryVersions(g.package, g.ecosystem);
+      if (!versions.length) return;
+      const target = g.fixedVersion;
+      const atOrAbove = versions.filter((v) => cmpVersion(v, target) >= 0).sort(cmpVersion);
+      // Lowest real published version that clears all advisories; else the latest real version.
+      g.fixedVersion = atOrAbove[0] ?? [...versions].sort(cmpVersion)[versions.length - 1] ?? target;
+    } catch { /* offline → keep the OSV target */ }
+  }));
+}
+
+async function registryVersions(pkg: string, ecosystem: string): Promise<string[]> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    if (/pypi|python|pip/i.test(ecosystem)) {
+      const res = await fetch(`https://pypi.org/pypi/${encodeURIComponent(pkg)}/json`, { signal: ctrl.signal });
+      if (!res.ok) return [];
+      const body: any = await res.json();
+      return Object.keys(body.releases ?? {}).filter(isStable);
+    }
+    // Abbreviated packument (~50x smaller than the full doc) so big packages
+    // like lodash parse well within the timeout.
+    const res = await fetch(`https://registry.npmjs.org/${encodeURIComponent(pkg).replace("%40", "@")}`, {
+      signal: ctrl.signal,
+      headers: { accept: "application/vnd.npm.install-v1+json" }
+    });
+    if (!res.ok) return [];
+    const body: any = await res.json();
+    return Object.keys(body.versions ?? {}).filter(isStable);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function printReport(groups: Group[], advisoryCount: number, scanner: string): void {
+  if (groups.length === 0) {
     console.log("\n" + c(C.green, "  ✓ No known vulnerable dependencies found.") + c(C.dim, `  (scanner: ${scanner})\n`));
     return;
   }
-  const groups = groupByPackage(findings);
   console.log("");
   console.log("  " + c(C.bold, `${groups.length} vulnerable package${groups.length === 1 ? "" : "s"}`)
-    + c(C.dim, `  ·  ${findings.length} advisories  ·  scanner: ${scanner}`));
+    + c(C.dim, `  ·  ${advisoryCount} advisories  ·  scanner: ${scanner}`));
   console.log("");
   for (const g of groups) {
     const sev = (SHORT_SEV[g.severity] ?? "·").padEnd(4);

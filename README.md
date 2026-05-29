@@ -6,7 +6,7 @@ Every integration runs live. Anything you haven't configured (GitHub, Telegram, 
 
 ## Live demo
 
-**[trypatchpilot.vercel.app](https://trypatchpilot.vercel.app)** — a hosted
+**[trypatchpilot.vercel.app](https://trypatchpilot.vercel.app)** is a hosted
 preview with seeded demo data so you can explore the landing page and dashboard
 without installing anything. For real scans of your own repos, self-host (below)
 or use the CLI.
@@ -14,7 +14,7 @@ or use the CLI.
 ## Scan any project in one command
 
 ```bash
-# from anywhere — published on npm
+# from anywhere (published on npm)
 npx patchpilot-cli scan ./my-app --fail-on high
 
 # or from this repo
@@ -22,7 +22,7 @@ pnpm scan:cli /absolute/path/to/your/project
 ```
 
 The CLI runs a real OSV scan and tags each finding with the **reachability
-(VEX-lite)** signal — fix what's actually imported first. See `apps/cli/README.md`.
+(VEX-lite)** signal, so you fix what's actually imported first. See `apps/cli/README.md`.
 
 ## Quick Start
 
@@ -102,14 +102,14 @@ pnpm smoke:app http://127.0.0.1:3000
 
 ## Documentation
 
-See `docs/implementation-notes.md`, `BUILD_PLAN.md`, and `FEATURE_MATRIX.md` first. The rest of `docs/` describes architecture, security, integrations, MCP, plugin SDK, SBOM, testing, deployment, troubleshooting, and demo flow.
+Start with `docs/CONCEPT.md` for the product walkthrough. The rest of `docs/`
+covers architecture, security, scanners, watch mode, Codex integration, model
+providers, the MCP server, Telegram approvals, and an environment reference.
 
 Repository layout:
 
-- `docs/` — topic guides (architecture, security, integrations, codex, model-providers, telegram, testing, demo-freeze). `docs/verification/` holds live-integration checklists.
-- `docs/spec/` — the numbered product/build specification (`00_`…`19_`).
-- `docs/assets/` — images such as `patchpilot-dashboard.png`.
-- `apps/` — `web` (Next.js dashboard + API), `worker`, `mcp`.
-- `packages/core` — scanning, risk, remediation, Codex, GitHub, Telegram, audit logic.
-- `scripts/` — local/live verification entry points (`verify:*`, `demo:live`).
-- `tests/fixtures/` — disposable vulnerable fixture used by verifiers.
+- `docs/`: topic guides (architecture, security, scanners, codex-integration, model-providers, mcp-server, telegram-approval, watch-mode, env-reference).
+- `apps/`: `web` (Next.js dashboard + API + landing), `worker`, `mcp`, `cli`.
+- `packages/core`: scanning, risk, remediation, Codex, GitHub, Telegram, audit logic.
+- `scripts/`: local/live verification entry points (`verify:*`, `demo:live`).
+- `tests/fixtures/`: disposable vulnerable fixture used by verifiers.

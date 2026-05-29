@@ -2,6 +2,7 @@ import {
   ArrowRight, Github, ShieldCheck, GitPullRequest, Target, Boxes,
   FileSignature, Smartphone, Terminal, ScanLine, Radar
 } from "lucide-react";
+import { CopyCommand } from "../components/CopyCommand";
 
 const REPO = "https://github.com/MokiMeow/PatchPilot";
 
@@ -43,8 +44,8 @@ export default function Landing() {
         <div className="lp-hero-copy">
           <span className="lp-eyebrow">Watch Commander · supply-chain security</span>
           <h1 className="lp-h1">
-            The model <em>plans</em> the fix.<br />
-            A <span className="lp-accent">signed, human-approved</span> pipeline applies it.
+            <span className="sentence">The model <em>plans</em> the fix.</span>
+            <span className="sentence">A <span className="lp-accent">signed, human-approved</span> pipeline applies it.</span>
           </h1>
           <p className="lp-lede">
             PatchPilot finds the CVEs that actually reach your code, lets OpenAI Codex write the fix
@@ -55,10 +56,7 @@ export default function Landing() {
             <a className="lp-btn" href="/dashboard">Open the dashboard <ArrowRight size={16} /></a>
             <a className="lp-btn lp-btn-ghost" href={REPO} target="_blank" rel="noreferrer"><Github size={16} /> View on GitHub</a>
           </div>
-          <div className="lp-install">
-            <span className="lp-install-label">Scan your own project</span>
-            <code className="lp-install-cmd"><span className="lp-install-prompt">$</span> npx patchpilot-cli scan .</code>
-          </div>
+          <CopyCommand label="Scan your own project" command="npx patchpilot-cli scan ." />
           <div className="lp-trust">
             <span><ShieldCheck size={14} /> No auto-merge, no auto-deploy</span>
             <span><GitPullRequest size={14} /> Signed provenance on every fix</span>

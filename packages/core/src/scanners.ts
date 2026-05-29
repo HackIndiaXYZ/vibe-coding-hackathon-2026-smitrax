@@ -124,27 +124,62 @@ function spawnTool(command: string, args: string[], options: { cwd?: string; tim
 }
 
 function probeVersion(command: string): string | undefined {
+  if (command === WSL_SEMGREP) return semgrepWslVersion();
   const result = spawnTool(command, ["--version"], { timeoutMs: 5000 });
   if ((result.status ?? 1) !== 0) return undefined;
   return redact((result.stdout || result.stderr || "").split(/\r?\n/)[0]?.trim() ?? "").slice(0, 80) || undefined;
 }
 
+// ---- WSL-backed Semgrep (Windows) ----
+// Semgrep's launcher doesn't run on native Windows, but it works under WSL.
+// When WSL has semgrep, PatchPilot runs it there transparently.
+const WSL_SEMGREP = "wsl:semgrep";
+// Resolve semgrep inside WSL whether or not ~/.local/bin is on PATH.
+const WSL_SEMGREP_BIN = '"$(command -v semgrep || echo "$HOME/.local/bin/semgrep")"';
+
+/** Translates a Windows path (C:\\a\\b) to a WSL path (/mnt/c/a/b). */
+function toWslPath(p: string): string {
+  const m = /^([A-Za-z]):[\\/](.*)$/.exec(p);
+  return m ? `/mnt/${m[1]!.toLowerCase()}/${m[2]!.replace(/\\/g, "/")}` : p;
+}
+
+/** Returns the WSL semgrep version (with a "(WSL)" tag) when available on Windows. */
+function semgrepWslVersion(): string | undefined {
+  if (process.platform !== "win32") return undefined;
+  const r = spawnSync("wsl", ["bash", "-lc", `${WSL_SEMGREP_BIN} --version`], { encoding: "utf8", timeout: 12000 });
+  if ((r.status ?? 1) !== 0) return undefined;
+  const v = (r.stdout || "").trim().split(/\r?\n/).pop()?.trim();
+  return v && /^\d+\.\d+/.test(v) ? `${v} (WSL)` : undefined;
+}
+
 /** Honest external-tool detection — never runs a scan, only checks availability. */
 export function detectScannerTools(): ScannerToolInfo[] {
   return EXTERNAL_SCANNER_TOOLS.map((tool) => {
-    const command = toolCommand(tool);
-    if (!toolEnabled(tool)) {
-      return { id: tool.id, category: tool.category, label: tool.label, status: "disabled" as const, command, installHint: tool.installHint };
+    // Windows: Semgrep can't run natively but works under WSL. If the native
+    // command is missing and WSL has semgrep, report it as enabled via WSL.
+    if (tool.id === "semgrep" && toolEnabled(tool) && process.platform === "win32" && !commandExists(toolCommand(tool))) {
+      const wslVersion = semgrepWslVersion();
+      if (wslVersion) {
+        return { id: tool.id, category: tool.category, label: tool.label, status: "enabled" as const, command: WSL_SEMGREP, version: wslVersion, installHint: tool.installHint };
+      }
     }
-    if (!commandExists(command)) {
-      return { id: tool.id, category: tool.category, label: tool.label, status: "tool_missing" as const, command, installHint: tool.installHint };
-    }
-    const version = probeVersion(command);
-    if (!version) {
-      return { id: tool.id, category: tool.category, label: tool.label, status: "tool_missing" as const, command, installHint: `${tool.installHint} The configured command exists but did not return a usable --version response.` };
-    }
-    return { id: tool.id, category: tool.category, label: tool.label, status: "enabled" as const, command, version, installHint: tool.installHint };
+    return detectOne(tool);
   });
+}
+
+function detectOne(tool: (typeof EXTERNAL_SCANNER_TOOLS)[number]): ScannerToolInfo {
+  const command = toolCommand(tool);
+  if (!toolEnabled(tool)) {
+    return { id: tool.id, category: tool.category, label: tool.label, status: "disabled", command, installHint: tool.installHint };
+  }
+  if (!commandExists(command)) {
+    return { id: tool.id, category: tool.category, label: tool.label, status: "tool_missing", command, installHint: tool.installHint };
+  }
+  const version = probeVersion(command);
+  if (!version) {
+    return { id: tool.id, category: tool.category, label: tool.label, status: "tool_missing", command, installHint: `${tool.installHint} The configured command exists but did not return a usable --version response.` };
+  }
+  return { id: tool.id, category: tool.category, label: tool.label, status: "enabled", command, version, installHint: tool.installHint };
 }
 
 // ---------- pure helpers ----------
@@ -584,14 +619,26 @@ function runGitleaks(projectPath: string, command: string, timeoutMs: number): S
 
 function runSemgrep(projectPath: string, command: string, timeoutMs: number): ScannerResult {
   const startedAt = now();
-  const result = runExternal(command, ["scan", "--json", "--quiet", "--config", "auto", projectPath], projectPath, timeoutMs);
+  const result = command === WSL_SEMGREP
+    ? runSemgrepWsl(projectPath, timeoutMs)
+    : runExternal(command, ["scan", "--json", "--quiet", "--metrics=off", "--config", "auto", projectPath], projectPath, timeoutMs);
   if (result.timedOut) {
     return { scanner: "semgrep", category: "sast", status: "error", startedAt, finishedAt: now(), durationMs: elapsed(startedAt), findings: [], errors: [`semgrep timed out after ${timeoutMs}ms`], complete: false };
   }
   if (!result.stdout.trim()) {
     return { scanner: "semgrep", category: "sast", status: "error", startedAt, finishedAt: now(), durationMs: elapsed(startedAt), findings: [], errors: [result.stderr.slice(0, 300) || "semgrep produced no output"], complete: false };
   }
-  return { scanner: "semgrep", category: "sast", status: "completed", version: probeVersion(command), startedAt, finishedAt: now(), durationMs: elapsed(startedAt), findings: parseSemgrepJson(result.stdout), errors: [], complete: true };
+  const version = command === WSL_SEMGREP ? semgrepWslVersion() : probeVersion(command);
+  return { scanner: "semgrep", category: "sast", status: "completed", version, startedAt, finishedAt: now(), durationMs: elapsed(startedAt), findings: parseSemgrepJson(result.stdout), errors: [], complete: true };
+}
+
+/** Runs Semgrep inside WSL against a Windows project path (translated to /mnt). */
+function runSemgrepWsl(projectPath: string, timeoutMs: number): { status: number; stdout: string; stderr: string; timedOut: boolean } {
+  const wslPath = toWslPath(projectPath);
+  const shell = `cd '${wslPath.replace(/'/g, "'\\''")}' && ${WSL_SEMGREP_BIN} scan --json --quiet --metrics=off --config auto .`;
+  const r = spawnSync("wsl", ["bash", "-lc", shell], { encoding: "utf8", timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024 });
+  const errnoCode = r.error && "code" in r.error ? (r.error as NodeJS.ErrnoException).code : undefined;
+  return { status: r.status ?? 1, stdout: r.stdout ?? "", stderr: redact(r.stderr ?? ""), timedOut: errnoCode === "ETIMEDOUT" };
 }
 
 function runTrivyFs(projectPath: string, command: string, timeoutMs: number): ScannerResult {
