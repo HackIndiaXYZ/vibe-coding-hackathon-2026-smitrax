@@ -740,3 +740,38 @@ td:first-child {
   .lp-features { grid-template-columns: 1fr; }
   .lp-h2 { font-size: 26px; }
 }
+
+/* ============================================================
+   Dashboard UX enhancements
+   ============================================================ */
+.head-actions { display: inline-flex; align-items: center; gap: 12px; }
+.pill-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; color: var(--muted); font-weight: 500;
+  border: 1px solid var(--hairline-strong); border-radius: 9999px; padding: 5px 12px;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.pill-link:hover { color: var(--text); border-color: var(--primary); }
+
+.kpi-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.kpi-icon { color: var(--muted-soft); }
+.kpi-icon.critical { color: var(--error); }
+.kpi-icon.medium { color: var(--warn); }
+.kpi-icon.ok { color: var(--success); }
+
+/* Reachability pills */
+.reach {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 11.5px; padding: 3px 9px;
+  border-radius: 9999px; border: 1px solid var(--hairline-strong); white-space: nowrap;
+}
+.reach::before { content: ""; width: 6px; height: 6px; border-radius: 9999px; background: currentColor; }
+.reach-hot { color: var(--primary-active); border-color: color-mix(in srgb, var(--primary) 40%, transparent); }
+.reach-dim { color: var(--muted-soft); }
+.reach-muted { color: var(--muted); }
+
+/* Empty-state cell */
+.empty-cell { padding: 26px 8px !important; }
+.empty-cell strong { display: block; color: var(--text); font-size: 14px; margin-bottom: 6px; }
+.empty-cell span { display: block; color: var(--muted); font-size: 13px; line-height: 1.55; max-width: 60ch; margin-bottom: 12px; }
+.empty-cell code { font-family: var(--mono); font-size: 12px; color: var(--body); }
