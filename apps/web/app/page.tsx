@@ -1,35 +1,40 @@
-import { ArrowRight, ShieldCheck, GitPullRequest, Github } from "lucide-react";
+import {
+  ArrowRight, Github, ShieldCheck, GitPullRequest, Target, Boxes,
+  FileSignature, Smartphone, Terminal, ScanLine, Radar
+} from "lucide-react";
 
 const REPO = "https://github.com/MokiMeow/PatchPilot";
 
-const PIPELINE = [
-  ["01", "Inventory", "github + local"],
-  ["02", "Scan", "OSV + scanners"],
-  ["03", "Reachability", "only what's used"],
-  ["04", "Risk", "EPSS + CISA KEV"],
-  ["05", "Codex writes", "GPT-5.5, sandboxed"],
-  ["06", "Validate", "build + tests pass"],
-  ["07", "Attest", "signed proof"],
-  ["08", "Approve", "phone tap, HMAC"],
-  ["09", "Audit", "tamper-evident"]
+const STATS = [
+  ["112", "tests passing"],
+  ["npm + PyPI", "ecosystems scanned"],
+  ["5", "real scanners"],
+  ["~25", "MCP tools"]
 ] as const;
 
+const PIPELINE = [
+  ["01", "Inventory"], ["02", "Scan"], ["03", "Reachability"], ["04", "Risk"],
+  ["05", "Codex writes"], ["06", "Validate"], ["07", "Attest"], ["08", "Approve"], ["09", "Audit"]
+] as const;
+const HOT = new Set([2, 4, 6]);
+
 const FEATURES = [
-  ["Reachability / VEX-lite", "Is the vulnerable package actually imported in your source? If not, it's de-prioritized. The CVE wall shrinks to the handful that matter."],
-  ["Connect any model", "Codex (GPT-5.5) is the only model that writes to the repo. Behind it, configured cloud or local providers by policy, then a deterministic fallback. Secrets never reach the cloud."],
-  ["Signed attestation", "Every fix ships a verifiable HMAC statement of from→to, validation result, and files changed — embedded in the PR."],
-  ["Human-in-the-loop", "Inline Telegram buttons to approve, reject, retry safer, or rollback. No auto-merge, no auto-deploy, no exceptions."]
+  [Target, "Reachability / VEX-lite", "Is the vulnerable package actually imported in your source? If not, it's de-prioritized. The CVE wall shrinks to the handful that matter."],
+  [Boxes, "Connect any model", "Codex (GPT-5.5) is the only model that writes to the repo. Behind it, configured cloud or local providers by policy, then a deterministic fallback. Secrets never reach the cloud."],
+  [FileSignature, "Signed attestation", "Every fix ships a verifiable HMAC statement of from→to, validation result, and files changed — embedded in the pull request."],
+  [Smartphone, "Human-in-the-loop", "Inline Telegram buttons to approve, reject, retry safer, or rollback. No auto-merge, no auto-deploy, no exceptions."]
 ] as const;
 
 const STACK = [
-  "OpenAI Codex · GPT-5.5", "Ollama · local", "OpenRouter · any model",
-  "OSV + OSV-Scanner", "Gitleaks", "Trivy", "Syft · SBOM",
-  "EPSS", "CISA KEV", "MCP server", "Telegram · HMAC", "Postgres 16", "Redis · BullMQ"
+  "OpenAI Codex · GPT-5.5", "Ollama · local", "OpenRouter · any model", "OSV + OSV-Scanner",
+  "Gitleaks", "Trivy", "Syft · SBOM", "EPSS", "CISA KEV", "MCP server",
+  "Telegram · HMAC", "Postgres 16", "Redis · BullMQ", "Next.js 16", "TypeScript"
 ];
 
 export default function Landing() {
   return (
     <div className="lp">
+      <div className="lp-glow" aria-hidden="true" />
       <header className="lp-nav">
         <a className="lp-brand" href="/"><span className="lp-dot" />PatchPilot</a>
         <nav className="lp-nav-links">
@@ -42,69 +47,103 @@ export default function Landing() {
 
       {/* ===== Hero ===== */}
       <section className="lp-hero">
-        <span className="lp-eyebrow">Watch Commander for supply-chain security</span>
-        <h1 className="lp-h1">
-          The model <em>plans</em> the fix.<br />
-          A <span className="lp-accent">signed, human-approved</span> pipeline applies it.
-        </h1>
-        <p className="lp-lede">
-          PatchPilot finds the CVEs that actually reach your code, lets OpenAI Codex write the fix
-          inside a sandbox, signs the result, and waits for a tap on your phone. No auto-merge.
-          No data leak. No faked integrations.
-        </p>
-        <div className="lp-cta">
-          <a className="lp-btn" href="/dashboard">Open the dashboard <ArrowRight size={16} /></a>
-          <a className="lp-btn lp-btn-ghost" href={REPO} target="_blank" rel="noreferrer"><Github size={16} /> View on GitHub</a>
+        <div className="lp-hero-copy">
+          <span className="lp-eyebrow">Watch Commander · supply-chain security</span>
+          <h1 className="lp-h1">
+            The model <em>plans</em> the fix.<br />
+            A <span className="lp-accent">signed, human-approved</span> pipeline applies it.
+          </h1>
+          <p className="lp-lede">
+            PatchPilot finds the CVEs that actually reach your code, lets OpenAI Codex write the fix
+            in a sandbox, signs the result, and waits for a tap on your phone. No auto-merge.
+            No data leak. No faked integrations.
+          </p>
+          <div className="lp-cta">
+            <a className="lp-btn" href="/dashboard">Open the dashboard <ArrowRight size={16} /></a>
+            <a className="lp-btn lp-btn-ghost" href={REPO} target="_blank" rel="noreferrer"><Github size={16} /> View on GitHub</a>
+          </div>
+          <div className="lp-trust">
+            <span><ShieldCheck size={14} /> No auto-merge / no auto-deploy</span>
+            <span><GitPullRequest size={14} /> Signed provenance on every fix</span>
+          </div>
         </div>
-        <div className="lp-trust">
-          <span><ShieldCheck size={14} /> No auto-merge / no auto-deploy</span>
-          <span><GitPullRequest size={14} /> Signed provenance on every fix</span>
-          <span className="lp-mono">npm + PyPI · 112 tests</span>
+
+        <div className="lp-terminal" aria-hidden="true">
+          <div className="lp-term-bar">
+            <span className="lp-term-lights"><i /><i /><i /></span>
+            <span className="lp-term-title">patchpilot — scan</span>
+          </div>
+          <div className="lp-term-body">
+            <div className="t-line"><span className="t-mut">$</span> npx patchpilot-cli scan ./storefront</div>
+            <div className="t-line t-dim">Scanning 318 deps via OSV…</div>
+            <div className="t-line">&nbsp;</div>
+            <div className="t-line"><span className="t-red">CRIT</span>{"  "}<span className="t-b">lodash</span><span className="t-dim">@4.17.11</span>{"   "}<span className="t-grn">→ 4.17.21</span></div>
+            <div className="t-line t-dim">{"      "}<span className="t-acc">● reachable</span> · GHSA-jf85</div>
+            <div className="t-line"><span className="t-yel">HIGH</span>{"  "}<span className="t-b">axios</span><span className="t-dim">@1.4.0</span>{"      "}<span className="t-grn">→ 1.6.2</span></div>
+            <div className="t-line t-dim">{"      "}<span className="t-acc">● reachable</span> · GHSA-wf5p</div>
+            <div className="t-line t-dim">LOW{"   "}color-convert{"    "}○ likely unused</div>
+            <div className="t-line t-dim">MED{"   "}minimist{"         "}○ transitive</div>
+            <div className="t-line">&nbsp;</div>
+            <div className="t-line"><span className="t-acc">▸</span> <span className="t-b">2 reachable</span> <span className="t-dim">· 2 de-prioritized</span></div>
+            <div className="t-line t-dim">{"  "}Fix the reachable ones first.</div>
+          </div>
         </div>
+      </section>
+
+      {/* ===== Stats ===== */}
+      <section className="lp-stats">
+        {STATS.map(([n, l]) => (
+          <div className="lp-stat" key={l}>
+            <div className="lp-stat-n">{n}</div>
+            <div className="lp-stat-l">{l}</div>
+          </div>
+        ))}
       </section>
 
       {/* ===== How it works ===== */}
       <section className="lp-section" id="how">
-        <span className="lp-section-label">How it works</span>
+        <span className="lp-section-label"><Radar size={13} /> How it works</span>
         <h2 className="lp-h2">Nine steps from a CVE to a signed, approved fix.</h2>
         <div className="lp-pipeline">
-          {PIPELINE.map(([n, name, sub], i) => (
-            <div className={`lp-step${[2, 4, 6].includes(i) ? " hot" : ""}`} key={n}>
+          {PIPELINE.map(([n, name], i) => (
+            <div className={`lp-step${HOT.has(i) ? " hot" : ""}`} key={n}>
               <span className="lp-step-n">{n}</span>
               <span className="lp-step-name">{name}</span>
-              <span className="lp-step-sub">{sub}</span>
             </div>
           ))}
         </div>
+        <p className="lp-note">Highlighted steps are PatchPilot's edge: <span className="lp-accent">reachability triage</span>, <span className="lp-accent">Codex-written fixes</span>, and a <span className="lp-accent">signed attestation</span> — all gated behind a human tap.</p>
       </section>
 
       {/* ===== Features ===== */}
       <section className="lp-section" id="features">
-        <span className="lp-section-label">What makes it different</span>
+        <span className="lp-section-label"><ScanLine size={13} /> What makes it different</span>
         <h2 className="lp-h2">Triage what's reachable. Fix it safely. Prove it with a signature.</h2>
         <div className="lp-features">
-          {FEATURES.map(([title, body], i) => (
-            <div className="lp-feature" key={title}>
-              <span className="lp-feature-n">0{i + 1}</span>
-              <h3>{title}</h3>
-              <p>{body}</p>
+          {FEATURES.map(([Icon, title, body]) => (
+            <div className="lp-feature" key={title as string}>
+              <span className="lp-feature-ic"><Icon size={18} /></span>
+              <h3>{title as string}</h3>
+              <p>{body as string}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* ===== Stack + CTA ===== */}
-      <section className="lp-section lp-stack-section">
-        <span className="lp-section-label">Built on real tools — no faked integrations</span>
+      {/* ===== Stack ===== */}
+      <section className="lp-section">
+        <span className="lp-section-label"><Terminal size={13} /> Built on real tools — no faked integrations</span>
         <div className="lp-stack">
           {STACK.map((s) => <span className="lp-chip" key={s}>{s}</span>)}
         </div>
-        <div className="lp-final">
-          <h2 className="lp-h2">Your repos and your AI agents. <span className="lp-accent">One command center.</span></h2>
-          <div className="lp-cta">
-            <a className="lp-btn" href="/dashboard">Open the dashboard <ArrowRight size={16} /></a>
-            <a className="lp-btn lp-btn-ghost" href={REPO} target="_blank" rel="noreferrer"><Github size={16} /> Star on GitHub</a>
-          </div>
+      </section>
+
+      {/* ===== Final CTA ===== */}
+      <section className="lp-final">
+        <h2 className="lp-final-h">Your repos and your AI agents.<br /><span className="lp-accent">One command center.</span></h2>
+        <div className="lp-cta">
+          <a className="lp-btn" href="/dashboard">Open the dashboard <ArrowRight size={16} /></a>
+          <a className="lp-btn lp-btn-ghost" href={REPO} target="_blank" rel="noreferrer"><Github size={16} /> Star on GitHub</a>
         </div>
       </section>
 
