@@ -56,3 +56,5 @@ yarn-debug.log*
 
 # Downloaded scanner binaries (local)
 .tools/
+
+.vercel
