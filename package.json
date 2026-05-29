@@ -17,6 +17,7 @@
     "verify:container": "tsx scripts/verify-container.ts",
     "install:scanners": "node scripts/install-scanners.mjs",
     "deck:pptx": "node scripts/build-deck-pptx.mjs",
+    "demo:seed": "tsx scripts/make-demo-seed.ts",
     "mcp:dev": "pnpm --filter @patchpilot/mcp dev",
     "verify:plugin-mcp": "pnpm --filter @patchpilot/mcp verify:plugin",
     "build": "pnpm -r build",
