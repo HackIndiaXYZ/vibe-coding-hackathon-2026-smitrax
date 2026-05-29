@@ -4,6 +4,26 @@ PatchPilot is an open-source CVE and supply-chain response command center. It in
 
 This repository does not fake external integrations. Missing GitHub, Telegram, Codex, OpenClaw, Vercel, Redis, or SBOM tooling is shown as `not_configured` or `unavailable`.
 
+## Live demo
+
+**[patchpilot-sigma.vercel.app](https://patchpilot-sigma.vercel.app)** — a hosted
+preview with seeded demo data so you can explore the landing page and dashboard
+without installing anything. For real scans of your own repos, self-host (below)
+or use the CLI.
+
+## Scan any project in one command
+
+```bash
+# from this repo (no publish needed)
+pnpm scan:cli /absolute/path/to/your/project
+
+# or, once published, from anywhere
+npx @patchpilot/cli scan ./my-app --fail-on high
+```
+
+The CLI runs a real OSV scan and tags each finding with the **reachability
+(VEX-lite)** signal — fix what's actually imported first. See `apps/cli/README.md`.
+
 ## Quick Start
 
 ```bash
