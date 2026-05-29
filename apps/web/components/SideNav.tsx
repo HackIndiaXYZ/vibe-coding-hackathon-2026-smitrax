@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { Activity, Bell, Boxes, CheckSquare, Eye, Gauge, GitPullRequest, Radar, ReceiptText, ScanLine, Settings, Shield, SquareStack } from "lucide-react";
 
 const NAV = [
-  ["/", "Watch Commander", Gauge],
+  ["/dashboard", "Watch Commander", Gauge],
   ["/threat-radar", "Threat Radar", Radar],
   ["/scanners", "Scanner Coverage", ScanLine],
   ["/watch", "Watch Mode", Eye],
@@ -24,7 +24,7 @@ export function SideNav() {
   return (
     <nav className="nav">
       {NAV.map(([href, label, Icon]) => {
-        const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+        const active = pathname === href || pathname.startsWith(`${href}/`);
         return (
           <a key={href} href={href} className={active ? "active" : undefined} aria-current={active ? "page" : undefined}>
             <Icon size={16} />

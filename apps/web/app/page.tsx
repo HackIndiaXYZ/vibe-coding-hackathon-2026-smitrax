@@ -1,115 +1,117 @@
-import { JsonDatabase, PatchPilotService, agentProviderReadiness, integrationHealth } from "@patchpilot/core";
+import { ArrowRight, ShieldCheck, GitPullRequest, Github } from "lucide-react";
 
-export default function Dashboard() {
-  const db = new JsonDatabase();
-  const state = db.read();
-  const service = new PatchPilotService(db);
-  const radar = service.threatRadar();
-  const health = integrationHealth();
-  const providers = agentProviderReadiness();
-  const selectedProvider = providers.find((provider) => provider.selected) ?? providers[0];
+const REPO = "https://github.com/MokiMeow/PatchPilot";
 
-  const openFindings = state.findings.filter((finding) => finding.status !== "resolved").length;
-  const ready = health.filter((item) => item.status === "configured" || item.status === "available");
-  const notReady = health.filter((item) => item.status !== "configured" && item.status !== "available");
+const PIPELINE = [
+  ["01", "Inventory", "github + local"],
+  ["02", "Scan", "OSV + scanners"],
+  ["03", "Reachability", "only what's used"],
+  ["04", "Risk", "EPSS + CISA KEV"],
+  ["05", "Codex writes", "GPT-5.5, sandboxed"],
+  ["06", "Validate", "build + tests pass"],
+  ["07", "Attest", "signed proof"],
+  ["08", "Approve", "phone tap, HMAC"],
+  ["09", "Audit", "tamper-evident"]
+] as const;
 
-  const kpis: Array<{ label: string; value: number; foot: string; tone?: string }> = [
-    { label: "Open findings", value: openFindings, foot: "From real scans" },
-    { label: "Critical / high", value: radar.criticalHighRisks, foot: "Risk engine output", tone: radar.criticalHighRisks > 0 ? "critical" : "ok" },
-    { label: "Fixes available", value: radar.fixesAvailable, foot: "Safe upgrade known", tone: "ok" },
-    { label: "Approvals pending", value: radar.approvalsPending, foot: "Signed queue", tone: radar.approvalsPending > 0 ? "medium" : undefined }
-  ];
+const FEATURES = [
+  ["Reachability / VEX-lite", "Is the vulnerable package actually imported in your source? If not, it's de-prioritized. The CVE wall shrinks to the handful that matter."],
+  ["Connect any model", "Codex (GPT-5.5) is the only model that writes to the repo. Behind it, configured cloud or local providers by policy, then a deterministic fallback. Secrets never reach the cloud."],
+  ["Signed attestation", "Every fix ships a verifiable HMAC statement of from→to, validation result, and files changed — embedded in the PR."],
+  ["Human-in-the-loop", "Inline Telegram buttons to approve, reject, retry safer, or rollback. No auto-merge, no auto-deploy, no exceptions."]
+] as const;
 
-  const signals: Array<{ label: string; value: number; tone?: string }> = [
-    { label: "Actively exploited (KEV)", value: radar.activelyExploited, tone: radar.activelyExploited > 0 ? "critical" : undefined },
-    { label: "Malicious package alerts", value: radar.maliciousPackageAlerts, tone: radar.maliciousPackageAlerts > 0 ? "medium" : undefined },
-    { label: "Fixes blocked", value: radar.fixesBlocked },
-    { label: "Remediation jobs running", value: radar.jobsRunning },
-    { label: "Advisories scanned", value: radar.advisoriesScanned }
-  ];
+const STACK = [
+  "OpenAI Codex · GPT-5.5", "Ollama · local", "OpenRouter · any model",
+  "OSV + OSV-Scanner", "Gitleaks", "Trivy", "Syft · SBOM",
+  "EPSS", "CISA KEV", "MCP server", "Telegram · HMAC", "Postgres 16", "Redis · BullMQ"
+];
 
-  const findings = state.findings.slice(-8).reverse();
-
+export default function Landing() {
   return (
-    <>
-      <div className="page-head">
-        <div className="topline">Cross-project CVE &amp; supply-chain response</div>
-        <div className="head-row">
-          <h1>Watch Commander</h1>
-          <span className="badge">remediation: {selectedProvider?.id ?? "codex"}</span>
-        </div>
-      </div>
+    <div className="lp">
+      <header className="lp-nav">
+        <a className="lp-brand" href="/"><span className="lp-dot" />PatchPilot</a>
+        <nav className="lp-nav-links">
+          <a href="#how">How it works</a>
+          <a href="#features">Features</a>
+          <a href={REPO} target="_blank" rel="noreferrer">GitHub</a>
+          <a className="lp-btn lp-btn-sm" href="/dashboard">Open dashboard <ArrowRight size={15} /></a>
+        </nav>
+      </header>
 
-      <section className="grid metrics">
-        {kpis.map((kpi) => (
-          <div className="card" key={kpi.label}>
-            <div className="metric-label">{kpi.label}</div>
-            <div className={`metric-value ${kpi.tone ?? ""}`}>{kpi.value}</div>
-            <div className="metric-foot">{kpi.foot}</div>
-          </div>
-        ))}
+      {/* ===== Hero ===== */}
+      <section className="lp-hero">
+        <span className="lp-eyebrow">Watch Commander for supply-chain security</span>
+        <h1 className="lp-h1">
+          The model <em>plans</em> the fix.<br />
+          A <span className="lp-accent">signed, human-approved</span> pipeline applies it.
+        </h1>
+        <p className="lp-lede">
+          PatchPilot finds the CVEs that actually reach your code, lets OpenAI Codex write the fix
+          inside a sandbox, signs the result, and waits for a tap on your phone. No auto-merge.
+          No data leak. No faked integrations.
+        </p>
+        <div className="lp-cta">
+          <a className="lp-btn" href="/dashboard">Open the dashboard <ArrowRight size={16} /></a>
+          <a className="lp-btn lp-btn-ghost" href={REPO} target="_blank" rel="noreferrer"><Github size={16} /> View on GitHub</a>
+        </div>
+        <div className="lp-trust">
+          <span><ShieldCheck size={14} /> No auto-merge / no auto-deploy</span>
+          <span><GitPullRequest size={14} /> Signed provenance on every fix</span>
+          <span className="lp-mono">npm + PyPI · 112 tests</span>
+        </div>
       </section>
 
-      <section className="grid two">
-        <div className="panel">
-          <div className="section-label">Affected projects</div>
-          <table>
-            <thead>
-              <tr>
-                <th>Project</th>
-                <th>Risk</th>
-                <th>Package</th>
-                <th>Fix</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {findings.length === 0 ? (
-                <tr><td colSpan={5} className="muted">No open findings from a successful real scan yet.</td></tr>
-              ) : findings.map((finding) => {
-                const project = state.projects.find((item) => item.id === finding.projectId);
-                return (
-                  <tr key={finding.id}>
-                    <td>{project?.name ?? "Unknown"}</td>
-                    <td className={finding.riskLevel}>{finding.riskScore}/100</td>
-                    <td className="mono">{finding.packageName}@{finding.currentVersion}</td>
-                    <td>{finding.fixedVersion ? `→ ${finding.fixedVersion}` : "manual review"}</td>
-                    <td>{finding.status}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="panel">
-          <div className="section-label">Posture</div>
-          <ul className="statlist">
-            {signals.map((signal) => (
-              <li className="stat" key={signal.label}>
-                <span>{signal.label}</span>
-                <b className={signal.value > 0 ? signal.tone ?? "" : "muted"}>{signal.value}</b>
-              </li>
-            ))}
-          </ul>
-
-          <div className="section-label" style={{ marginTop: 24 }}>
-            Integrations · {ready.length}/{health.length} ready
-          </div>
-          {notReady.length === 0 ? (
-            <p className="muted" style={{ margin: 0, fontSize: 13 }}>All integrations configured.</p>
-          ) : (
-            <div className="chips">
-              {notReady.map((item) => (
-                <span className="chip" key={item.name} title={item.message}>
-                  <span className={`dot ${item.status === "unavailable" ? "bad" : "warn"}`} />
-                  {item.name}
-                </span>
-              ))}
+      {/* ===== How it works ===== */}
+      <section className="lp-section" id="how">
+        <span className="lp-section-label">How it works</span>
+        <h2 className="lp-h2">Nine steps from a CVE to a signed, approved fix.</h2>
+        <div className="lp-pipeline">
+          {PIPELINE.map(([n, name, sub], i) => (
+            <div className={`lp-step${[2, 4, 6].includes(i) ? " hot" : ""}`} key={n}>
+              <span className="lp-step-n">{n}</span>
+              <span className="lp-step-name">{name}</span>
+              <span className="lp-step-sub">{sub}</span>
             </div>
-          )}
+          ))}
         </div>
       </section>
-    </>
+
+      {/* ===== Features ===== */}
+      <section className="lp-section" id="features">
+        <span className="lp-section-label">What makes it different</span>
+        <h2 className="lp-h2">Triage what's reachable. Fix it safely. Prove it with a signature.</h2>
+        <div className="lp-features">
+          {FEATURES.map(([title, body], i) => (
+            <div className="lp-feature" key={title}>
+              <span className="lp-feature-n">0{i + 1}</span>
+              <h3>{title}</h3>
+              <p>{body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ===== Stack + CTA ===== */}
+      <section className="lp-section lp-stack-section">
+        <span className="lp-section-label">Built on real tools — no faked integrations</span>
+        <div className="lp-stack">
+          {STACK.map((s) => <span className="lp-chip" key={s}>{s}</span>)}
+        </div>
+        <div className="lp-final">
+          <h2 className="lp-h2">Your repos and your AI agents. <span className="lp-accent">One command center.</span></h2>
+          <div className="lp-cta">
+            <a className="lp-btn" href="/dashboard">Open the dashboard <ArrowRight size={16} /></a>
+            <a className="lp-btn lp-btn-ghost" href={REPO} target="_blank" rel="noreferrer"><Github size={16} /> Star on GitHub</a>
+          </div>
+        </div>
+      </section>
+
+      <footer className="lp-foot">
+        <span className="lp-brand"><span className="lp-dot" />PatchPilot</span>
+        <span className="lp-mono">Open-source · CVE &amp; supply-chain response · built with OpenAI Codex</span>
+      </footer>
+    </div>
   );
 }

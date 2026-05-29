@@ -1,5 +1,5 @@
 import { JsonDatabase, getSettings, watchStatus } from "@patchpilot/core";
-import { SettingsControls } from "../../components/SettingsControls";
+import { SettingsControls } from "../../../components/SettingsControls";
 
 export default function WatchPage() {
   const db = new JsonDatabase();

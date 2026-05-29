@@ -1,5 +1,5 @@
 import { JsonDatabase, agentProviderReadiness, getSettings } from "@patchpilot/core";
-import { SettingsControls } from "../../components/SettingsControls";
+import { SettingsControls } from "../../../components/SettingsControls";
 
 const PROVIDER_ACTIONS = new Set([
   "provider_chain_started", "provider_readiness_checked", "provider_attempt_started",
