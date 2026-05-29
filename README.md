@@ -6,7 +6,7 @@ This repository does not fake external integrations. Missing GitHub, Telegram, C
 
 ## Live demo
 
-**[patchpilot-sigma.vercel.app](https://patchpilot-sigma.vercel.app)** — a hosted
+**[trypatchpilot.vercel.app](https://trypatchpilot.vercel.app)** — a hosted
 preview with seeded demo data so you can explore the landing page and dashboard
 without installing anything. For real scans of your own repos, self-host (below)
 or use the CLI.
