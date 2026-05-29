@@ -58,3 +58,6 @@ yarn-debug.log*
 .tools/
 
 .vercel
+
+# CLI bundle artifact (regenerate with pnpm cli:bundle)
+apps/cli/dist/
