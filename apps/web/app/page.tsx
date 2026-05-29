@@ -45,7 +45,7 @@ export default function Landing() {
           <span className="lp-eyebrow">Watch Commander · supply-chain security</span>
           <h1 className="lp-h1">
             <span className="sentence">The model <em>plans</em> the fix.</span>
-            <span className="sentence">A <span className="lp-accent">signed, human-approved</span> pipeline applies it.</span>
+            <span className="sentence"><span className="nowrap">A <span className="lp-accent">signed, human-approved</span></span> pipeline applies it.</span>
           </h1>
           <p className="lp-lede">
             PatchPilot finds the CVEs that actually reach your code, lets OpenAI Codex write the fix
@@ -56,7 +56,7 @@ export default function Landing() {
             <a className="lp-btn" href="/dashboard">Open the dashboard <ArrowRight size={16} /></a>
             <a className="lp-btn lp-btn-ghost" href={REPO} target="_blank" rel="noreferrer"><Github size={16} /> View on GitHub</a>
           </div>
-          <CopyCommand label="Scan your own project" command="npx patchpilot-cli scan ." />
+          <CopyCommand label="Scan your own project" command="npx patchpilot-cli scan" />
           <div className="lp-trust">
             <span><ShieldCheck size={14} /> No auto-merge, no auto-deploy</span>
             <span><GitPullRequest size={14} /> Signed provenance on every fix</span>

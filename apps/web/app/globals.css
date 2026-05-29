@@ -690,10 +690,13 @@ td:first-child {
   padding: 70px 0 64px;
 }
 .lp-h1 {
-  margin: 22px 0 0; font-weight: 400; font-size: 50px; line-height: 1.1;
-  letter-spacing: -1.8px; color: var(--text); text-wrap: balance;
+  margin: 22px 0 0; font-weight: 400; font-size: 47px; line-height: 1.12;
+  letter-spacing: -1.6px; color: var(--text);
 }
 .lp-h1 .sentence { display: block; }
+/* Keep the second sentence's opening clause intact so it never splits at the
+   "human-approved" hyphen — it wraps cleanly between clauses instead. */
+.lp-h1 .nowrap { white-space: nowrap; }
 .lp-h1 em { font-style: italic; font-weight: 300; color: var(--body); }
 .lp-accent {
   color: var(--primary);
