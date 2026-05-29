@@ -621,7 +621,7 @@ function runSemgrep(projectPath: string, command: string, timeoutMs: number): Sc
   const startedAt = now();
   const result = command === WSL_SEMGREP
     ? runSemgrepWsl(projectPath, timeoutMs)
-    : runExternal(command, ["scan", "--json", "--quiet", "--metrics=off", "--config", "auto", projectPath], projectPath, timeoutMs);
+    : runExternal(command, ["scan", "--json", "--quiet", "--metrics=off", "--config", "p/default", projectPath], projectPath, timeoutMs);
   if (result.timedOut) {
     return { scanner: "semgrep", category: "sast", status: "error", startedAt, finishedAt: now(), durationMs: elapsed(startedAt), findings: [], errors: [`semgrep timed out after ${timeoutMs}ms`], complete: false };
   }
@@ -635,7 +635,7 @@ function runSemgrep(projectPath: string, command: string, timeoutMs: number): Sc
 /** Runs Semgrep inside WSL against a Windows project path (translated to /mnt). */
 function runSemgrepWsl(projectPath: string, timeoutMs: number): { status: number; stdout: string; stderr: string; timedOut: boolean } {
   const wslPath = toWslPath(projectPath);
-  const shell = `cd '${wslPath.replace(/'/g, "'\\''")}' && ${WSL_SEMGREP_BIN} scan --json --quiet --metrics=off --config auto .`;
+  const shell = `cd '${wslPath.replace(/'/g, "'\\''")}' && ${WSL_SEMGREP_BIN} scan --json --quiet --metrics=off --config p/default .`;
   const r = spawnSync("wsl", ["bash", "-lc", shell], { encoding: "utf8", timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024 });
   const errnoCode = r.error && "code" in r.error ? (r.error as NodeJS.ErrnoException).code : undefined;
   return { status: r.status ?? 1, stdout: r.stdout ?? "", stderr: redact(r.stderr ?? ""), timedOut: errnoCode === "ETIMEDOUT" };
