@@ -1439,6 +1439,7 @@ describe("GitHub scanning", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     vi.stubEnv("PATCHPILOT_DISABLE_OSV_SCANNER", "true");
+    vi.stubEnv("PATCHPILOT_SCANNER_SEMGREP_ENABLED", "false"); // deterministic: don't invoke host Semgrep (incl. WSL)
     const db = new JsonDatabase(path.join(root, "db.json"));
     db.write({
       ...emptyState(),
@@ -1501,6 +1502,7 @@ describe("GitHub scanning", () => {
     vi.stubEnv("PATCHPILOT_WORKSPACE_DIR", workspaces);
     vi.stubEnv("PATCHPILOT_RETAIN_WORKSPACES", "true");
     vi.stubEnv("PATCHPILOT_DISABLE_OSV_SCANNER", "true");
+    vi.stubEnv("PATCHPILOT_SCANNER_SEMGREP_ENABLED", "false"); // deterministic: don't invoke host Semgrep (incl. WSL)
     vi.stubGlobal("fetch", vi.fn(async (url: string | URL) => {
       const value = String(url);
       if (value.includes("/vulns/OSV-TEST")) return new Response(JSON.stringify({ id: "OSV-TEST", aliases: [], summary: "fixture", affected: [] }), { status: 200 });
