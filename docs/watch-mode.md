@@ -2,7 +2,7 @@
 
 Continuous monitoring that is safe by default. Watch mode periodically re-scans
 inventoried projects, records new findings, updates Threat Radar, and (optionally)
-alerts via Telegram — but **never patches automatically**. Every remediation
+alerts via Telegram, but **never patches automatically**. Every remediation
 still requires explicit approval.
 
 ## Enable
@@ -24,12 +24,12 @@ pnpm demo:watch          # narrated two-cycle demo
 
 ## Behaviour
 
-- **Disabled by default** — `worker:watch` prints a disabled status and exits.
+- **Disabled by default**: `worker:watch` prints a disabled status and exits.
 - **No auto-remediation, no auto-merge, no auto-deploy.**
-- **Deduplication** by `projectId + advisoryId + package + version` — the same
+- **Deduplication** by `projectId + advisoryId + package + version`: the same
   finding never re-alerts.
 - **Quiet hours** suppress non-critical alerts; they re-surface in a later cycle.
-- **Telegram alert** asks "New vulnerability found. Start remediation?" — if
+- **Telegram alert** asks "New vulnerability found. Start remediation?", if
   Telegram is not configured, the finding is recorded and shown on the dashboard.
 - Status (`enabled`, last/next run, last error, findings discovered, alerts sent,
   deduped) is exposed at `/api/watch`, the `/watch` page, and the MCP tool

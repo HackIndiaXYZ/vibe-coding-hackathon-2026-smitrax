@@ -8,7 +8,7 @@ green only when a real check can run. Missing external tools show
 | Category | Scanner(s) | Built-in? | Notes |
 |---|---|---|---|
 | Dependency / SCA | OSV API + OSV-Scanner CLI | API yes / CLI optional | Lockfile + transitive when OSV-Scanner installed; otherwise direct-manifest only (confidence reported honestly). |
-| Secrets | Gitleaks → built-in lightweight | fallback only | Gitleaks is authoritative. Built-in regex detector is low-confidence and clearly labeled. Raw secrets are never stored — only masked previews. |
+| Secrets | Gitleaks → built-in lightweight | fallback only | Gitleaks is authoritative. Built-in regex detector is low-confidence and clearly labeled. Raw secrets are never stored, only masked previews. |
 | SAST | Semgrep | no | `tool_missing` until installed. |
 | Container / IaC / license / Trivy-secrets | Trivy (`fs`) | no | `tool_missing` until installed. Does not pull/build images or scan the Docker daemon by default. |
 | GitHub Actions / CI | built-in static rules | yes | write-all, pull_request_target, curl\|bash, unpinned actions, workflow_dispatch. |

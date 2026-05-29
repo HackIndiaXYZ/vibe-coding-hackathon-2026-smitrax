@@ -1,7 +1,7 @@
-# PatchPilot — Concept & Full Walkthrough
+# PatchPilot, Concept & Full Walkthrough
 
 > **One-liner:** PatchPilot is a *Watch Commander for software supply-chain
-> security* — it continuously watches your repos and AI-agent configs, finds the
+> security*, it continuously watches your repos and AI-agent configs, finds the
 > vulnerabilities that actually matter, drafts the fix with the AI model **you**
 > choose, and never touches production without a signed human approval from your
 > phone.
@@ -9,15 +9,14 @@
 This document is the single source for building the **pitch deck** and the
 **demo video**. It covers the problem, the idea, what we offer, why it's relevant
 to 2026, who it helps, the solution and key features, the tech stack, the ideal
-customer profile, and a complete walkthrough of everything that has been built —
-including an honest list of what is intentionally *not* done.
+customer profile, and a complete walkthrough of everything that has been built, including an honest list of what is intentionally *not* done.
 
 ---
 
 ## 1. Problem statement
 
 Modern software is assembled, not written. A typical app is **5–10% your code
-and 90%+ other people's code** — npm/PyPI dependencies, transitive dependencies,
+and 90%+ other people's code**: npm/PyPI dependencies, transitive dependencies,
 container base images, and now **AI agents and MCP servers** acting on the repo.
 That creates three compounding problems:
 
@@ -27,8 +26,8 @@ That creates three compounding problems:
    wrong things get fixed first.
 
 2. **The fix is the hard part.** Knowing "lodash has a CVE" is easy. Producing a
-   *safe, validated, reviewable* upgrade — bump the version, regenerate the
-   lockfile, run the tests, prove nothing else changed — is slow manual toil.
+   *safe, validated, reviewable* upgrade, bump the version, regenerate the
+   lockfile, run the tests, prove nothing else changed, is slow manual toil.
 
 3. **A new, unguarded attack surface in 2026: AI agents.** Coding agents,
    `mcp.json` servers, and auto-approve settings can read secrets, edit repos,
@@ -42,7 +41,7 @@ repo, leak secrets to a third party, or auto-merge to production.
 
 **The gap:** there is no tool that ties together *triage that respects
 reachability*, *agent/MCP-config security*, *bring-your-own-model remediation*,
-and *human-in-the-loop approval with cryptographic provenance* — safely.
+and *human-in-the-loop approval with cryptographic provenance*, safely.
 
 ---
 
@@ -51,17 +50,17 @@ and *human-in-the-loop approval with cryptographic provenance* — safely.
 **PatchPilot is a command center that sits between your code and the act of
 changing it.** It behaves like an on-call "watch commander":
 
-- It **inventories** what you run — GitHub repos and allow-listed local folders,
+- It **inventories** what you run, GitHub repos and allow-listed local folders,
   across **npm and PyPI**.
 - It **scans** with *real* tools (OSV, Gitleaks, Trivy, Syft, Semgrep) plus
   built-in checks for **AI-agent/MCP misconfiguration**, secrets, typosquats and
-  license risk — and **never fakes a green check**.
+  license risk, and **never fakes a green check**.
 - It **triages** with a lightweight **reachability / VEX-lite** signal: is the
   vulnerable package *actually imported* in your source? If not, it's
   de-prioritized as likely-unused.
-- It **remediates** using a **bring-your-own-model ladder** — your Codex
+- It **remediates** using a **bring-your-own-model ladder**: your Codex
   subscription, a local Ollama model, a cloud provider, or a deterministic
-  no-LLM path — with **automatic failover and explicit consent** before dropping
+  no-LLM path, with **automatic failover and explicit consent** before dropping
   to a lower-trust provider.
 - It **validates** the fix (install, build, test), produces a **before/after
   lockfile diff** and an **SBOM diff**, and attaches a **signed provenance
@@ -105,7 +104,7 @@ PatchPilot is built directly on the security themes dominating 2025–2026:
 - **The AI-agent attack surface is now real.** With coding agents and MCP servers
   everywhere, *agent configuration* is a first-class supply-chain risk. PatchPilot
   scans `mcp.json`/agent configs for auto-approve, over-permissive tokens, and
-  dangerous tools — something traditional scanners do not do.
+  dangerous tools, something traditional scanners do not do.
 - **Reachability / VEX is the industry's answer to alert fatigue.** Vendors are
   racing to add "is this CVE actually exploitable here?" PatchPilot ships a
   lightweight, honest **VEX-lite** signal in the same spirit.
@@ -116,31 +115,30 @@ PatchPilot is built directly on the security themes dominating 2025–2026:
   let the model propose, keep a human in the loop, keep an audit trail.
   PatchPilot is architected around exactly this.
 - **Bring-your-own / local models** matter for data-sensitive teams. PatchPilot
-  runs end-to-end on a **local Ollama** model or your **Codex subscription** —
-  no data leaves your machine unless you opt in.
+  runs end-to-end on a **local Ollama** model or your **Codex subscription**:   no data leaves your machine unless you opt in.
 - **AIBOM / SBOM** expectations are rising. PatchPilot generates a Syft CycloneDX
   SBOM and a before/after diff for each fix.
 
-In short: PatchPilot isn't chasing a trend — it sits at the intersection of the
+In short: PatchPilot isn't chasing a trend, it sits at the intersection of the
 five biggest ones.
 
 ---
 
 ## 5. Who does this help? (ICP / target audience)
 
-**Primary ICP — the "security-aware engineering team without a security team":**
+**Primary ICP, the "security-aware engineering team without a security team":**
 
 - **Seed → Series-B startups (10–150 engineers)** shipping fast on npm/PyPI, with
   no dedicated AppSec hire. They feel CVE pain but can't staff triage.
 - **Platform / DevEx engineers** who own CI/CD and dependency hygiene for many
   repos and want one command center instead of per-repo Dependabot noise.
 - **Teams adopting AI coding agents / MCP** who suddenly have agent configs and
-  auto-approve settings to secure — and no tool that even looks at them.
+  auto-approve settings to secure, and no tool that even looks at them.
 
 **Secondary:**
 
 - **Data-sensitive / regulated teams** (fintech, health, gov-adjacent) who
-  **cannot** send code to a cloud LLM — PatchPilot's local Ollama + deterministic
+  **cannot** send code to a cloud LLM, PatchPilot's local Ollama + deterministic
   paths and audit receipts fit their constraints.
 - **Open-source maintainers** who want validated, reviewable dependency-bump PRs
   without babysitting every advisory.
@@ -184,12 +182,12 @@ green), *model-agnostic* (BYO/local), and *agent-native* (MCP).
     tell," never a false claim.
 - Surfaced in the dashboard's **Reachability** column and in the PR body.
 - *Deliberately conservative:* this is an import-presence signal, **not** full
-  call-graph analysis — and the UI says so.
+  call-graph analysis, and the UI says so.
 
 ### 6.3 Bring-your-own model ladder + safe failover
 - Providers: **Codex** (the only model allowed to edit the repo, via your
   subscription login), **OpenRouter / OpenAI-compatible / Anthropic / Grok**
-  (strict-JSON *plan advisors* — PatchPilot applies the change, the model never
+  (strict-JSON *plan advisors*, PatchPilot applies the change, the model never
   touches the repo), **Ollama** (local), and **deterministic** (no model; bump to
   the OSV-known fixed version).
 - **Failover chain** with a readiness cache; on failure it advances the chain.
@@ -215,19 +213,19 @@ green), *model-agnostic* (BYO/local), and *agent-native* (MCP).
   `APPROVAL_HMAC_SECRET`); if no secret is set it returns an **honest unsigned**
   statement (never a fake signature).
 - The signed line + JSON go into the **PR body** and the **audit receipt**, and
-  can be re-verified with `verifyAttestation(statement, signature)` — SLSA-style,
+  can be re-verified with `verifyAttestation(statement, signature)`: SLSA-style,
   tamper-evident provenance.
 
 ### 6.6 Human-in-the-loop approval (phone)
 - **Telegram inline buttons**: Approve / Reject / Retry safer fix / Rollback, via
   a webhook with a shared secret; callbacks are **HMAC-signed and expiring**;
   chat IDs are allow-listed and hashed in storage.
-- **No auto-merge, no auto-deploy** — ever. Rollback closes the draft PR + deletes
+- **No auto-merge, no auto-deploy**: ever. Rollback closes the draft PR + deletes
   the branch, or reverse-applies the local patch.
 
 ### 6.7 Continuous watch mode
 - Scheduled re-scans, **new-finding** alerts with dedupe, optional quiet hours.
-- **Never auto-patches** — watch mode is alert-only by design.
+- **Never auto-patches**: watch mode is alert-only by design.
 
 ### 6.8 Durable layer (opt-in, Docker)
 - **Postgres** write-through JSONB system-of-record with **hydrate-after-file-loss**.
@@ -242,14 +240,14 @@ green), *model-agnostic* (BYO/local), and *agent-native* (MCP).
 - **OpenClaw bridge (optional):** a chat front-end that connects to the same MCP
   server, giving commands like `/patchpilot status`, `/patchpilot scan`,
   `/patchpilot affected`, `/patchpilot approve <id>`. It uses the identical gated
-  tools — it can request scans/remediation but **cannot auto-merge, auto-deploy,
+  tools, it can request scans/remediation but **cannot auto-merge, auto-deploy,
   or edit the repo**, and only reports success when actually configured
   (`OPENCLAW_ENABLED=true` + CLI installed).
 - **Secrets hygiene:** redaction everywhere; secret-manager file indirection
   (`PATCHPILOT_SECRETS_FILE`); optional dashboard/API token; signed plugin
   registry (HMAC).
 - **Deployment verification (Vercel):** can ping a preview/prod URL and report
-  live/status — it **never triggers a deploy**.
+  live/status, it **never triggers a deploy**.
 
 ---
 
@@ -258,11 +256,11 @@ green), *model-agnostic* (BYO/local), and *agent-native* (MCP).
 **Language & runtime:** TypeScript, Node.js, **pnpm monorepo**.
 
 **Monorepo layout:**
-- `packages/core` — all domain logic (scan, triage, remediation, attestation,
+- `packages/core`: all domain logic (scan, triage, remediation, attestation,
   providers, watch, audit, persistence). Pure, unit-tested.
-- `apps/web` — **Next.js 16** dashboard + API routes + auth middleware.
-- `apps/worker` — local/queue worker (scan-all, watch).
-- `apps/mcp` — stdio **MCP server** (Model Context Protocol).
+- `apps/web`: **Next.js 16** dashboard + API routes + auth middleware.
+- `apps/worker`: local/queue worker (scan-all, watch).
+- `apps/mcp`: stdio **MCP server** (Model Context Protocol).
 
 **Security tooling integrated (real CLIs):** OSV / OSV-Scanner, Gitleaks, Trivy,
 Syft, Semgrep.
@@ -292,7 +290,7 @@ names), runs on Windows/macOS/Linux/WSL.
 ### 7.1 Integrations (complete map)
 
 Every integration is **honest**: it reports `configured` / `available` only when
-the credential or binary is actually present — otherwise `not_configured`,
+the credential or binary is actually present, otherwise `not_configured`,
 `unavailable`, or `tool_missing`. Nothing is faked. This is the full surface
 (matches the dashboard's integration-health panel):
 
@@ -318,7 +316,7 @@ the credential or binary is actually present — otherwise `not_configured`,
 | **Telegram Bot API** | Approval channel | Inline-button approvals/consent + webhook (HMAC) | `not_configured` until bot token/chat set |
 | **OpenClaw** | Approval / chat bridge | Alternate channel that drives PatchPilot **through the MCP server** (`/patchpilot status\|scan\|affected\|approve`); respects all approval/consent gates | optional, `OPENCLAW_ENABLED=true` + CLI |
 | **MCP server** | Agent interface | ~25 tools so other agents/IDEs orchestrate PatchPilot (not the repo) | enabled (`PATCHPILOT_MCP_ENABLED`) |
-| **Vercel (deployment)** | Verify only | Pings a preview/prod URL, detects Vercel, reports live/status — **never deploys** | optional URL |
+| **Vercel (deployment)** | Verify only | Pings a preview/prod URL, detects Vercel, reports live/status, **never deploys** | optional URL |
 | **Postgres 16** | Persistence | Write-through JSONB system-of-record + hydrate-on-restart (Docker) | opt-in `PATCHPILOT_PERSIST_POSTGRES` |
 | **Redis 7 / BullMQ** | Queue/scheduler | Durable jobs + repeatable watch schedule (Docker) | opt-in `PATCHPILOT_QUEUE_MODE=redis` |
 | **Secret-manager file** | Secrets | Fills unset keys from Docker/K8s mount or Vault file sink | optional `PATCHPILOT_SECRETS_FILE` |
@@ -327,7 +325,7 @@ the credential or binary is actually present — otherwise `not_configured`,
 
 **Trust tiers (who may touch the repo):** only **Codex** and PatchPilot's own
 deterministic applier can mutate files. **All cloud/local advisors and OpenClaw
-plan or orchestrate only** — they never write to your repo, and raw secret
+plan or orchestrate only**: they never write to your repo, and raw secret
 findings are never sent to cloud models.
 
 ---
@@ -379,7 +377,7 @@ This is the order to **show in the video**. Each step has a real command.
    **Reachability** column: `🎯 reachable` vs `💤 likely unused` vs
    `🔗 transitive`. Explain VEX-lite cuts the noise.
 4. **Show the agent/MCP security angle.** Point out agent-config warnings
-   (auto-approve / over-scoped token) — the 2026 differentiator.
+   (auto-approve / over-scoped token), the 2026 differentiator.
 5. **Pick your model.** Show the provider ladder. Run the deterministic path live
    (`demo:provider-failover`), then mention Codex/Ollama. Emphasize *consent
    before lower-trust* and *secrets never leave*.
@@ -390,13 +388,13 @@ This is the order to **show in the video**. Each step has a real command.
 8. **Approve from your phone.** Telegram inline buttons
    (`demo:telegram-buttons`); tap **Approve**. Show that it's HMAC-signed and that
    **nothing auto-merges**. Optionally demo **Rollback**.
-9. **Continuous watch.** `demo:watch` — scheduled re-scan, new-finding alert,
+9. **Continuous watch.** `demo:watch`: scheduled re-scan, new-finding alert,
    dedupe, **no auto-patch**.
-10. **Agent-native.** `pnpm mcp:dev` — show the MCP tools an external agent or
+10. **Agent-native.** `pnpm mcp:dev`: show the MCP tools an external agent or
     IDE can call (and the optional **OpenClaw** chat bridge: `/patchpilot scan`,
     `/patchpilot approve`). The point: agents orchestrate PatchPilot, not your repo.
 11. **Durability (optional).** `docker compose up -d` + `verify:postgres` /
-    `verify:queue` — survives restarts.
+    `verify:queue`: survives restarts.
 12. **Honesty & audit.** Show `not_configured`/`tool_missing` statuses and the
     hash-chained audit receipts. Close on: *"no fake green, no silent action,
     no data leak."*
@@ -421,27 +419,27 @@ Being explicit here *increases* credibility with technical judges:
 - **Go/Maven/Cargo/Composer** are *scanned* (OSV) but not yet *remediated*.
 - **Postgres** is a write-through durable store + hydration, not a full
   multi-instance async DB; single-machine model.
-- Not production-grade — **solid and honest**, by design for the hackathon.
+- Not production-grade, **solid and honest**, by design for the hackathon.
 
 **Safety guarantees (features, not gaps):** no auto-merge, no auto-deploy, no
 silent provider switching, no secrets in repo/API/logs; only Codex and
-PatchPilot's own applier mutate files — advisor LLMs only plan.
+PatchPilot's own applier mutate files, advisor LLMs only plan.
 
 ---
 
 ## 11. Suggested pitch-deck outline (map to this doc)
 
-1. **Title** — PatchPilot: the Watch Commander for supply-chain security. (§1 one-liner)
-2. **Problem** — assembled software + alert overload + the new AI-agent surface. (§1)
-3. **Why now / 2026** — agents, VEX, SLSA, BYO/local models, AIBOM. (§4)
-4. **The idea** — AI plans, an audited human-approved pipeline applies. (§2)
-5. **Demo** — the live walkthrough. (§9)
-6. **Key features** — reachability, BYO ladder, attestation, phone approval. (§6)
-7. **Architecture** — the one diagram. (§8)
-8. **Tech stack** — monorepo + real scanners + MCP. (§7)
-9. **Who it's for** — ICP + buyer/user split. (§5)
-10. **Honesty & safety** — what's not done + the guarantees. (§10)
-11. **Ask / vision** — where it goes next (call-graph reachability, more
+1. **Title**: PatchPilot: the Watch Commander for supply-chain security. (§1 one-liner)
+2. **Problem**: assembled software + alert overload + the new AI-agent surface. (§1)
+3. **Why now / 2026**: agents, VEX, SLSA, BYO/local models, AIBOM. (§4)
+4. **The idea**: AI plans, an audited human-approved pipeline applies. (§2)
+5. **Demo**: the live walkthrough. (§9)
+6. **Key features**: reachability, BYO ladder, attestation, phone approval. (§6)
+7. **Architecture**: the one diagram. (§8)
+8. **Tech stack**: monorepo + real scanners + MCP. (§7)
+9. **Who it's for**: ICP + buyer/user split. (§5)
+10. **Honesty & safety**: what's not done + the guarantees. (§10)
+11. **Ask / vision**: where it goes next (call-graph reachability, more
     ecosystems, hosted mode).
 
 ---
@@ -451,5 +449,5 @@ PatchPilot's own applier mutate files — advisor LLMs only plan.
 - *"AI plans the fix. A signed, human-approved pipeline applies it."*
 - *"No fake green. No silent action. No data leak."*
 - *"Find what's reachable. Fix it safely. Prove it with a signature."*
-- *"Your repos and your AI agents — one command center."*
+- *"Your repos and your AI agents, one command center."*
 - *"Bring your own model. Even an offline one."*

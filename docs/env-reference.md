@@ -1,7 +1,7 @@
 # Environment Reference
 
 Every environment variable PatchPilot actually reads, grouped by feature. All
-values in `.env.example` are placeholders — **never commit a real `.env`**
+values in `.env.example` are placeholders, **never commit a real `.env`**
 (`.gitignore` excludes it). Secrets are marked 🔒; safe-to-share placeholders are
 marked 🟢.
 
@@ -10,7 +10,7 @@ marked 🟢.
 > OpenAI-compatible provider use `PATCHPILOT_LLM_API_KEY` + `PATCHPILOT_LLM_BASE_URL`;
 > Ollama uses `PATCHPILOT_LLM_BASE_URL` (default `http://localhost:11434/v1`) +
 > `PATCHPILOT_AGENT_MODEL`. Anthropic and Grok have dedicated keys. There are no
-> `OPENROUTER_API_KEY` / `OLLAMA_BASE_URL` style keys — those names are not read.
+> `OPENROUTER_API_KEY` / `OLLAMA_BASE_URL` style keys, those names are not read.
 
 ## Core app
 | Key | Secret | Default | Feature | If missing |
@@ -24,22 +24,22 @@ marked 🟢.
 ## GitHub
 | Key | Secret | Default | Feature | If missing |
 |---|---|---|---|---|
-| `GITHUB_TOKEN` | 🔒 | — | Repo validation, scan clone, draft PR create/close, branch delete | GitHub features error honestly (`not_configured`) |
-| `PATCHPILOT_TEST_REPO` | 🟢 | — | Safe demo repo for live verification (must contain `patchpilot-test/-demo`) | Live GitHub scripts refuse to run |
+| `GITHUB_TOKEN` | 🔒 |, | Repo validation, scan clone, draft PR create/close, branch delete | GitHub features error honestly (`not_configured`) |
+| `PATCHPILOT_TEST_REPO` | 🟢 |, | Safe demo repo for live verification (must contain `patchpilot-test/-demo`) | Live GitHub scripts refuse to run |
 
 ## Local folders
 | Key | Secret | Default | Feature | If missing |
 |---|---|---|---|---|
-| `PATCHPILOT_LOCAL_ROOTS` | 🟢 | — | Allowlisted roots for local folder scanning | Local projects can't be added (path rejected) |
+| `PATCHPILOT_LOCAL_ROOTS` | 🟢 |, | Allowlisted roots for local folder scanning | Local projects can't be added (path rejected) |
 | `PATCHPILOT_APPLY_LOCAL_PATCH_ON_APPROVAL` | 🟢 | `false` | Apply local patch to the folder on approval | Patch is created but not applied |
 
 ## Telegram
 | Key | Secret | Default | Feature | If missing |
 |---|---|---|---|---|
-| `TELEGRAM_BOT_TOKEN` | 🔒 | — | Sending approval/consent/watch messages | Telegram send disabled (dashboard-only) |
-| `TELEGRAM_CHAT_ID` / `TELEGRAM_ALLOWED_CHAT_IDS` | 🔒 | — | Allowlisted chat(s) | No recipient; sends skipped, webhook taps rejected |
-| `TELEGRAM_WEBHOOK_SECRET` | 🔒 | — | Authenticates the inbound webhook (`X-Telegram-Bot-Api-Secret-Token`) | Webhook validation is skipped (set it in production) |
-| `APPROVAL_SIGNING_SECRET` / `APPROVAL_HMAC_SECRET` | 🔒 | — | HMAC for legacy signed approval tokens | Token approvals can't be signed/verified |
+| `TELEGRAM_BOT_TOKEN` | 🔒 |, | Sending approval/consent/watch messages | Telegram send disabled (dashboard-only) |
+| `TELEGRAM_CHAT_ID` / `TELEGRAM_ALLOWED_CHAT_IDS` | 🔒 |, | Allowlisted chat(s) | No recipient; sends skipped, webhook taps rejected |
+| `TELEGRAM_WEBHOOK_SECRET` | 🔒 |, | Authenticates the inbound webhook (`X-Telegram-Bot-Api-Secret-Token`) | Webhook validation is skipped (set it in production) |
+| `APPROVAL_SIGNING_SECRET` / `APPROVAL_HMAC_SECRET` | 🔒 |, | HMAC for legacy signed approval tokens | Token approvals can't be signed/verified |
 
 ## Codex
 | Key | Secret | Default | Feature | If missing |
@@ -55,7 +55,7 @@ marked 🟢.
 | `PATCHPILOT_AGENT_PROVIDER` | 🟢 | `codex` | Selected remediation provider | Defaults to codex |
 | `PATCHPILOT_AGENT_MODEL` | 🟢 | per-provider | Model id for the active LLM provider | Provider default model |
 | `PATCHPILOT_LLM_BASE_URL` | 🟢 | provider default | Base URL for openrouter/openai-compatible/ollama | openai-compatible requires it; others have defaults |
-| `PATCHPILOT_LLM_API_KEY` | 🔒 | — | Key for openrouter/openai-compatible (and fallback for grok/anthropic) | Those providers report `not_configured` (no network call) |
+| `PATCHPILOT_LLM_API_KEY` | 🔒 |, | Key for openrouter/openai-compatible (and fallback for grok/anthropic) | Those providers report `not_configured` (no network call) |
 | `PATCHPILOT_LLM_TIMEOUT_MS` | 🟢 | `120000` | LLM request timeout | 120s |
 | `PATCHPILOT_LLM_ALLOW_DIRECT_PATCH` | 🟢 | `false` | Reserved switch (PatchPilot still applies changes itself) | false |
 | `PATCHPILOT_ANTHROPIC_API_KEY` | 🔒 | (falls back to `PATCHPILOT_LLM_API_KEY`) | Anthropic Claude provider | `not_configured` |
@@ -84,7 +84,7 @@ marked 🟢.
 | `PATCHPILOT_WATCH_ENABLED` | 🟢 | `false` | Continuous watch loop (off by default) |
 | `PATCHPILOT_WATCH_INTERVAL_MINUTES` | 🟢 | `60` | Scan interval |
 | `PATCHPILOT_WATCH_TELEGRAM_ALERTS` | 🟢 | `true` | Telegram alerts on new findings |
-| `PATCHPILOT_QUIET_HOURS` | 🟢 | — | e.g. `23:00-07:00`; suppresses non-critical alerts |
+| `PATCHPILOT_QUIET_HOURS` | 🟢 |, | e.g. `23:00-07:00`; suppresses non-critical alerts |
 
 ## Scanners
 `PATCHPILOT_SCANNER_<TOOL>_ENABLED` (toggle) and `_PATH` (binary) for `OSV`,
@@ -110,7 +110,7 @@ missing/erroring sources are recorded separately from "not found".
 
 ## Safety posture
 `PATCHPILOT_ALLOW_AUTO_MERGE=false`, `PATCHPILOT_ALLOW_PROD_DEPLOY=false`
-(documented posture — PatchPilot never merges/deploys regardless),
+(documented posture, PatchPilot never merges/deploys regardless),
 `PATCHPILOT_RETAIN_WORKSPACES=false`, `PATCHPILOT_COMMAND_TIMEOUT_MS=120000`,
 `PATCHPILOT_ALLOW_VALIDATION_SCRIPTS=false` (npm lifecycle scripts ignored during
 validation unless explicitly enabled).
@@ -119,4 +119,4 @@ validation unless explicitly enabled).
 `PATCHPILOT_DISABLE_OSV_SCANNER` (force OSV-API path in tests),
 `PATCHPILOT_SMOKE_BASE_URL` (smoke target), `PATCHPILOT_QUEUE_MODE`/
 `PATCHPILOT_WORKER_MODE` (`local` inline mode), `DATABASE_URL`/`REDIS_URL`
-(reserved for future adapters — not used by the local inline path).
+(reserved for future adapters, not used by the local inline path).

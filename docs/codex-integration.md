@@ -21,7 +21,7 @@ The worker execution path runs in a disposable workspace and uses (prompt via st
 codex exec --cd <workspace> --sandbox workspace-write --ephemeral --skip-git-repo-check -c approval_policy="never" -
 ```
 
-PatchPilot excludes `.env`, `.env.*`, private keys, token files, npm credential files, and secret-like config before creating a Codex workspace. The Codex child process receives a secret-scrubbed environment (only `PATH`, the OS runtime vars, and `~/.codex` auth via `USERPROFILE`/`CODEX_HOME` — never GitHub/Telegram/approval secrets). It does not claim Codex changed files unless the command really ran.
+PatchPilot excludes `.env`, `.env.*`, private keys, token files, npm credential files, and secret-like config before creating a Codex workspace. The Codex child process receives a secret-scrubbed environment (only `PATH`, the OS runtime vars, and `~/.codex` auth via `USERPROFILE`/`CODEX_HOME`: never GitHub/Telegram/approval secrets). It does not claim Codex changed files unless the command really ran.
 
 ## Diagnosing the CLI
 
@@ -35,7 +35,7 @@ PatchPilot excludes `.env`, `.env.*`, private keys, token files, npm credential 
 
 `pnpm verify:codex-live` keeps the Codex task small and lets PatchPilot own validation:
 
-- Codex is given a compact prompt to update one dependency in `package.json` only — no commands, no refactors, no lockfile edits.
+- Codex is given a compact prompt to update one dependency in `package.json` only, no commands, no refactors, no lockfile edits.
 - PatchPilot then runs `npm install --package-lock-only --ignore-scripts`, `npm ci --ignore-scripts`, `npm test`, and `npm run build`.
 - The live timeout defaults to `300000ms` (overridable with `CODEX_TIMEOUT_MS`); the normal timeout stays configurable.
 - If Codex times out, fails, is unavailable, or makes no change, PatchPilot marks the Codex status honestly and runs the deterministic npm fallback. Codex completion is reported only when real file changes are detected.

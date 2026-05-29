@@ -34,17 +34,17 @@ Tools exposed:
 - `patchpilot.get_audit_receipts`
 - `patchpilot.rollback`
 
-Watch Commander command-center tools (real data, env names only — never secrets):
+Watch Commander command-center tools (real data, env names only, never secrets):
 
-- `patchpilot.get_provider_readiness` — BYO provider readiness + required env names.
-- `patchpilot.get_provider_failover_timeline` — recent failover/consent/attempt events.
-- `patchpilot.get_scanner_coverage` — scanner matrix + external tool detection.
-- `patchpilot.get_watch_status` — watch mode status (enabled, last/next run, counts).
-- `patchpilot.get_approval_queue` — pending remediation approvals + provider consents + watch alerts.
-- `patchpilot.start_scan` — scan a project by id.
-- `patchpilot.request_remediation` — run the failover ladder for a finding (respects consent gates).
-- `patchpilot.request_provider_failover` — explicitly trigger the failover ladder for a finding.
+- `patchpilot.get_provider_readiness`: BYO provider readiness + required env names.
+- `patchpilot.get_provider_failover_timeline`: recent failover/consent/attempt events.
+- `patchpilot.get_scanner_coverage`: scanner matrix + external tool detection.
+- `patchpilot.get_watch_status`: watch mode status (enabled, last/next run, counts).
+- `patchpilot.get_approval_queue`: pending remediation approvals + provider consents + watch alerts.
+- `patchpilot.start_scan`: scan a project by id.
+- `patchpilot.request_remediation`: run the failover ladder for a finding (respects consent gates).
+- `patchpilot.request_provider_failover`: explicitly trigger the failover ladder for a finding.
 
-Tools call application services or return explicit configuration/tooling messages. They do not return fake scan, PR, approval, validation, or rollback success. `request_remediation`/`request_provider_failover` never silently switch to a lower-trust provider — in `ask` mode they create a Telegram consent request instead.
+Tools call application services or return explicit configuration/tooling messages. They do not return fake scan, PR, approval, validation, or rollback success. `request_remediation`/`request_provider_failover` never silently switch to a lower-trust provider, in `ask` mode they create a Telegram consent request instead.
 
 `patchpilot.create_patch_job` currently creates a manual plan job through the same remediation service. Use the web/API remediation endpoint with `agent: "codex"` when you want the Codex CLI to edit a disposable workspace.

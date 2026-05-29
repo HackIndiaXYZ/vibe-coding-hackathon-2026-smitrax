@@ -17,13 +17,13 @@ keyboard buttons** so the user taps instead of copying tokens:
 - Watch alert: **🚀 Start remediation / 🔕 Dismiss**
 
 Each button carries a short opaque `callback_data` (`<kind>:<id>:<action>`, kind
-`a`/`c`/`w`, well under Telegram's 64-byte limit) — never a long signed token.
+`a`/`c`/`w`, well under Telegram's 64-byte limit), never a long signed token.
 On tap the webhook stops the button spinner (`answerCallbackQuery`) and edits the
 message to show the decision (which also removes the now-stale buttons).
 
 Authentication for button taps relies on the `X-Telegram-Bot-Api-Secret-Token`
 header (set `TELEGRAM_WEBHOOK_SECRET`) plus the chat allowlist plus the pending
-record + expiry check — not a per-message HMAC.
+record + expiry check, not a per-message HMAC.
 
 ## Legacy signed tokens (still supported)
 

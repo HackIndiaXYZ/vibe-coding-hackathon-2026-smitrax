@@ -2,12 +2,12 @@
 
 A thin, standalone supply-chain scanner over `@patchpilot/core`. Scans a project
 folder (npm + PyPI) against the real OSV database and tags each finding with the
-**reachability (VEX-lite)** signal — so you fix what's actually imported first.
+**reachability (VEX-lite)** signal, so you fix what's actually imported first.
 
 ## Usage
 
 ```bash
-# Published on npm — run from anywhere
+# Published on npm, run from anywhere
 npx patchpilot-cli scan ./my-app
 npx patchpilot-cli scan . --fail-on high
 npx patchpilot-cli scan . --json > findings.json
@@ -18,10 +18,10 @@ pnpm scan:cli /absolute/path/to/project
 
 Options:
 
-- `--json` — machine-readable output.
-- `--fail-on <critical|high|medium|low>` — exit non-zero when a finding at or
+- `--json`: machine-readable output.
+- `--fail-on <critical|high|medium|low>`: exit non-zero when a finding at or
   above that severity exists (for CI gating). Default: never fails.
-- `NO_COLOR=1` — disable ANSI colors.
+- `NO_COLOR=1`: disable ANSI colors.
 
 It queries the live OSV API / OSV-Scanner. No network → no findings. PatchPilot
 never fabricates results.
@@ -30,8 +30,8 @@ never fabricates results.
 
 | Tag | Meaning |
 |---|---|
-| `reachable` | The vulnerable package is imported in your first-party source — fix first. |
-| `likely unused` | A direct npm dep that is never imported — de-prioritized (VEX-lite). |
+| `reachable` | The vulnerable package is imported in your first-party source, fix first. |
+| `likely unused` | A direct npm dep that is never imported, de-prioritized (VEX-lite). |
 | `transitive` | Pulled in by a parent dependency, not a first-party import. |
 | `unknown` | Couldn't determine (e.g. PyPI install-name ≠ import-name). |
 
