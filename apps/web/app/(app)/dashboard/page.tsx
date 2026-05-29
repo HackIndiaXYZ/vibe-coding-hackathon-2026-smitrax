@@ -2,8 +2,8 @@ import { JsonDatabase, PatchPilotService, agentProviderReadiness, integrationHea
 import { Activity, AlertTriangle, ShieldCheck, BellRing, ArrowRight } from "lucide-react";
 
 const REACH: Record<string, { text: string; cls: string; title: string }> = {
-  imported: { text: "reachable", cls: "reach-hot", title: "Imported in first-party source — treat as reachable." },
-  not_imported: { text: "likely unused", cls: "reach-dim", title: "Not imported in first-party source — likely dev-only; de-prioritized (VEX-lite)." },
+  imported: { text: "reachable", cls: "reach-hot", title: "Imported in first-party source; treat as reachable." },
+  not_imported: { text: "likely unused", cls: "reach-dim", title: "Not imported in first-party source; likely dev-only, de-prioritized (VEX-lite)." },
   indirect: { text: "transitive", cls: "reach-muted", title: "Reached via a parent dependency, not a first-party import." },
   unknown: { text: "unknown", cls: "reach-muted", title: "Reachability could not be determined." }
 };

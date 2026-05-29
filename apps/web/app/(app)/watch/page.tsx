@@ -13,7 +13,7 @@ export default function WatchPage() {
       <div className="topline">Continuous monitoring</div>
       <h1>Watch Mode</h1>
       <p className="muted" style={{ marginTop: 8, marginBottom: 24 }}>
-        Disabled by default. When enabled, PatchPilot re-scans inventoried projects on an interval, records new findings, and alerts you — but never patches automatically. Every remediation still requires approval.
+        Disabled by default. When enabled, PatchPilot re-scans inventoried projects on an interval, records new findings, and alerts you, but never patches automatically. Every remediation still requires approval.
       </p>
 
       <section className="grid two">
@@ -22,11 +22,11 @@ export default function WatchPage() {
           <ul className="statlist">
             {stat("Enabled", status.enabled ? "yes" : "no")}
             {stat("Interval (min)", status.intervalMinutes)}
-            {stat("Quiet hours", status.quietHours ?? "—")}
+            {stat("Quiet hours", status.quietHours ?? "·")}
             {stat("Within quiet hours", status.withinQuietHours ? "yes" : "no")}
             {stat("Telegram alerts", status.telegramAlerts ? "on" : "off")}
             {stat("Last run", status.lastRunAt ?? "never")}
-            {stat("Next run", status.nextRunAt ?? "—")}
+            {stat("Next run", status.nextRunAt ?? "·")}
             {stat("Cycles completed", status.totalCycles)}
             {stat("Findings discovered", status.findingsDiscovered)}
             {stat("Alerts sent", status.alertsSent)}

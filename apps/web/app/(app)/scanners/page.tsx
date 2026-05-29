@@ -39,7 +39,7 @@ export default function ScannersPage() {
                 <td>{tool.category}</td>
                 <td><span className={`status-badge ${tool.status}`}>{tool.status}</span></td>
                 <td className="mono">{tool.command}</td>
-                <td className="mono">{tool.version ?? "—"}</td>
+                <td className="mono">{tool.version ?? "·"}</td>
               </tr>
             ))}
           </tbody>

@@ -14,7 +14,7 @@ const HOT = new Set([2, 4, 6]);
 const FEATURES = [
   [Target, "Reachability / VEX-lite", "Is the vulnerable package actually imported in your source? If not, it's de-prioritized. The CVE wall shrinks to the handful that matter."],
   [Boxes, "Connect any model", "Codex (GPT-5.5) is the only model that writes to the repo. Behind it, configured cloud or local providers by policy, then a deterministic fallback. Secrets never reach the cloud."],
-  [FileSignature, "Signed attestation", "Every fix ships a verifiable HMAC statement of from→to, validation result, and files changed — embedded in the pull request."],
+  [FileSignature, "Signed attestation", "Every fix ships a verifiable HMAC statement of from→to, validation result, and files changed, embedded in the pull request."],
   [Smartphone, "Human-in-the-loop", "Inline Telegram buttons to approve, reject, retry safer, or rollback. No auto-merge, no auto-deploy, no exceptions."]
 ] as const;
 
@@ -49,14 +49,18 @@ export default function Landing() {
           <p className="lp-lede">
             PatchPilot finds the CVEs that actually reach your code, lets OpenAI Codex write the fix
             in a sandbox, signs the result, and waits for a tap on your phone. Every integration runs
-            live — Codex, OSV, GitHub, Telegram — with a full audit trail behind each change.
+            live (Codex, OSV, GitHub, Telegram) with a full audit trail behind each change.
           </p>
           <div className="lp-cta">
             <a className="lp-btn" href="/dashboard">Open the dashboard <ArrowRight size={16} /></a>
             <a className="lp-btn lp-btn-ghost" href={REPO} target="_blank" rel="noreferrer"><Github size={16} /> View on GitHub</a>
           </div>
+          <div className="lp-install">
+            <span className="lp-install-label">Scan your own project</span>
+            <code className="lp-install-cmd"><span className="lp-install-prompt">$</span> npx patchpilot-cli scan .</code>
+          </div>
           <div className="lp-trust">
-            <span><ShieldCheck size={14} /> No auto-merge / no auto-deploy</span>
+            <span><ShieldCheck size={14} /> No auto-merge, no auto-deploy</span>
             <span><GitPullRequest size={14} /> Signed provenance on every fix</span>
           </div>
         </div>
@@ -64,7 +68,7 @@ export default function Landing() {
         <div className="lp-terminal" aria-hidden="true">
           <div className="lp-term-bar">
             <span className="lp-term-lights"><i /><i /><i /></span>
-            <span className="lp-term-title">patchpilot — scan</span>
+            <span className="lp-term-title">patchpilot · scan</span>
           </div>
           <div className="lp-term-body">
             <div className="t-line"><span className="t-mut">$</span> npx patchpilot-cli scan ./storefront</div>
@@ -95,7 +99,7 @@ export default function Landing() {
             </div>
           ))}
         </div>
-        <p className="lp-note">Highlighted steps are PatchPilot's edge: <span className="lp-accent">reachability triage</span>, <span className="lp-accent">Codex-written fixes</span>, and a <span className="lp-accent">signed attestation</span> — all gated behind a human tap.</p>
+        <p className="lp-note">Highlighted steps are PatchPilot's edge: <span className="lp-accent">reachability triage</span>, <span className="lp-accent">Codex-written fixes</span>, and a <span className="lp-accent">signed attestation</span>, all gated behind a human tap.</p>
       </section>
 
       {/* ===== Features ===== */}

@@ -705,6 +705,16 @@ td:first-child {
 .lp-trust span { display: inline-flex; align-items: center; gap: 7px; }
 .lp-mono { font-family: var(--mono); }
 
+/* Copy-pasteable install command */
+.lp-install { margin-top: 22px; display: inline-flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.lp-install-label { font-family: var(--mono); font-size: 11px; color: var(--muted-soft); text-transform: uppercase; letter-spacing: 0.9px; }
+.lp-install-cmd {
+  font-family: var(--mono); font-size: 14px; color: var(--text);
+  background: var(--bg-soft); border: 1px solid var(--hairline-strong);
+  border-radius: 8px; padding: 10px 15px; user-select: all; cursor: text;
+}
+.lp-install-prompt { color: var(--primary-active); margin-right: 9px; user-select: none; }
+
 /* Terminal product visual */
 .lp-terminal {
   border: 1px solid var(--hairline-strong); border-radius: 14px; overflow: hidden;

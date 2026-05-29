@@ -10,7 +10,7 @@ export default function SettingsPage() {
       <section className="panel" style={{ marginTop: 24 }}>
         <h2>Model Providers (BYO)</h2>
         <p className="muted" style={{ marginTop: 0 }}>
-          Selected provider: <span className="badge">{selected}</span>. Only Codex edits the repo directly; OpenRouter, OpenAI-compatible, and Ollama return strict JSON plans that PatchPilot applies itself. Required env shows names only — never secret values.
+          Selected provider: <span className="badge">{selected}</span>. Only Codex edits the repo directly; OpenRouter, OpenAI-compatible, and Ollama return strict JSON plans that PatchPilot applies itself. Required env shows names only, never secret values.
         </p>
         <table>
           <thead><tr><th>Provider</th><th>Status</th><th>Applies via</th><th>Model edits repo</th><th>Required env</th></tr></thead>
@@ -21,7 +21,7 @@ export default function SettingsPage() {
                 <td className={provider.status === "configured" ? "ok" : provider.status === "unavailable" ? "high" : "medium"}>{provider.status}</td>
                 <td>{provider.applyStrategy}</td>
                 <td>{provider.modelEditsRepo ? "yes" : "no"}</td>
-                <td className="mono">{provider.requiredEnv.join(", ") || "—"}</td>
+                <td className="mono">{provider.requiredEnv.join(", ") || "·"}</td>
               </tr>
             ))}
           </tbody>

@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
+import { copyFileSync, existsSync, readFileSync } from "node:fs";
+import os from "node:os";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { loadSecretsFile } from "./secrets";
@@ -56,6 +57,18 @@ export function repoRoot(): string {
 }
 
 export function dataFilePath(): string {
+  // Demo mode (hosted preview): always read the bundled seed, regardless of any
+  // PATCHPILOT_DATA_FILE in a local .env. Work on a throwaway temp copy so the
+  // committed demo/seed.json is never mutated by any write.
+  if (getEnv("PATCHPILOT_DEMO") === "true") {
+    const seedRel = getEnv("PATCHPILOT_DATA_FILE") ?? "demo/seed.json";
+    const seedSrc = path.isAbsolute(seedRel) ? seedRel : path.resolve(repoRoot(), seedRel);
+    const work = path.join(os.tmpdir(), "patchpilot-demo.db.json");
+    try {
+      if (!existsSync(work) && existsSync(seedSrc)) copyFileSync(seedSrc, work);
+    } catch { /* fall back to reading the seed directly */ }
+    return existsSync(work) ? work : seedSrc;
+  }
   const configured = getEnv("PATCHPILOT_DATA_FILE") ?? ".patchpilot/patchpilot.db.json";
   return path.isAbsolute(configured) ? configured : path.resolve(repoRoot(), configured);
 }

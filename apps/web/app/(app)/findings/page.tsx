@@ -1,8 +1,8 @@
 import { JsonDatabase } from "@patchpilot/core";
 
 const REACH: Record<string, { text: string; cls: string; title: string }> = {
-  imported: { text: "reachable", cls: "reach-hot", title: "Imported in first-party source — treat as reachable." },
-  not_imported: { text: "likely unused", cls: "reach-dim", title: "Not imported in first-party source — likely dev-only; de-prioritized (VEX-lite)." },
+  imported: { text: "reachable", cls: "reach-hot", title: "Imported in first-party source; treat as reachable." },
+  not_imported: { text: "likely unused", cls: "reach-dim", title: "Not imported in first-party source; likely dev-only, de-prioritized (VEX-lite)." },
   indirect: { text: "transitive", cls: "reach-muted", title: "Reached via a parent dependency, not a first-party import." },
   unknown: { text: "unknown", cls: "reach-muted", title: "Reachability could not be determined." }
 };
@@ -21,7 +21,7 @@ export default function FindingsPage() {
               <tr>
                 <td colSpan={7} className="empty-cell">
                   <strong>No findings from a real scan yet.</strong>
-                  <span>Run a scan from the Projects page to populate findings. PatchPilot only shows results from real OSV / scanner runs — never seeded placeholders.</span>
+                  <span>Run a scan from the Projects page to populate findings. PatchPilot only shows results from real OSV / scanner runs, never seeded placeholders.</span>
                 </td>
               </tr>
             ) : state.findings.map((finding) => {

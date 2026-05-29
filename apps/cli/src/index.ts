@@ -167,25 +167,68 @@ async function main(): Promise<void> {
   process.exit(0);
 }
 
+/** Picks the higher of two semver-ish version strings. */
+function maxVersion(a: string | null, b: string | null): string | null {
+  if (!a) return b; if (!b) return a;
+  const pa = a.split(".").map((n) => parseInt(n, 10));
+  const pb = b.split(".").map((n) => parseInt(n, 10));
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = pa[i] ?? 0, y = pb[i] ?? 0;
+    if (x !== y) return x > y ? a : b;
+  }
+  return a;
+}
+
+interface Group {
+  package: string; currentVersion: string; severity: string;
+  fixedVersion: string | null; reachability: string; count: number;
+}
+
+/** Groups per-advisory findings into one row per package. */
+function groupByPackage(findings: Array<Record<string, any>>): Group[] {
+  const map = new Map<string, Group>();
+  for (const f of findings) {
+    const key = `${f.package}@${f.currentVersion}`;
+    const g = map.get(key);
+    if (!g) {
+      map.set(key, { package: f.package, currentVersion: f.currentVersion, severity: f.severity,
+        fixedVersion: f.fixedVersion, reachability: f.reachability, count: 1 });
+    } else {
+      if ((SEVERITY_RANK[f.severity] ?? 0) > (SEVERITY_RANK[g.severity] ?? 0)) g.severity = f.severity;
+      g.fixedVersion = maxVersion(g.fixedVersion, f.fixedVersion);
+      g.count += 1;
+    }
+  }
+  return [...map.values()].sort((a, b) => {
+    const r = (b.reachability === "imported" ? 1 : 0) - (a.reachability === "imported" ? 1 : 0);
+    if (r) return r;
+    const s = (SEVERITY_RANK[b.severity] ?? 0) - (SEVERITY_RANK[a.severity] ?? 0);
+    return s || a.package.localeCompare(b.package);
+  });
+}
+
 function printReport(findings: Array<Record<string, any>>, scanner: string): void {
   if (findings.length === 0) {
     console.log("\n" + c(C.green, "  ✓ No known vulnerable dependencies found.") + c(C.dim, `  (scanner: ${scanner})\n`));
     return;
   }
+  const groups = groupByPackage(findings);
   console.log("");
-  console.log("  " + c(C.bold, `${findings.length} finding${findings.length === 1 ? "" : "s"}`) + c(C.dim, `  ·  scanner: ${scanner}`));
+  console.log("  " + c(C.bold, `${groups.length} vulnerable package${groups.length === 1 ? "" : "s"}`)
+    + c(C.dim, `  ·  ${findings.length} advisories  ·  scanner: ${scanner}`));
   console.log("");
-  for (const f of findings) {
-    const sev = (SHORT_SEV[f.severity] ?? "—").padEnd(4);
-    const pkg = c(C.bold, f.package) + c(C.dim, `@${f.currentVersion}`);
-    const fix = f.fixedVersion ? c(C.green, `→ ${f.fixedVersion}`) : c(C.dim, "manual review");
-    console.log(`  ${c(sevColor(f.severity), sev)}  ${pkg}  ${fix}`);
-    const dot = f.reachability === "imported" ? c(C.orange, "● reachable") : c(C.gray, `○ ${REACH_LABEL[f.reachability]}`);
-    console.log(`        ${dot} ${c(C.dim, "· " + String(f.advisory))}`);
+  for (const g of groups) {
+    const sev = (SHORT_SEV[g.severity] ?? "·").padEnd(4);
+    const pkg = c(C.bold, g.package) + c(C.dim, `@${g.currentVersion}`);
+    const fix = g.fixedVersion ? c(C.green, `→ ${g.fixedVersion}`) : c(C.dim, "manual review");
+    const adv = g.count > 1 ? c(C.dim, `  (${g.count} advisories)`) : "";
+    console.log(`  ${c(sevColor(g.severity), sev)}  ${pkg}  ${fix}${adv}`);
+    const dot = g.reachability === "imported" ? c(C.orange, "● reachable") : c(C.gray, `○ ${REACH_LABEL[g.reachability]}`);
+    console.log(`        ${dot}`);
   }
-  const reachable = findings.filter((f) => f.reachability === "imported").length;
+  const reachable = groups.filter((g) => g.reachability === "imported").length;
   console.log("");
-  console.log("  " + c(C.orange, "▸") + " " + c(C.bold, `${reachable} reachable`) + c(C.dim, ` · ${findings.length - reachable} de-prioritized`));
+  console.log("  " + c(C.orange, "▸") + " " + c(C.bold, `${reachable} reachable`) + c(C.dim, ` · ${groups.length - reachable} de-prioritized`));
   console.log("  " + c(C.dim, "Fix the reachable ones first.") + "\n");
 }
 

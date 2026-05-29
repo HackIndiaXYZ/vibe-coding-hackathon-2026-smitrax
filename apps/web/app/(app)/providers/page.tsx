@@ -35,7 +35,7 @@ export default function ProvidersPage() {
                   <td>{provider.label}{provider.selected ? " ★" : ""}</td>
                   <td><span className={`status-badge ${provider.status}`}>{provider.status}</span></td>
                   <td>{provider.modelEditsRepo ? "yes" : "no"}</td>
-                  <td className="mono">{provider.requiredEnv.join(", ") || "—"}</td>
+                  <td className="mono">{provider.requiredEnv.join(", ") || "·"}</td>
                 </tr>
               ))}
             </tbody>

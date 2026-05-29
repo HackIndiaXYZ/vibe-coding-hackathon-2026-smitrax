@@ -18,6 +18,7 @@
     "install:scanners": "node scripts/install-scanners.mjs",
     "deck:pptx": "node scripts/build-deck-pptx.mjs",
     "demo:seed": "tsx scripts/make-demo-seed.ts",
+    "deploy:demo": "node scripts/deploy-demo.mjs",
     "scan:cli": "tsx apps/cli/src/index.ts scan",
     "cli:bundle": "pnpm --filter @patchpilot/cli bundle",
     "mcp:dev": "pnpm --filter @patchpilot/mcp dev",
