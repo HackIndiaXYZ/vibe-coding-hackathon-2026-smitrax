@@ -606,9 +606,31 @@ td:first-child {
   .side {
     position: static;
     height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--hairline);
+    padding: 16px;
+  }
+  /* Compact horizontal nav on mobile so it doesn't eat the whole first screen. */
+  .nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .nav a {
+    padding: 7px 11px;
+    font-size: 13px;
+    border: 1px solid var(--hairline);
+    background: var(--surface);
+  }
+  .nav a.active {
+    box-shadow: none;
+    border-color: var(--primary);
+  }
+  .sidebar-foot {
+    display: none;
   }
   .main {
-    padding: 26px 18px;
+    padding: 24px 16px;
   }
   h1 {
     font-size: 28px;
@@ -618,6 +640,9 @@ td:first-child {
   .form,
   .radar {
     grid-template-columns: 1fr;
+  }
+  table {
+    font-size: 12.5px;
   }
 }
 
@@ -839,14 +864,37 @@ td:first-child {
 }
 
 @media (max-width: 920px) {
+  .lp { overflow-x: hidden; }
   .lp-nav-links a:not(.lp-btn) { display: none; }
-  .lp-hero { grid-template-columns: 1fr; gap: 36px; padding: 44px 0; }
-  .lp-h1 { font-size: 40px; letter-spacing: -1.4px; }
+  .lp-hero { grid-template-columns: 1fr; gap: 32px; padding: 40px 0; }
+  .lp-h1 { font-size: 38px; letter-spacing: -1.2px; }
+  .lp-h1 .nowrap { white-space: normal; }   /* allow the headline to wrap on small screens */
   .lp-lede { font-size: 16px; }
+  .lp-terminal { max-width: 100%; }
+  .lp-term-body { overflow-x: auto; }
   .lp-pipeline { grid-template-columns: repeat(3, 1fr); }
   .lp-features { grid-template-columns: 1fr; }
   .lp-h2, .lp-final-h { font-size: 26px; }
   .lp-final { padding: 40px 24px; }
+}
+
+@media (max-width: 480px) {
+  .lp { padding: 0 18px; }
+  .lp-hero { padding: 28px 0 36px; }
+  .lp-h1 { font-size: 31px; letter-spacing: -0.8px; line-height: 1.16; }
+  .lp-eyebrow { font-size: 10.5px; padding: 5px 11px; }
+  .lp-lede { font-size: 15px; }
+  .lp-cta { width: 100%; }
+  .lp-cta .lp-btn { flex: 1 1 auto; justify-content: center; }
+  .lp-install { width: 100%; }
+  .lp-install-box { width: 100%; }
+  .lp-install-cmd { flex: 1; font-size: 13px; }
+  .lp-trust { gap: 14px; font-size: 12px; }
+  .lp-pipeline { grid-template-columns: repeat(2, 1fr); }
+  .lp-term-body { font-size: 12px; }
+  .lp-section { padding: 44px 0 0; }
+  .lp-h2, .lp-final-h { font-size: 23px; }
+  .lp-final { margin-top: 52px; padding: 32px 20px; }
 }
 
 /* ============================================================
