@@ -33,7 +33,8 @@ export function scanAgentConfig(projectPath: string, projectId?: string): AgentC
         findings.push(makeFinding(projectId, rel, undefined, "Unpinned third-party GitHub Action detected.", "medium", "Pin third-party actions to a full commit SHA."));
       }
     }
-    if (CONFIG_NAMES.has(base) || rel.endsWith(path.join(".cursor", "mcp.json")) || rel.endsWith(path.join(".vscode", "mcp.json"))) {
+    const isMcp = base === "mcp.json" || rel.endsWith(path.join(".cursor", "mcp.json")) || rel.endsWith(path.join(".vscode", "mcp.json"));
+    if (CONFIG_NAMES.has(base) || isMcp) {
       const content = readFileSync(filePath, "utf8");
       addPatternFindings(findings, projectId, rel, content, [
         ["curl ", "high", "Config references curl; possible remote code execution path.", "Review and pin downloaded artifacts; avoid curl-pipe-shell patterns."],
@@ -41,6 +42,23 @@ export function scanAgentConfig(projectPath: string, projectId?: string): AgentC
         ["postinstall", "medium", "package.json includes postinstall lifecycle script.", "Review lifecycle scripts before validation installs."],
         ["preinstall", "medium", "package.json includes preinstall lifecycle script.", "Review lifecycle scripts before validation installs."]
       ]);
+    }
+    if (isMcp) {
+      const content = readFileSync(filePath, "utf8");
+      // MCP-specific supply-chain risks (the 2026 agent attack surface).
+      addPatternFindings(findings, projectId, rel, content, [
+        ["autoApprove", "high", "MCP server runs with autoApprove enabled; tools execute without human review (tool-poisoning risk).", "Disable autoApprove, or scope it to specific read-only tools."],
+        ["\"yolo\"", "high", "MCP/agent config uses a 'yolo'/no-confirm mode.", "Require confirmation for tool calls."],
+        ["\"sh\"", "medium", "MCP server launches a shell; review the tool's command surface.", "Avoid shell tools, or constrain allowed commands."],
+        ["\"bash\"", "medium", "MCP server launches a shell; review the tool's command surface.", "Avoid shell tools, or constrain allowed commands."]
+      ]);
+      // Hardcoded credential embedded in an agent config.
+      const lines = content.split(/\r?\n/);
+      const credRe = /(ghp_[A-Za-z0-9]{8,}|gho_[A-Za-z0-9]{8,}|sk-[A-Za-z0-9]{10,}|AKIA[A-Z0-9]{12,}|xox[baprs]-[A-Za-z0-9-]{8,}|glpat-[A-Za-z0-9_-]{8,})/;
+      const credLine = lines.findIndex((line) => credRe.test(line));
+      if (credLine >= 0) {
+        findings.push(makeFinding(projectId, rel, credLine + 1, "Hardcoded credential embedded in an MCP/agent config.", "high", "Move secrets to a secret manager or environment injection; never commit tokens in agent configs.", redact(lines[credLine] ?? "")));
+      }
     }
   });
   return findings;

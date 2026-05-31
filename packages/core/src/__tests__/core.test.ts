@@ -253,6 +253,20 @@ describe("agent supply-chain scanner", () => {
     expect(findings.some((finding) => finding.reason.includes("postinstall"))).toBe(true);
     rmSync(root, { recursive: true, force: true });
   });
+
+  it("flags risky MCP config: autoApprove + hardcoded credential", () => {
+    const root = tempRoot();
+    mkdirSync(path.join(root, ".cursor"), { recursive: true });
+    writeFileSync(path.join(root, ".cursor", "mcp.json"), JSON.stringify({
+      mcpServers: { shell: { command: "node", autoApprove: true, env: { GITHUB_TOKEN: "ghp_exampledonotuse0000000000000000000000" } } }
+    }, null, 2));
+    const findings = scanAgentConfig(root, "proj");
+    expect(findings.some((f) => f.reason.includes("autoApprove"))).toBe(true);
+    expect(findings.some((f) => f.reason.includes("Hardcoded credential"))).toBe(true);
+    // the raw token must be redacted in the stored snippet
+    expect(JSON.stringify(findings)).not.toContain("ghp_exampledonotuse0000000000000000000000");
+    rmSync(root, { recursive: true, force: true });
+  });
 });
 
 describe("workspace and patch artifacts", () => {
