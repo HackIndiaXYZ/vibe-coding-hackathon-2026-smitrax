@@ -37,5 +37,4 @@ dashboard page, and the MCP tool `patchpilot.get_scanner_coverage`.
 - Every external tool runs with `PATCHPILOT_SCANNER_TIMEOUT_MS`.
 - Scanner output is redacted before storage/logging.
 
-See `docs/scanner-setup.md` for install commands and `docs/scanner-output-schema.md`
-for the finding schema.
+Install the external tools (Gitleaks, Trivy, OSV-Scanner, Syft) with `pnpm install:scanners`. Missing tools surface as `tool_missing` in the dashboard.

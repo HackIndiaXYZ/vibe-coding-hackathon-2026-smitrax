@@ -51,4 +51,4 @@ Verified locally:
 
 Not live-tested in this verification sprint:
 
-- A full Codex remediation run. Run only against a disposable fixture repository with the checklist in `docs/verification/live-integrations.md`.
+- A full Codex remediation run. Run only against a disposable fixture repository (`PATCHPILOT_TEST_REPO`).
