@@ -48,14 +48,14 @@ export function inlineKeyboard(rows: TelegramButton[][]): { inline_keyboard: Arr
 }
 
 /** Short tap-payload for inline buttons: `<kind>:<id>:<action>` (kind a|c|w). */
-export function telegramCallbackData(kind: "a" | "c" | "w", id: string, action: string): string {
+export function telegramCallbackData(kind: "a" | "c" | "w" | "g" | "m", id: string, action: string): string {
   return `${kind}:${id}:${action}`;
 }
 
-export function parseTelegramCallback(data: string): { kind: "a" | "c" | "w"; id: string; action: string } | null {
-  const match = data.match(/^([acw]):([^:]+):(.+)$/);
+export function parseTelegramCallback(data: string): { kind: "a" | "c" | "w" | "g" | "m"; id: string; action: string } | null {
+  const match = data.match(/^([acwgm]):([^:]+):(.+)$/);
   if (!match) return null;
-  return { kind: match[1] as "a" | "c" | "w", id: match[2]!, action: match[3]! };
+  return { kind: match[1] as "a" | "c" | "w" | "g" | "m", id: match[2]!, action: match[3]! };
 }
 
 /** Stops the button's loading spinner and shows a toast. Best-effort. */

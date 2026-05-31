@@ -9,7 +9,7 @@ loadDotenvFile();
 // Drives the LIVE webhook the way Telegram does: POST a callback_query with the
 // secret header for each button, against real seeded records in the dashboard's
 // database. Verifies every button's behaviour end-to-end. Cleans up after.
-const WEBHOOK = "http://127.0.0.1:3001/api/integrations/telegram/webhook";
+const WEBHOOK = `http://127.0.0.1:${process.env.PATCHPILOT_WEB_PORT ?? "3001"}/api/integrations/telegram/webhook`;
 const SECRET = requiredEnv("TELEGRAM_WEBHOOK_SECRET");
 const CHAT = Number(telegramChatId());
 const dbPath = dataFilePath();

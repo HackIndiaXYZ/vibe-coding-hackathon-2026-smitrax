@@ -3,6 +3,11 @@ import { ShieldCheck } from "lucide-react";
 import { SideNav } from "../../components/SideNav";
 import { DemoBanner } from "../../components/DemoBanner";
 
+// The dashboard reads a live JSON database per request, so every page under the
+// (app) group must render dynamically — never prerendered at build time, which
+// would freeze a stale snapshot of the data.
+export const dynamic = "force-dynamic";
+
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="shell">

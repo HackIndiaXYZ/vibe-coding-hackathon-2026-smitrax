@@ -154,8 +154,12 @@ export function createBranch(workspace: string, branchName: string): void {
   runGit(["checkout", "-B", branchName], workspace);
 }
 
-export function applyPatch(targetPath: string, patchPath: string, reverse = false): void {
-  runGit(reverse ? ["apply", "--reverse", patchPath] : ["apply", patchPath], targetPath);
+export function applyPatch(targetPath: string, patchPath: string, reverse = false, threeWay = false): void {
+  // --3way applies via the patch's blob ancestry (index lines) and 3-way merges,
+  // which survives CRLF/LF normalization differences between clones — needed when
+  // re-applying a stashed lockfile patch to a fresh clone in the two-step push gate.
+  const args = ["apply", ...(reverse ? ["--reverse"] : []), ...(threeWay ? ["--3way"] : []), patchPath];
+  runGit(args, targetPath);
 }
 
 export function scrubGithubRemote(workspace: string, owner: string, repo: string): void {

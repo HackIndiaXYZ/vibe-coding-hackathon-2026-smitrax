@@ -64,3 +64,42 @@ export async function createDraftPullRequest(input: {
     throw new PatchPilotError("github_pr_create_failed", "GitHub pull request creation failed; no PR URL was stored.", { error: error instanceof Error ? error.message : String(error) }, 502);
   }
 }
+
+/**
+ * Opens a real (non-draft) pull request so it can be merged after the human
+ * approves the merge gate. Used by the two-step push→merge Telegram flow.
+ */
+export async function createPullRequest(input: {
+  owner: string;
+  repo: string;
+  title: string;
+  head: string;
+  base: string;
+  body: string;
+  draft?: boolean;
+}) {
+  const client = githubClient();
+  try {
+    const response = await client.pulls.create({ ...input, draft: input.draft ?? false });
+    return { number: response.data.number, url: response.data.html_url };
+  } catch (error) {
+    throw new PatchPilotError("github_pr_create_failed", "GitHub pull request creation failed; no PR URL was stored.", { error: error instanceof Error ? error.message : String(error) }, 502);
+  }
+}
+
+/** Merges a pull request (squash by default). Used when the human taps "Merge". */
+export async function mergePullRequest(owner: string, repo: string, pullNumber: number, options: { method?: "merge" | "squash" | "rebase"; commitTitle?: string } = {}): Promise<{ merged: boolean; sha?: string }> {
+  const client = githubClient();
+  try {
+    const response = await client.pulls.merge({
+      owner,
+      repo,
+      pull_number: pullNumber,
+      merge_method: options.method ?? "squash",
+      ...(options.commitTitle ? { commit_title: options.commitTitle } : {})
+    });
+    return { merged: Boolean(response.data.merged), sha: response.data.sha };
+  } catch (error) {
+    throw new PatchPilotError("github_pr_merge_failed", "GitHub pull request merge failed.", { error: error instanceof Error ? error.message : String(error) }, 502);
+  }
+}

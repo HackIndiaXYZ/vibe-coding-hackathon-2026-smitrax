@@ -80,8 +80,8 @@ async function main() {
 
   // Check A: version + exec help. Confirms the CLI is reachable and exposes
   // enforceable sandbox flags.
-  const version = codexVersion();
-  const execHelp = codexExecHelp();
+  const version = await codexVersion();
+  const execHelp = await codexExecHelp();
   const sandboxFlagPresent = execHelp.stdout.includes("--sandbox") || execHelp.stderr.includes("--sandbox");
 
   // Check B: tiny no-repo prompt asking for a short JSON object only.
@@ -89,7 +89,7 @@ async function main() {
   let jsonDetected = false;
   const noRepoWorkspace = disposableWorkspace("norepo");
   try {
-    noRepo = runCodexPrompt(noRepoWorkspace, NO_REPO_PROMPT, { timeoutMs: DIAGNOSTIC_TIMEOUT_MS });
+    noRepo = await runCodexPrompt(noRepoWorkspace, NO_REPO_PROMPT, { timeoutMs: DIAGNOSTIC_TIMEOUT_MS });
     jsonDetected = noRepo.stdout.includes('"patchpilot codex check"');
   } catch (error) {
     noRepo = undefined;
@@ -106,7 +106,7 @@ async function main() {
   const editTarget = path.join(editWorkspace, "codex-check.txt");
   try {
     writeFileSync(editTarget, "before\n");
-    fileEdit = runCodexPrompt(editWorkspace, FILE_EDIT_PROMPT, { timeoutMs: DIAGNOSTIC_TIMEOUT_MS });
+    fileEdit = await runCodexPrompt(editWorkspace, FILE_EDIT_PROMPT, { timeoutMs: DIAGNOSTIC_TIMEOUT_MS });
     finalContents = existsSync(editTarget) ? readFileSync(editTarget, "utf8").trim() : undefined;
     fileChanged = finalContents === "after";
   } catch (error) {

@@ -485,15 +485,15 @@ describe("validation runner", () => {
 });
 
 describe("Codex execution safety", () => {
-  it("fails clearly when Codex is unavailable", () => {
+  it("fails clearly when Codex is unavailable", async () => {
     const root = tempRoot();
     vi.stubEnv("CODEX_BIN", "definitely-not-installed-codex");
-    expect(() => runCodexExec(root)).toThrow(/Codex not executed/);
+    await expect(runCodexExec(root)).rejects.toThrow(/Codex not executed/);
     vi.unstubAllEnvs();
     rmSync(root, { recursive: true, force: true });
   });
 
-  it("passes multiline prompts through stdin instead of splitting them into CLI arguments", () => {
+  it("passes multiline prompts through stdin instead of splitting them into CLI arguments", async () => {
     const root = tempRoot();
     const fake = path.join(root, process.platform === "win32" ? "fake-codex.cmd" : "fake-codex.sh");
     const fakeJs = path.join(root, "fake-codex.js");
@@ -522,7 +522,7 @@ process.stdin.on("end", () => {
     }
     vi.stubEnv("CODEX_BIN", fake);
     const prompt = "line one\nline two are still one prompt";
-    const result = runCodexExec(root, prompt);
+    const result = await runCodexExec(root, prompt);
     expect(result.status).toBe(0);
     const args = JSON.parse(readFileSync(path.join(root, "codex-args.json"), "utf8")) as string[];
     expect(args[0]).toBe("exec");
@@ -538,7 +538,7 @@ process.stdin.on("end", () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  it("returns a timeout result when Codex exceeds the configured timeout", () => {
+  it("returns a timeout result when Codex exceeds the configured timeout", async () => {
     const root = tempRoot();
     const fake = path.join(root, process.platform === "win32" ? "fake-codex.cmd" : "fake-codex.sh");
     if (process.platform === "win32") {
@@ -549,14 +549,14 @@ process.stdin.on("end", () => {
     }
     vi.stubEnv("CODEX_BIN", fake);
     vi.stubEnv("CODEX_TIMEOUT_MS", "50");
-    const result = runCodexExec(root);
+    const result = await runCodexExec(root);
     expect(result.status).toBe(124);
     expect(result.stderr).toContain("timed out");
     vi.unstubAllEnvs();
     rmSync(root, { recursive: true, force: true });
   });
 
-  it("returns a non-zero result when Codex exits unsuccessfully", () => {
+  it("returns a non-zero result when Codex exits unsuccessfully", async () => {
     const root = tempRoot();
     const fake = path.join(root, process.platform === "win32" ? "fake-codex.cmd" : "fake-codex.sh");
     if (process.platform === "win32") {
@@ -566,7 +566,7 @@ process.stdin.on("end", () => {
       chmodSync(fake, 0o755);
     }
     vi.stubEnv("CODEX_BIN", fake);
-    const result = runCodexExec(root, "prompt");
+    const result = await runCodexExec(root, "prompt");
     expect(result.status).toBe(7);
     vi.unstubAllEnvs();
     rmSync(root, { recursive: true, force: true });
@@ -624,7 +624,7 @@ describe("scoped Codex remediation", () => {
     expect(CODEX_REMEDIATION_PROMPT).toContain("Run the validation commands");
   });
 
-  it("delivers the scoped prompt as a single stdin input, never split into args", () => {
+  it("delivers the scoped prompt as a single stdin input, never split into args", async () => {
     const root = tempRoot();
     const fake = path.join(root, process.platform === "win32" ? "fake-codex.cmd" : "fake-codex.sh");
     const fakeJs = path.join(root, "fake-codex.js");
@@ -653,7 +653,7 @@ process.stdin.on("end", () => {
     }
     vi.stubEnv("CODEX_BIN", fake);
     const multiline = `${scoped}\nsecond bounded line stays in the same prompt`;
-    const result = runCodexExec(root, multiline);
+    const result = await runCodexExec(root, multiline);
     expect(result.status).toBe(0);
     expect(typeof result.durationMs).toBe("number");
     const args = JSON.parse(readFileSync(path.join(root, "codex-args.json"), "utf8")) as string[];

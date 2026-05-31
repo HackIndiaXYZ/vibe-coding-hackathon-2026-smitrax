@@ -24,6 +24,10 @@ const EXP = () => new Date(Date.now() + 60 * 60 * 1000).toISOString();
 async function main() {
   requiredEnv("TELEGRAM_BOT_TOKEN");
   const chatId = telegramChatId();
+  // Send ONE scenario at a time for a clean, sequential chat (no burst of messages).
+  // Usage: pnpm demo:telegram-buttons [approval|consent|watch|all]   (default: all)
+  const scenario = (process.argv[2] ?? "all").toLowerCase();
+  const want = (name: string) => scenario === "all" || scenario === name;
 
   // Persist a fixture so heavy taps (which copy the project) keep working later.
   const fixture = path.join(path.dirname(logDir()), "tap-demo-fixture");
@@ -54,7 +58,7 @@ async function main() {
   const sent: Array<{ scenario: string; messageId: string }> = [];
 
   // 1) Remediation approval
-  {
+  if (want("approval")) {
     const text = ["PatchPilot approval needed", "", "Project: patchpilot-tap-demo", "Package: lodash", "Risk: 78/100 high", "Fix: 4.17.20 -> 4.17.21", "", "Tap a button. Nothing is merged or deployed automatically."].join("\n");
     const result = await sendTelegramApproval({ chatId, text, replyMarkup: inlineKeyboard([[
       { text: "✅ Approve", callbackData: telegramCallbackData("a", approvalId, "approve") },
@@ -64,7 +68,7 @@ async function main() {
   }
 
   // 2) Provider failover consent
-  {
+  if (want("consent")) {
     const readiness: ProviderReadiness[] = [
       { provider: "codex", status: "quota_limited", trust: "codex", lastCheckedAt: ISO(), failureReason: "usage limit" },
       { provider: "openrouter", status: "not_configured", trust: "cloud", lastCheckedAt: ISO() },
@@ -83,7 +87,7 @@ async function main() {
   }
 
   // 3) Watch alert
-  {
+  if (want("watch")) {
     const text = ["PatchPilot watch alert", "", "Project: patchpilot-tap-demo", "Package: lodash@4.17.20", "Risk: 78/100 high", "Fix: update to 4.17.21", "", "New vulnerability found. Start remediation? (watch mode never patches automatically)"].join("\n");
     const result = await sendTelegramApproval({ chatId, text, replyMarkup: inlineKeyboard([[
       { text: "🚀 Start remediation", callbackData: telegramCallbackData("w", findingId, "start") },

@@ -13,7 +13,7 @@ import { scoreRisk } from "./risk";
 import { scanAgentConfig } from "./agentConfigScanner";
 import { runProjectScanners } from "./scanners";
 import { createAuditReceipt } from "./audit";
-import { closePullRequest, createDraftPullRequest, deleteBranchRef, validateGithubRepo } from "./github";
+import { closePullRequest, createPullRequest, deleteBranchRef, mergePullRequest, validateGithubRepo } from "./github";
 import { CODEX_REMEDIATION_PROMPT, codexStatus, runCodexExec, writeCodexContext } from "./codex";
 import { assertLlmProviderConfigured, classifyAgentRemediation, isLlmProvider, requestRemediationPlan, type AgentProviderId } from "./agentProviders";
 import {
@@ -228,6 +228,170 @@ export class PatchPilotService {
       const index = (state.providerConsents ?? []).findIndex((item) => item.id === consentId);
       if (index >= 0 && state.providerConsents) state.providerConsents[index] = { ...state.providerConsents[index]!, ...patch, updatedAt: now() };
     });
+  }
+
+  // ── Two-step GitHub push -> merge gates ──────────────────────────────────
+  // A GitHub fix stops at `push_pending` (patch stashed, nothing pushed). The
+  // human approves the PUSH (confirmPush: branch + PR), then approves the MERGE
+  // (confirmMerge). Either gate can be declined (discardPush / rejectMerge).
+
+  /** Push gate approved: push the validated fix as a branch, open the PR, then ask to merge. */
+  async confirmPush(jobId: string, actorId?: string): Promise<RemediationJob> {
+    const job = this.db.read().remediationJobs.find((item) => item.id === jobId);
+    if (!job) throw new PatchPilotError("remediation_not_found", "Remediation job was not found.", { jobId }, 404);
+    if (job.status !== "push_pending") return job;
+    const state = this.db.read();
+    const project = state.projects.find((item) => item.id === job.projectId);
+    const finding = state.findings.find((item) => item.id === job.findingId);
+    if (!project?.githubOwner || !project.githubRepo) throw new PatchPilotError("github_metadata_missing", "GitHub project metadata is missing.", { jobId });
+    if (!job.branchName) throw new PatchPilotError("push_state_missing", "No branch is available to push.", { jobId });
+    const owner = project.githubOwner;
+    const repo = project.githubRepo;
+    const base = job.baseBranch ?? project.githubDefaultBranch ?? "main";
+    const title = `fix(security): patch ${finding?.packageName ?? "dependency"} vulnerability`;
+    // Prefer the original remediation workspace — it already has the exact validated
+    // fix committed on the branch. Re-cloning + re-applying a stashed lockfile patch
+    // is fragile (npm rewrites the lockfile), so that path is only a fallback used
+    // when the workspace is gone (e.g. after a server restart).
+    let workspace = job.workspacePath && existsSync(job.workspacePath) ? job.workspacePath : undefined;
+    try {
+      if (!workspace) {
+        if (!job.patchPath) throw new PatchPilotError("push_state_missing", "No workspace or stashed patch is available to push.", { jobId });
+        workspace = path.join(workspaceDir(), `${job.id}-push`);
+        mkdirSync(path.dirname(workspace), { recursive: true });
+        cloneGithubRepo({ owner, repo, branch: base, workspace, remoteUrl: project.repoUrl });
+        createBranch(workspace, job.branchName);
+        applyPatch(workspace, job.patchPath, false, true);
+        commitAll(workspace, title, job.changedFiles);
+      }
+      pushBranch(workspace, job.branchName, owner, repo);
+      const pr = await createPullRequest({ owner, repo, title, head: job.branchName, base, body: job.prBody ?? "PatchPilot security fix." });
+      this.db.update((draft) => {
+        draft.pullRequests.push({ id: id("pr"), remediationJobId: job.id, provider: "github", owner, repo, number: pr.number, url: pr.url, branchName: job.branchName!, baseBranch: base, draft: false, status: "created", createdAt: now() });
+      });
+      this.updateJob(job.id, { status: "pr_open", workspacePath: undefined, rollbackStatus: "available" });
+      createAuditReceipt(this.db, { projectId: project.id, actorType: "user", actorId, action: "remediation.push_approved", targetType: "remediation_job", targetId: job.id, prLink: pr.url, changedFiles: job.changedFiles, outputSummary: { prNumber: pr.number } });
+      this.event("remediation", job.id, "github.pr.created", "info", "Branch pushed and PR opened after push approval.", { url: pr.url });
+      if (finding) await this.trySendMergeGate(job.id, project, finding, pr.url, pr.number);
+    } finally {
+      if (workspace) {
+        if (retainWorkspaces()) scrubGithubRemote(workspace, owner, repo);
+        cleanupWorkspace(workspace);
+      }
+    }
+    return this.db.read().remediationJobs.find((item) => item.id === jobId)!;
+  }
+
+  /** Push gate declined: nothing was pushed, so drop the staged workspace + mark discarded. */
+  async discardPush(jobId: string, actorId?: string): Promise<RemediationJob> {
+    const job = this.db.read().remediationJobs.find((item) => item.id === jobId);
+    if (!job) throw new PatchPilotError("remediation_not_found", "Remediation job was not found.", { jobId }, 404);
+    if (job.status !== "push_pending") return job;
+    if (job.workspacePath && existsSync(job.workspacePath)) cleanupWorkspace(job.workspacePath);
+    this.updateJob(jobId, { status: "discarded", workspacePath: undefined, rollbackStatus: "not_available" });
+    createAuditReceipt(this.db, { projectId: job.projectId, actorType: "user", actorId, action: "remediation.push_discarded", targetType: "remediation_job", targetId: jobId, outputSummary: {} });
+    return this.db.read().remediationJobs.find((item) => item.id === jobId)!;
+  }
+
+  /** Merge gate approved: merge the open PR. */
+  async confirmMerge(jobId: string, actorId?: string): Promise<RemediationJob> {
+    const state = this.db.read();
+    const job = state.remediationJobs.find((item) => item.id === jobId);
+    if (!job) throw new PatchPilotError("remediation_not_found", "Remediation job was not found.", { jobId }, 404);
+    if (job.status !== "pr_open") return job;
+    const pr = state.pullRequests.find((item) => item.remediationJobId === jobId);
+    if (!pr || !pr.number) throw new PatchPilotError("pull_request_not_found", "No open PR to merge for this job.", { jobId }, 404);
+    const result = await mergePullRequest(pr.owner, pr.repo, pr.number, { commitTitle: `fix(security): PatchPilot merge for job ${jobId}` });
+    this.db.update((draft) => {
+      const stored = draft.pullRequests.find((item) => item.id === pr.id);
+      if (stored && result.merged) stored.status = "merged";
+    });
+    this.updateJob(jobId, { status: "merged", rollbackStatus: "not_available" });
+    createAuditReceipt(this.db, { projectId: job.projectId, actorType: "user", actorId, action: "remediation.merged", targetType: "remediation_job", targetId: jobId, prLink: pr.url, outputSummary: { prNumber: pr.number, merged: result.merged, sha: result.sha } });
+    this.event("remediation", jobId, "github.pr.merged", "info", "Pull request merged after merge approval.", { url: pr.url, sha: result.sha });
+    return this.db.read().remediationJobs.find((item) => item.id === jobId)!;
+  }
+
+  /** Merge gate declined: close the PR and delete the branch (rollback). */
+  async rejectMerge(jobId: string, actorId?: string): Promise<RemediationJob> {
+    const state = this.db.read();
+    const job = state.remediationJobs.find((item) => item.id === jobId);
+    if (!job) throw new PatchPilotError("remediation_not_found", "Remediation job was not found.", { jobId }, 404);
+    if (job.status !== "pr_open") return job;
+    const pr = state.pullRequests.find((item) => item.remediationJobId === jobId);
+    if (pr && pr.number) {
+      await closePullRequest(pr.owner, pr.repo, pr.number);
+      await deleteBranchRef(pr.owner, pr.repo, pr.branchName);
+      this.db.update((draft) => {
+        const stored = draft.pullRequests.find((item) => item.id === pr.id);
+        if (stored) stored.status = "closed";
+      });
+    }
+    this.updateJob(jobId, { status: "rejected", rollbackStatus: "completed" });
+    createAuditReceipt(this.db, { projectId: job.projectId, actorType: "user", actorId, action: "remediation.merge_rejected", targetType: "remediation_job", targetId: jobId, prLink: pr?.url, outputSummary: {} });
+    return this.db.read().remediationJobs.find((item) => item.id === jobId)!;
+  }
+
+  /** Telegram PUSH gate: "Fix ready, push it?" Best-effort; never breaks remediation. */
+  private async trySendPushGate(jobId: string, project: Project, finding: Finding, fileCount: number): Promise<void> {
+    const chats = (getEnv("TELEGRAM_ALLOWED_CHAT_IDS") ?? "").split(",").map((value) => value.trim()).filter(Boolean);
+    if (!getEnv("TELEGRAM_BOT_TOKEN") || chats.length === 0) {
+      this.event("approval", jobId, "telegram.not_configured", "warn", "Telegram push gate not sent (configuration missing).");
+      return;
+    }
+    const message = [
+      "PatchPilot fix ready",
+      "",
+      `Project: ${project.name}`,
+      `Package: ${finding.packageName}`,
+      `Fix: ${finding.currentVersion} -> ${finding.fixedVersion ?? "manual review"}`,
+      `Files changed: ${fileCount}`,
+      "",
+      "Push these changes as a branch and open a PR?"
+    ].join("\n");
+    for (const chatId of chats) {
+      try {
+        await sendTelegramApproval({
+          chatId,
+          text: message,
+          replyMarkup: inlineKeyboard([[
+            { text: "🚀 Push + open PR", callbackData: telegramCallbackData("g", jobId, "push") },
+            { text: "🗑 Discard", callbackData: telegramCallbackData("g", jobId, "discard") }
+          ]])
+        });
+      } catch (error) {
+        this.event("approval", jobId, "telegram.push_gate_failed", "warn", "Telegram push gate send failed.", { error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+  }
+
+  /** Telegram MERGE gate: "PR opened, merge it?" Best-effort. */
+  private async trySendMergeGate(jobId: string, project: Project, finding: Finding, prUrl?: string, prNumber?: number): Promise<void> {
+    const chats = (getEnv("TELEGRAM_ALLOWED_CHAT_IDS") ?? "").split(",").map((value) => value.trim()).filter(Boolean);
+    if (!getEnv("TELEGRAM_BOT_TOKEN") || chats.length === 0) return;
+    const message = [
+      "PatchPilot PR opened",
+      "",
+      `Project: ${project.name}`,
+      `Package: ${finding.packageName}`,
+      prNumber ? `PR #${prNumber}: ${prUrl}` : `PR: ${prUrl}`,
+      "",
+      "Merge this PR? (Reject closes the PR and deletes the branch.)"
+    ].join("\n");
+    for (const chatId of chats) {
+      try {
+        await sendTelegramApproval({
+          chatId,
+          text: message,
+          replyMarkup: inlineKeyboard([[
+            { text: "✅ Merge", callbackData: telegramCallbackData("m", jobId, "merge") },
+            { text: "❌ Reject", callbackData: telegramCallbackData("m", jobId, "reject") }
+          ]])
+        });
+      } catch (error) {
+        this.event("approval", jobId, "telegram.merge_gate_failed", "warn", "Telegram merge gate send failed.", { error: error instanceof Error ? error.message : String(error) });
+      }
+    }
   }
 
   async createProject(input: {
@@ -561,6 +725,7 @@ export class PatchPilotService {
 
     let remediationWorkspace: string | undefined;
     let remediationGithub: { owner: string; repo: string } | undefined;
+    let keepWorkspace = false;
     try {
       const workspace = path.join(workspaceDir(), job.id);
       remediationWorkspace = workspace;
@@ -616,7 +781,7 @@ export class PatchPilotService {
         this.event("remediation", job.id, "llm.plan.applied", "info", "PatchPilot applied the validated plan.", { summary: agentSummary });
       } else {
         this.event("remediation", job.id, "codex.started", "info", "Codex CLI execution started.");
-        const result = runCodexExec(workspace, options.codexPrompt ?? CODEX_REMEDIATION_PROMPT, { timeoutMs: options.codexTimeoutMs });
+        const result = await runCodexExec(workspace, options.codexPrompt ?? CODEX_REMEDIATION_PROMPT, { timeoutMs: options.codexTimeoutMs });
         agentSummary = result.stdout.slice(0, 4000);
         const codexGuard = classifyLlmOutput(agentSummary);
         if (codexGuard.suspicious) {
@@ -733,46 +898,29 @@ export class PatchPilotService {
       this.event("remediation", job.id, "attestation.created", "info", "Provenance attestation generated.", { signed: attestation.signed, keyId: attestation.keyId });
 
       if (project.sourceType === "github" && project.githubOwner && project.githubRepo) {
+        // Two-step push -> merge flow. Commit the validated fix on the branch and
+        // KEEP the workspace; the human approves the PUSH first (confirmPush pushes
+        // this branch + opens the PR), then the merge waits for a second tap
+        // (confirmMerge). The stashed patch is a fallback for confirmPush if the
+        // workspace is gone. Works for any agent (codex / ollama / deterministic).
+        const patchPath = writePatch(workspace, job.id, commitFiles);
         commitAll(workspace, `fix(security): patch ${finding.packageName} vulnerability`, commitFiles);
-        pushBranch(workspace, job.branchName!, project.githubOwner, project.githubRepo);
         const receipt = createAuditReceipt(this.db, {
           projectId: project.id,
           actorType: "system",
-          agent: "codex",
+          agent: job.agent,
           action: "remediation.validation_passed",
           targetType: "remediation_job",
           targetId: job.id,
           changedFiles: commitFiles,
+          commandLogsRef: patchPath,
           outputSummary: { confidence, lockfileDiff, attestation }
         });
-        const pr = await createDraftPullRequest({
-          owner: project.githubOwner,
-          repo: project.githubRepo,
-          title: `fix(security): patch ${finding.packageName} vulnerability`,
-          head: job.branchName!,
-          base: project.githubDefaultBranch ?? "main",
-          body: prBody({ finding, vulnerability, validationRuns: validations, receiptId: receipt.id, confidence, changedFiles: commitFiles, attestation })
-        });
-        this.db.update((draft) => {
-          draft.pullRequests.push({
-            id: id("pr"),
-            remediationJobId: job.id,
-            provider: "github",
-            owner: project.githubOwner!,
-            repo: project.githubRepo!,
-            number: pr.number,
-            url: pr.url,
-            branchName: job.branchName!,
-            baseBranch: project.githubDefaultBranch ?? "main",
-            draft: true,
-            status: "created",
-            createdAt: now()
-          });
-        });
-        this.event("remediation", job.id, "github.pr.created", "info", "Draft pull request created.", { url: pr.url });
-        await this.trySendApproval(job.id, project, finding, pr.url);
-        // Rollback for a GitHub draft PR = close the PR + delete the branch.
-        this.updateJob(job.id, { status: "approval_sent", finishedAt: now(), rollbackStatus: "available" });
+        const body = prBody({ finding, vulnerability, validationRuns: validations, receiptId: receipt.id, confidence, changedFiles: commitFiles, attestation });
+        this.updateJob(job.id, { workspacePath: workspace, branchName: job.branchName, baseBranch: project.githubDefaultBranch ?? "main", patchPath, prBody: body, status: "push_pending", finishedAt: now(), rollbackStatus: "available" });
+        keepWorkspace = true;
+        this.event("remediation", job.id, "github.push_pending", "info", "Fix validated; awaiting push approval.", { changedFiles: commitFiles.length });
+        await this.trySendPushGate(job.id, project, finding, commitFiles.length);
       } else {
         const patchPath = writePatch(workspace, job.id, commitFiles);
         this.updateJob(job.id, { patchPath, status: "pr_ready", finishedAt: now(), rollbackStatus: "not_available" });
@@ -794,7 +942,9 @@ export class PatchPilotService {
     } catch (error) {
       return this.failRemediation(job, error instanceof PatchPilotError ? error.code : "remediation_failed", error instanceof Error ? error.message : String(error));
     } finally {
-      if (remediationWorkspace) {
+      // Keep the workspace for a push_pending GitHub job (confirmPush/discardPush
+      // own its cleanup); otherwise dispose of it now.
+      if (remediationWorkspace && !keepWorkspace) {
         if (remediationGithub && retainWorkspaces()) scrubGithubRemote(remediationWorkspace, remediationGithub.owner, remediationGithub.repo);
         cleanupWorkspace(remediationWorkspace);
       }

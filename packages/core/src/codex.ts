@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import { commandExists, getEnv } from "./env";
 import { PatchPilotError } from "./errors";
@@ -112,12 +112,12 @@ export function writeCodexContext(workspace: string, context: unknown): string {
 }
 
 /** Runs `codex --version`. Safe diagnostic: no prompt, short timeout. */
-export function codexVersion(timeoutMs = 20000): CodexCliResult {
+export function codexVersion(timeoutMs = 20000): Promise<CodexCliResult> {
   return spawnCodex(["--version"], { timeoutMs });
 }
 
 /** Runs `codex exec --help`. Safe diagnostic: no prompt, short timeout. */
-export function codexExecHelp(timeoutMs = 20000): CodexCliResult {
+export function codexExecHelp(timeoutMs = 20000): Promise<CodexCliResult> {
   return spawnCodex(["exec", "--help"], { timeoutMs });
 }
 
@@ -126,11 +126,11 @@ export function codexExecHelp(timeoutMs = 20000): CodexCliResult {
  * secret-scrubbed environment. The prompt is always delivered through stdin so
  * multiline prompts stay a single input and are never shell-split into args.
  */
-export function runCodexPrompt(
+export async function runCodexPrompt(
   workspace: string,
   prompt = CODEX_REMEDIATION_PROMPT,
   options: { timeoutMs?: number } = {}
-): CodexCliResult {
+): Promise<CodexCliResult> {
   const status = codexStatus();
   if (!status.configured) {
     throw new PatchPilotError("codex_unavailable", `Codex not executed: ${status.message}`, { requiredTool: getEnv("CODEX_BIN") ?? "codex" });
@@ -144,13 +144,15 @@ export function runCodexPrompt(
 /**
  * Backwards-compatible wrapper used by the remediation service. Returns the
  * fields callers already depend on, plus duration/timedOut for honest reporting.
+ * Async so the agentic Codex run never blocks the Node event loop (a single
+ * webhook server stays responsive to other taps while Codex works).
  */
-export function runCodexExec(
+export async function runCodexExec(
   workspace: string,
   prompt = CODEX_REMEDIATION_PROMPT,
   options: { timeoutMs?: number } = {}
-): { stdout: string; stderr: string; status: number; durationMs: number; timedOut: boolean } {
-  const result = runCodexPrompt(workspace, prompt, options);
+): Promise<{ stdout: string; stderr: string; status: number; durationMs: number; timedOut: boolean }> {
+  const result = await runCodexPrompt(workspace, prompt, options);
   return { stdout: result.stdout, stderr: result.stderr, status: result.status, durationMs: result.durationMs, timedOut: result.timedOut };
 }
 
@@ -225,29 +227,54 @@ function codexChildEnv(): NodeJS.ProcessEnv {
   return env;
 }
 
-function spawnCodex(args: string[], options: { input?: string; timeoutMs: number }): CodexCliResult {
+// Kills the whole child process tree. On Windows a `cmd /c call codex.cmd` child
+// spawns the heavy Codex runtime as grandchildren, so child.kill() alone leaves
+// them running — taskkill /T reaps the tree.
+function killProcessTree(pid: number | undefined): void {
+  if (!pid) return;
+  if (process.platform === "win32") {
+    spawn("taskkill", ["/PID", String(pid), "/T", "/F"]).on("error", () => undefined);
+  } else {
+    try { process.kill(-pid, "SIGKILL"); } catch { try { process.kill(pid, "SIGKILL"); } catch { /* already gone */ } }
+  }
+}
+
+// Async Codex runner. Uses child_process.spawn (non-blocking) so the agentic
+// Codex run never freezes the Node event loop; the prompt is delivered on stdin,
+// and a timeout kills the process tree. Resolves (never rejects) with the same
+// shape the sync version returned, so callers only add `await`.
+function spawnCodex(args: string[], options: { input?: string; timeoutMs: number }): Promise<CodexCliResult> {
   const bin = resolveCodexExecutable(getEnv("CODEX_BIN") ?? "codex");
   const invocation = codexInvocation(bin, args);
   const started = Date.now();
-  const result = spawnSync(invocation.command, invocation.args, {
-    encoding: "utf8",
-    timeout: options.timeoutMs,
-    input: options.input,
-    env: codexChildEnv()
+  return new Promise<CodexCliResult>((resolve) => {
+    let settled = false;
+    let timedOut = false;
+    let stdout = "";
+    let stderr = "";
+    const child = spawn(invocation.command, invocation.args, { env: codexChildEnv() });
+    const timer = setTimeout(() => { timedOut = true; killProcessTree(child.pid); }, options.timeoutMs);
+    const finish = (rawStatus: number) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      const status = timedOut ? 124 : rawStatus;
+      resolve({
+        ok: status === 0 && !timedOut,
+        command: redact(invocation.command),
+        args: invocation.args.map((arg) => redact(arg)),
+        status,
+        stdout: redact(stdout),
+        stderr: timedOut ? `Codex execution timed out after ${options.timeoutMs}ms.` : redact(stderr),
+        durationMs: Date.now() - started,
+        timedOut
+      });
+    };
+    child.stdout?.on("data", (chunk) => { stdout += chunk.toString(); });
+    child.stderr?.on("data", (chunk) => { stderr += chunk.toString(); });
+    child.on("error", (error) => { stderr += `\n${(error as Error).message ?? String(error)}`; finish(1); });
+    child.on("close", (code) => finish(code ?? 1));
+    if (options.input !== undefined) child.stdin?.write(options.input);
+    child.stdin?.end();
   });
-  const durationMs = Date.now() - started;
-  const errnoCode = result.error && "code" in result.error ? (result.error as NodeJS.ErrnoException).code : undefined;
-  const timedOut = errnoCode === "ETIMEDOUT";
-  const status = timedOut ? 124 : result.status ?? 1;
-  const stderr = timedOut ? `Codex execution timed out after ${options.timeoutMs}ms.` : redact(result.stderr ?? "");
-  return {
-    ok: status === 0 && !timedOut,
-    command: redact(invocation.command),
-    args: invocation.args.map((arg) => redact(arg)),
-    status,
-    stdout: redact(result.stdout ?? ""),
-    stderr,
-    durationMs,
-    timedOut
-  };
 }

@@ -55,6 +55,7 @@ try {
     status: ok ? "verified" : "incomplete",
     pluginDir,
     toolCount: names.length,
+    tools: names,
     missingRequired,
     scannerCoverageBytes
   }, null, 2));

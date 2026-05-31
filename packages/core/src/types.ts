@@ -12,6 +12,10 @@ export type JobStatus =
   | "validation_failed"
   | "pr_ready"
   | "approval_sent"
+  | "push_pending"
+  | "pr_open"
+  | "merged"
+  | "discarded"
   | "approved"
   | "rejected"
   | "failed";
@@ -135,6 +139,8 @@ export interface RemediationJob {
   patchPath?: string;
   patchAppliedAt?: string;
   rollbackStatus?: "not_available" | "available" | "requested" | "completed" | "failed";
+  /** Rendered PR body, stashed at fix time so the push gate can open the PR later. */
+  prBody?: string;
   createdAt: string;
 }
 
