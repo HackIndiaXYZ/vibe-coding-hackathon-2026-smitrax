@@ -286,6 +286,69 @@ td:first-child {
   color: var(--text);
 }
 
+/* Long tokens (vuln ids, package names, file lists) wrap instead of overflowing. */
+td {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* ----- Table scroll + pagination ----- */
+/* Wrap tables so wide ones scroll horizontally instead of being clipped by the
+   panel's overflow:hidden (the mobile cut-off). */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hairline);
+}
+.pager-btn {
+  background: var(--surface);
+  border: 1px solid var(--hairline-strong);
+  color: var(--body);
+  border-radius: 8px;
+  padding: 6px 11px;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  font-family: inherit;
+}
+.pager-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+}
+.pager-btn.active {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--primary-active);
+  font-weight: 600;
+}
+.pager-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.pager-gap {
+  color: var(--muted);
+  padding: 0 2px;
+}
+.pager-info {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+@media (max-width: 600px) {
+  .pager-info {
+    margin-left: 0;
+    width: 100%;
+    margin-top: 4px;
+  }
+}
+
 /* ----- Stat list (posture) ----- */
 .statlist {
   list-style: none;

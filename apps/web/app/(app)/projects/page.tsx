@@ -1,7 +1,18 @@
 import { PatchPilotService, JsonDatabase } from "@patchpilot/core";
+import { PaginatedTable } from "../../../components/PaginatedTable";
 
 export default function ProjectsPage() {
   const projects = new PatchPilotService(new JsonDatabase()).listProjects();
+  const rows = [...projects].reverse().map((project) => (
+    <tr key={project.id}>
+      <td>{project.name}</td>
+      <td>{project.sourceType}</td>
+      <td>{project.packageManager}</td>
+      <td>{project.productionExposed ? "Production" : project.deploymentProvider}</td>
+      <td>{project.lastScanStatus ?? "never"}</td>
+      <td>{project.openFindings}</td>
+    </tr>
+  ));
   return (
     <>
       <div className="topline">Inventory</div>
@@ -24,21 +35,12 @@ export default function ProjectsPage() {
       </section>
       <section className="panel" style={{ marginTop: 14 }}>
         <h2>Watched Projects</h2>
-        <table>
-          <thead><tr><th>Name</th><th>Source</th><th>Package manager</th><th>Deployment</th><th>Last scan</th><th>Findings</th></tr></thead>
-          <tbody>
-            {projects.length === 0 ? <tr><td colSpan={6} className="muted">No projects watched yet. Add a GitHub repo or allowlisted local folder.</td></tr> : projects.map((project) => (
-              <tr key={project.id}>
-                <td>{project.name}</td>
-                <td>{project.sourceType}</td>
-                <td>{project.packageManager}</td>
-                <td>{project.productionExposed ? "Production" : project.deploymentProvider}</td>
-                <td>{project.lastScanStatus ?? "never"}</td>
-                <td>{project.openFindings}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <PaginatedTable
+          head={<tr><th>Name</th><th>Source</th><th>Package manager</th><th>Deployment</th><th>Last scan</th><th>Findings</th></tr>}
+          rows={rows}
+          pageSize={12}
+          empty={<tr><td colSpan={6} className="muted">No projects watched yet. Add a GitHub repo or allowlisted local folder.</td></tr>}
+        />
       </section>
     </>
   );
