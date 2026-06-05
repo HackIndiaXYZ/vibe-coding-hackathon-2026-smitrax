@@ -6,7 +6,7 @@ export default function WatchPage() {
   const status = watchStatus(db);
   const settings = getSettings(db).watch;
   const stat = (label: string, value: string | number) => (
-    <li className="stat"><span>{label}</span><b>{value}</b></li>
+    <li className="stat"><span>{label}</span><b title={typeof value === "string" ? value : undefined}>{value}</b></li>
   );
   return (
     <>

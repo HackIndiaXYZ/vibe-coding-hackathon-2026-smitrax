@@ -30,20 +30,22 @@ export default function ScannersPage() {
 
       <section className="panel" style={{ marginTop: 24 }}>
         <div className="section-label">External tools</div>
-        <table>
-          <thead><tr><th>Tool</th><th>Category</th><th>Status</th><th>Command</th><th>Version</th></tr></thead>
-          <tbody>
-            {tools.map((tool) => (
-              <tr key={tool.id}>
-                <td>{tool.label}</td>
-                <td>{tool.category}</td>
-                <td><span className={`status-badge ${tool.status}`}>{tool.status}</span></td>
-                <td className="mono">{tool.command}</td>
-                <td className="mono">{tool.version ?? "·"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="table-scroll">
+          <table>
+            <thead><tr><th>Tool</th><th>Category</th><th>Status</th><th>Command</th><th>Version</th></tr></thead>
+            <tbody>
+              {tools.map((tool) => (
+                <tr key={tool.id}>
+                  <td data-label="Tool">{tool.label}</td>
+                  <td data-label="Category">{tool.category}</td>
+                  <td data-label="Status"><span className={`status-badge ${tool.status}`}>{tool.status}</span></td>
+                  <td data-label="Command"><span className="path" title={tool.command}>{tool.command}</span></td>
+                  <td data-label="Version"><span className="id-sm" title={tool.version ?? ""}>{tool.version ?? "·"}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
     </>
   );

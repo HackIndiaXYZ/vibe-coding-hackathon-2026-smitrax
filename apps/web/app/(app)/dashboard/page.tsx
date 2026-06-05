@@ -67,42 +67,45 @@ export default function Dashboard() {
       <section className="grid two">
         <div className="panel">
           <div className="section-label">Affected projects</div>
-          <table>
-            <thead>
-              <tr>
-                <th>Project</th>
-                <th>Risk</th>
-                <th>Package</th>
-                <th>Reachability</th>
-                <th>Fix</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {findings.length === 0 ? (
+          <div className="table-scroll">
+            <table>
+              <thead>
                 <tr>
-                  <td colSpan={6} className="empty-cell">
-                    <strong>No findings yet.</strong>
-                    <span>Add a project and run a scan to populate the threat radar. Local scans need <code>PATCHPILOT_LOCAL_ROOTS</code>; GitHub scans need <code>GITHUB_TOKEN</code>.</span>
-                    <a className="pill-link" href="/projects">Go to Projects <ArrowRight size={13} /></a>
-                  </td>
+                  <th>Project</th>
+                  <th>Risk</th>
+                  <th>Package</th>
+                  <th>Reachability</th>
+                  <th>Fix</th>
+                  <th>Status</th>
                 </tr>
-              ) : findings.map((finding) => {
-                const project = state.projects.find((item) => item.id === finding.projectId);
-                const reach = REACH[finding.reachability ?? "unknown"]!;
-                return (
-                  <tr key={finding.id}>
-                    <td>{project?.name ?? "Unknown"}</td>
-                    <td className={finding.riskLevel}>{finding.riskScore}/100</td>
-                    <td className="mono">{finding.packageName}@{finding.currentVersion}</td>
-                    <td><span className={`reach ${reach.cls}`} title={finding.reachabilityEvidence ?? reach.title}>{reach.text}</span></td>
-                    <td>{finding.fixedVersion ? <span className="mono">→ {finding.fixedVersion}</span> : "manual review"}</td>
-                    <td>{finding.status}</td>
+              </thead>
+              <tbody>
+                {findings.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="empty-cell">
+                      <strong>No findings yet.</strong>
+                      <span>Add a project and run a scan to populate the threat radar. Local scans need <code>PATCHPILOT_LOCAL_ROOTS</code>; GitHub scans need <code>GITHUB_TOKEN</code>.</span>
+                      <a className="pill-link" href="/projects">Go to Projects <ArrowRight size={13} /></a>
+                    </td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                ) : findings.map((finding) => {
+                  const project = state.projects.find((item) => item.id === finding.projectId);
+                  const reach = REACH[finding.reachability ?? "unknown"]!;
+                  const pkg = `${finding.packageName}@${finding.currentVersion}`;
+                  return (
+                    <tr key={finding.id}>
+                      <td data-label="Project">{project?.name ?? "Unknown"}</td>
+                      <td data-label="Risk" className={finding.riskLevel}>{finding.riskScore}/100</td>
+                      <td data-label="Package"><span className="pkg" title={pkg}>{pkg}</span></td>
+                      <td data-label="Reachability"><span className={`reach ${reach.cls}`} title={finding.reachabilityEvidence ?? reach.title}>{reach.text}</span></td>
+                      <td data-label="Fix">{finding.fixedVersion ? <span className="pkg" title={`→ ${finding.fixedVersion}`}>→ {finding.fixedVersion}</span> : "manual review"}</td>
+                      <td data-label="Status">{finding.status}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div className="panel">

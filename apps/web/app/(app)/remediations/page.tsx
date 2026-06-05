@@ -4,9 +4,23 @@ import { PaginatedTable } from "../../../components/PaginatedTable";
 export default function RemediationsPage() {
   const state = new JsonDatabase().read();
   const codex = codexStatus();
-  const rows = [...state.remediationJobs].reverse().map((job) => (
-    <tr key={job.id}><td className="mono">{job.id}</td><td>{job.agent}</td><td>{job.status}</td><td>{job.fixConfidence ?? "unknown"}</td><td className="mono">{job.patchPath ?? "none"}</td><td>{job.rollbackStatus ?? "unknown"}</td><td>{job.changedFiles.join(", ")}</td><td>{job.errorMessage}</td></tr>
-  ));
+  const rows = [...state.remediationJobs].reverse().map((job) => {
+    const patch = job.patchPath ?? "none";
+    const files = job.changedFiles.join(", ");
+    const err = job.errorMessage ?? "";
+    return (
+      <tr key={job.id}>
+        <td data-label="Job"><span className="id" title={job.id}>{job.id}</span></td>
+        <td data-label="Agent">{job.agent}</td>
+        <td data-label="Status">{job.status}</td>
+        <td data-label="Confidence">{job.fixConfidence ?? "unknown"}</td>
+        <td data-label="Patch">{job.patchPath ? <span className="path" title={patch}>{patch}</span> : <span className="muted">none</span>}</td>
+        <td data-label="Rollback">{job.rollbackStatus ?? "unknown"}</td>
+        <td data-label="Changed files"><span className="list-trunc" title={files}>{files}</span></td>
+        <td data-label="Error"><span className="list-trunc" title={err}>{err}</span></td>
+      </tr>
+    );
+  });
   return (
     <>
       <div className="topline">Codex Remediation Timeline</div>

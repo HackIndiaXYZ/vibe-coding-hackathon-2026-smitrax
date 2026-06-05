@@ -292,13 +292,34 @@ td {
   overflow-wrap: anywhere;
 }
 
+/* Cells that opt into clean truncation (see .id / .path / .url-chip / .list-trunc
+   below) must NOT inherit the table-wide word-break, or the ellipsis never kicks
+   in and the token still wraps mid-character. */
+td .id,
+td .id-sm,
+td .id-lg,
+td .path,
+td .list-trunc,
+td .url-chip,
+td .pkg {
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+
 /* ----- Table scroll + pagination ----- */
 /* Wrap tables so wide ones scroll horizontally instead of being clipped by the
-   panel's overflow:hidden (the mobile cut-off). */
+   panel's overflow:hidden (the mobile cut-off). A thin scrollbar + soft right-edge
+   fade signals scrollability without adding chrome. */
 .table-scroll {
+  position: relative;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-strong) transparent;
 }
+.table-scroll::-webkit-scrollbar { height: 6px; }
+.table-scroll::-webkit-scrollbar-thumb { background: var(--hairline-strong); border-radius: 4px; }
+.table-scroll::-webkit-scrollbar-track { background: transparent; }
 .pager {
   display: flex;
   flex-wrap: wrap;
@@ -349,6 +370,116 @@ td {
   }
 }
 
+/* ============================================================
+   Mobile card-mode for tables (≤640px)
+   ============================================================
+   Tables with 5–9 columns are unusable as tables on phones — values either
+   clip with ellipsis (lossy) or scroll horizontally (clunky). Below 640px we
+   restyle every `.table-scroll table` into a vertical list of cards: one card
+   per row, each cell rendered as a flex row showing its column label (via
+   `data-label`) on the left and the full value on the right. Long IDs, paths
+   and lists wrap freely with no max-width — nothing is hidden behind a tooltip.
+*/
+@media (max-width: 640px) {
+  /* Cards no longer need horizontal scroll. */
+  .table-scroll { overflow-x: visible; }
+
+  .table-scroll table,
+  .table-scroll tbody {
+    display: block;
+    width: 100%;
+  }
+  .table-scroll thead { display: none; }
+
+  .table-scroll tr {
+    display: block;
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-md);
+    padding: 4px 14px;
+    margin-bottom: 10px;
+    background: var(--surface-2);
+  }
+  .table-scroll tr:last-child { margin-bottom: 0; }
+
+  .table-scroll td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--hairline);
+    color: var(--body);
+    text-align: right;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    min-width: 0;
+  }
+  .table-scroll td:last-child { border-bottom: none; }
+
+  /* Column label drawn from data-label so we don't repeat th text per row. */
+  .table-scroll td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    text-align: left;
+    flex: 0 0 auto;
+    max-width: 45%;
+  }
+  /* Cells without data-label (e.g. the empty-state row) skip the label slot. */
+  .table-scroll td:not([data-label])::before { content: none; }
+
+  /* Truncation classes drop their caps in card mode — full value is visible. */
+  .table-scroll .id,
+  .table-scroll .id-sm,
+  .table-scroll .id-lg,
+  .table-scroll .pkg,
+  .table-scroll .list-trunc {
+    max-width: none;
+    overflow: visible;
+    white-space: normal;
+    text-overflow: clip;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    text-align: right;
+  }
+  /* Path: drop the RTL ellipsis trick, just wrap naturally. */
+  .table-scroll .path {
+    max-width: none;
+    overflow: visible;
+    white-space: normal;
+    text-overflow: clip;
+    direction: ltr;
+    text-align: right;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+  .table-scroll .url-chip {
+    max-width: none;
+    white-space: normal;
+    text-overflow: clip;
+    word-break: break-all;
+    text-align: right;
+  }
+
+  /* Empty-state cells (either .empty-cell or any td[colspan]) fill the card
+     without a label and stay left-aligned. */
+  .table-scroll td.empty-cell,
+  .table-scroll td[colspan] {
+    display: block;
+    text-align: left;
+    padding: 14px 4px;
+    border-bottom: none;
+  }
+  .table-scroll td.empty-cell::before,
+  .table-scroll td[colspan]::before { content: none; }
+
+  /* Pager sits below the cards with a clean separator. */
+  .pager { border-top: 1px solid var(--hairline); margin-top: 14px; }
+}
+
 /* ----- Stat list (posture) ----- */
 .statlist {
   list-style: none;
@@ -377,6 +508,17 @@ td {
   font-weight: 500;
   color: var(--text);
   font-size: 14px;
+  /* Long values (errors, timestamps) clip instead of pushing the label off. */
+  max-width: 60%;
+  min-width: 0;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stat > span:first-child {
+  min-width: 0;
+  flex: 0 0 auto;
 }
 
 /* ----- Pills / chips / dots ----- */
@@ -444,6 +586,88 @@ td {
   font-size: 12.5px;
   color: var(--body);
 }
+
+/* ----- Smart truncation primitives -----
+   Long IDs, hashes, paths, URLs and joined lists are first-class data in this
+   product. Rather than letting them wrap mid-token (ugly) or overflow the panel
+   (worse), we clamp them with ellipsis and surface the full value via title /
+   tooltip. The classes opt-in per-cell so the rest of the table layout stays. */
+.id, .id-sm, .id-lg {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--body);
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: bottom;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+.id    { max-width: 14ch; }
+.id-sm { max-width: 10ch; }
+.id-lg { max-width: 22ch; }
+td:first-child .id,
+td:first-child .id-sm,
+td:first-child .id-lg { color: var(--text); }
+
+/* Path truncation that keeps the filename visible (truncate from start). */
+.path {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--body);
+  display: inline-block;
+  max-width: 22ch;
+  direction: rtl;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  unicode-bidi: plaintext;
+}
+
+/* package@version cell — never break mid-name, clip with ellipsis if needed. */
+.pkg {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--body);
+  display: inline-block;
+  max-width: 24ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Inline comma-joined list that truncates instead of wrapping. */
+.list-trunc {
+  display: inline-block;
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+/* URL pill — neutral by default to keep Cursor Orange scarce; accent on hover.
+   Mirrors .pill-link but renders in JetBrains Mono since the value is a URL. */
+.url-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 9999px;
+  padding: 3px 10px;
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: border-color 120ms ease, color 120ms ease;
+}
+.url-chip:hover { color: var(--primary-active); border-color: var(--primary); }
 
 /* ----- Semantic text ----- */
 .critical,
@@ -542,6 +766,10 @@ td {
   padding-left: 13px;
   color: var(--body);
   font-size: 13px;
+  /* Long mono action names (provider_failover_consent_requested) must wrap on
+     mobile, but should break at underscores rather than mid-letter. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* ----- Settings controls ----- */
@@ -673,21 +901,31 @@ td {
     border-bottom: 1px solid var(--hairline);
     padding: 16px;
   }
-  /* Compact horizontal nav on mobile so it doesn't eat the whole first screen. */
+  /* Mobile nav becomes an even 2-column grid so buttons line up cleanly
+     instead of wrapping into 2/3/3/2/3 stair-stepped rows. The last item
+     (Settings) spans both columns as a footer-style pill, so the orphan tail
+     is intentional rather than ragged. */
   .nav {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
   .nav a {
-    padding: 7px 11px;
+    padding: 10px 12px;
     font-size: 13px;
+    font-weight: 500;
     border: 1px solid var(--hairline);
     background: var(--surface);
+    justify-content: flex-start;
+    min-width: 0;
   }
   .nav a.active {
     box-shadow: none;
     border-color: var(--primary);
+  }
+  .nav a:last-child {
+    grid-column: 1 / -1;
+    justify-content: center;
   }
   .sidebar-foot {
     display: none;
@@ -707,6 +945,23 @@ td {
   table {
     font-size: 12.5px;
   }
+  /* Tighter cell padding so wide tables don't force horizontal scroll as often. */
+  th, td { padding: 9px 6px; }
+  /* Cap mono tokens harder on small screens — title attr still reveals full value. */
+  .id    { max-width: 11ch; }
+  .id-sm { max-width: 8ch; }
+  .id-lg { max-width: 15ch; }
+  .path  { max-width: 14ch; }
+  .pkg   { max-width: 16ch; }
+  .list-trunc { max-width: 14ch; }
+  .url-chip   { max-width: 14ch; }
+  /* Head row stays usable when the right-side badge gets long. */
+  .head-actions { width: 100%; flex-wrap: wrap; }
+  .badge, .pill { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  /* KPI numbers shouldn't be huge on phones — they're already prominent. */
+  .metric-value { font-size: 26px; }
+  /* Stat list label/value share row gracefully. */
+  .stat { gap: 12px; }
 }
 
 /* ============================================================

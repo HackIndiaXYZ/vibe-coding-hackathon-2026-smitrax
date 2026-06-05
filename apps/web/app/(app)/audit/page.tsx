@@ -3,9 +3,20 @@ import { PaginatedTable } from "../../../components/PaginatedTable";
 
 export default function AuditPage() {
   const receipts = new JsonDatabase().read().auditReceipts.slice().reverse();
-  const rows = receipts.map((receipt) => (
-    <tr key={receipt.id}><td className="mono">{receipt.id}</td><td>{receipt.action}</td><td>{receipt.actorType}</td><td>{receipt.targetType}:{receipt.targetId}</td><td className="mono">{receipt.receiptHash.slice(0, 16)}</td><td className="mono">{receipt.previousReceiptHash?.slice(0, 16) ?? "genesis"}</td></tr>
-  ));
+  const rows = receipts.map((receipt) => {
+    const target = `${receipt.targetType}:${receipt.targetId}`;
+    const prev = receipt.previousReceiptHash ?? "";
+    return (
+      <tr key={receipt.id}>
+        <td data-label="Receipt"><span className="id" title={receipt.id}>{receipt.id}</span></td>
+        <td data-label="Action">{receipt.action}</td>
+        <td data-label="Actor">{receipt.actorType}</td>
+        <td data-label="Target"><span className="list-trunc" title={target}>{target}</span></td>
+        <td data-label="Hash"><span className="id-sm" title={receipt.receiptHash}>{receipt.receiptHash.slice(0, 10)}</span></td>
+        <td data-label="Previous">{prev ? <span className="id-sm" title={prev}>{prev.slice(0, 10)}</span> : <span className="muted">genesis</span>}</td>
+      </tr>
+    );
+  });
   return (
     <>
       <div className="topline">Tamper-evident receipt hash chain</div>

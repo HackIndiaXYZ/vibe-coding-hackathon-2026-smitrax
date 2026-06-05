@@ -5,12 +5,12 @@ export default function ProjectsPage() {
   const projects = new PatchPilotService(new JsonDatabase()).listProjects();
   const rows = [...projects].reverse().map((project) => (
     <tr key={project.id}>
-      <td>{project.name}</td>
-      <td>{project.sourceType}</td>
-      <td>{project.packageManager}</td>
-      <td>{project.productionExposed ? "Production" : project.deploymentProvider}</td>
-      <td>{project.lastScanStatus ?? "never"}</td>
-      <td>{project.openFindings}</td>
+      <td data-label="Name">{project.name}</td>
+      <td data-label="Source">{project.sourceType}</td>
+      <td data-label="Package manager">{project.packageManager}</td>
+      <td data-label="Deployment">{project.productionExposed ? "Production" : project.deploymentProvider}</td>
+      <td data-label="Last scan">{project.lastScanStatus ?? "never"}</td>
+      <td data-label="Findings">{project.openFindings}</td>
     </tr>
   ));
   return (

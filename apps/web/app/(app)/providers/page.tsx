@@ -8,6 +8,11 @@ const PROVIDER_ACTIONS = new Set([
   "local_model_used", "deterministic_fallback_used"
 ]);
 
+const humanizeAction = (action: string) =>
+  action
+    .replace(/_/g, " ")
+    .replace(/^./, (c) => c.toUpperCase());
+
 export default function ProvidersPage() {
   const db = new JsonDatabase();
   const state = db.read();
@@ -27,19 +32,24 @@ export default function ProvidersPage() {
       <section className="grid two">
         <div className="panel">
           <div className="section-label">Provider readiness</div>
-          <table>
-            <thead><tr><th>Provider</th><th>Status</th><th>Edits repo</th><th>Required env</th></tr></thead>
-            <tbody>
-              {providers.map((provider) => (
-                <tr key={provider.id}>
-                  <td>{provider.label}{provider.selected ? " ★" : ""}</td>
-                  <td><span className={`status-badge ${provider.status}`}>{provider.status}</span></td>
-                  <td>{provider.modelEditsRepo ? "yes" : "no"}</td>
-                  <td className="mono">{provider.requiredEnv.join(", ") || "·"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>Provider</th><th>Status</th><th>Edits repo</th><th>Required env</th></tr></thead>
+              <tbody>
+                {providers.map((provider) => {
+                  const env = provider.requiredEnv.join(", ") || "·";
+                  return (
+                    <tr key={provider.id}>
+                      <td data-label="Provider">{provider.label}{provider.selected ? " ★" : ""}</td>
+                      <td data-label="Status"><span className={`status-badge ${provider.status}`}>{provider.status}</span></td>
+                      <td data-label="Edits repo">{provider.modelEditsRepo ? "yes" : "no"}</td>
+                      <td data-label="Required env"><span className="list-trunc mono" title={env}>{env}</span></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
         <div className="panel">
           <div className="section-label">Failover controls</div>
@@ -52,20 +62,22 @@ export default function ProvidersPage() {
         {consents.length === 0 ? (
           <p className="muted" style={{ margin: 0, fontSize: 13 }}>No failover consent requests yet.</p>
         ) : (
-          <table>
-            <thead><tr><th>Failed</th><th>Candidate</th><th>Trust</th><th>Status</th><th>When</th></tr></thead>
-            <tbody>
-              {consents.map((consent) => (
-                <tr key={consent.id}>
-                  <td>{consent.failedProvider}</td>
-                  <td>{consent.candidateProvider}</td>
-                  <td>{consent.candidateTrust}</td>
-                  <td><span className={`status-badge ${consent.status === "resolved" || consent.status === "approved" ? "completed" : consent.status === "pending" ? "not_applicable" : "failed"}`}>{consent.status}</span></td>
-                  <td className="muted">{consent.createdAt}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>Failed</th><th>Candidate</th><th>Trust</th><th>Status</th><th>When</th></tr></thead>
+              <tbody>
+                {consents.map((consent) => (
+                  <tr key={consent.id}>
+                    <td data-label="Failed">{consent.failedProvider}</td>
+                    <td data-label="Candidate">{consent.candidateProvider}</td>
+                    <td data-label="Trust">{consent.candidateTrust}</td>
+                    <td data-label="Status"><span className={`status-badge ${consent.status === "resolved" || consent.status === "approved" ? "completed" : consent.status === "pending" ? "not_applicable" : "failed"}`}>{consent.status}</span></td>
+                    <td data-label="When" className="muted"><span className="list-trunc" title={consent.createdAt}>{consent.createdAt}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
@@ -77,7 +89,8 @@ export default function ProvidersPage() {
           <div className="timeline">
             {timeline.map((receipt) => (
               <div key={receipt.id}>
-                <span className="mono">{receipt.action}</span> {receipt.agent ? `· ${receipt.agent}` : ""}
+                <span title={receipt.action}>{humanizeAction(receipt.action)}</span>
+                {receipt.agent ? <span className="muted"> · {receipt.agent}</span> : null}
                 <br />
                 <span className="muted">{receipt.createdAt}</span>
               </div>

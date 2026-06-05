@@ -3,19 +3,26 @@ import { PaginatedTable } from "../../../components/PaginatedTable";
 
 export default function BlastRadiusPage() {
   const data = new PatchPilotService(new JsonDatabase()).blastRadius();
-  const rows = [...data].reverse().map((row) => (
-    <tr key={row.finding.id}>
-      <td className="mono">{row.vulnerability?.id}</td>
-      <td>{row.project?.name}</td>
-      <td>{row.project?.sourceType}</td>
-      <td>{row.directness}</td>
-      <td>{row.fixAvailable ? row.finding.fixedVersion : "blocked"}</td>
-      <td>{row.internetFacing ? "yes" : "unknown/no"}</td>
-      <td>{row.codexJobStatus ?? "none"}</td>
-      <td>{row.prUrl ? <a href={row.prUrl}>{row.prUrl}</a> : "none"}</td>
-      <td>{row.validationPassed ? "passed" : "not passed"}</td>
-    </tr>
-  ));
+  const rows = [...data].reverse().map((row) => {
+    const prShort = row.prUrl
+      ? row.prUrl
+          .replace(/^https?:\/\/(www\.)?github\.com\//, "")
+          .replace(/^https?:\/\//, "")
+      : null;
+    return (
+      <tr key={row.finding.id}>
+        <td data-label="Advisory"><span className="id" title={row.vulnerability?.id}>{row.vulnerability?.id}</span></td>
+        <td data-label="Project">{row.project?.name}</td>
+        <td data-label="Source">{row.project?.sourceType}</td>
+        <td data-label="Dependency">{row.directness}</td>
+        <td data-label="Fix">{row.fixAvailable ? <span className="pkg" title={row.finding.fixedVersion}>{row.finding.fixedVersion}</span> : <span className="muted">blocked</span>}</td>
+        <td data-label="Exposed">{row.internetFacing ? "yes" : "unknown/no"}</td>
+        <td data-label="Job">{row.codexJobStatus ?? <span className="muted">none</span>}</td>
+        <td data-label="PR">{row.prUrl ? <a className="url-chip" href={row.prUrl} title={row.prUrl} target="_blank" rel="noreferrer">{prShort}</a> : <span className="muted">none</span>}</td>
+        <td data-label="Validation">{row.validationPassed ? "passed" : "not passed"}</td>
+      </tr>
+    );
+  });
   return (
     <>
       <div className="topline">Finding to project impact mapping</div>

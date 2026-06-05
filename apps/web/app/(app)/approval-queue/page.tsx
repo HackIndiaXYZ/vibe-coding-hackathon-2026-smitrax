@@ -19,19 +19,21 @@ export default function ApprovalQueuePage() {
         {pendingApprovals.length === 0 ? (
           <p className="muted" style={{ margin: 0, fontSize: 13 }}>No remediation approvals pending.</p>
         ) : (
-          <table>
-            <thead><tr><th>Approval</th><th>Job</th><th>Channel</th><th>Expires</th></tr></thead>
-            <tbody>
-              {pendingApprovals.map((approval) => (
-                <tr key={approval.id}>
-                  <td className="mono">{approval.id}</td>
-                  <td className="mono">{approval.remediationJobId}</td>
-                  <td>{approval.channel}</td>
-                  <td className="muted">{approval.expiresAt}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>Approval</th><th>Job</th><th>Channel</th><th>Expires</th></tr></thead>
+              <tbody>
+                {pendingApprovals.map((approval) => (
+                  <tr key={approval.id}>
+                    <td data-label="Approval"><span className="id" title={approval.id}>{approval.id}</span></td>
+                    <td data-label="Job"><span className="id" title={approval.remediationJobId}>{approval.remediationJobId}</span></td>
+                    <td data-label="Channel">{approval.channel}</td>
+                    <td data-label="Expires" className="muted"><span className="list-trunc" title={approval.expiresAt}>{approval.expiresAt}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
@@ -40,19 +42,21 @@ export default function ApprovalQueuePage() {
         {pendingConsents.length === 0 ? (
           <p className="muted" style={{ margin: 0, fontSize: 13 }}>No provider-failover consent requests pending.</p>
         ) : (
-          <table>
-            <thead><tr><th>Failed provider</th><th>Candidate</th><th>Trust</th><th>Requested</th></tr></thead>
-            <tbody>
-              {pendingConsents.map((consent) => (
-                <tr key={consent.id}>
-                  <td>{consent.failedProvider}</td>
-                  <td>{consent.candidateProvider}</td>
-                  <td><span className="badge">{consent.candidateTrust}</span></td>
-                  <td className="muted">{consent.createdAt}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>Failed provider</th><th>Candidate</th><th>Trust</th><th>Requested</th></tr></thead>
+              <tbody>
+                {pendingConsents.map((consent) => (
+                  <tr key={consent.id}>
+                    <td data-label="Failed provider">{consent.failedProvider}</td>
+                    <td data-label="Candidate">{consent.candidateProvider}</td>
+                    <td data-label="Trust"><span className="badge">{consent.candidateTrust}</span></td>
+                    <td data-label="Requested" className="muted"><span className="list-trunc" title={consent.createdAt}>{consent.createdAt}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
@@ -61,20 +65,22 @@ export default function ApprovalQueuePage() {
         {watchAlerts.length === 0 ? (
           <p className="muted" style={{ margin: 0, fontSize: 13 }}>No watch alerts. Enable Watch Mode to monitor continuously.</p>
         ) : (
-          <table>
-            <thead><tr><th>Package</th><th>Advisory</th><th>Severity</th><th>Channel</th><th>When</th></tr></thead>
-            <tbody>
-              {watchAlerts.map((alert) => (
-                <tr key={alert.id}>
-                  <td className="mono">{alert.packageName}</td>
-                  <td className="mono">{alert.advisoryId}</td>
-                  <td className={alert.severity}>{alert.severity}</td>
-                  <td>{alert.channel}</td>
-                  <td className="muted">{alert.sentAt}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>Package</th><th>Advisory</th><th>Severity</th><th>Channel</th><th>When</th></tr></thead>
+              <tbody>
+                {watchAlerts.map((alert) => (
+                  <tr key={alert.id}>
+                    <td data-label="Package"><span className="pkg" title={alert.packageName}>{alert.packageName}</span></td>
+                    <td data-label="Advisory"><span className="id" title={alert.advisoryId}>{alert.advisoryId}</span></td>
+                    <td data-label="Severity" className={alert.severity}>{alert.severity}</td>
+                    <td data-label="Channel">{alert.channel}</td>
+                    <td data-label="When" className="muted"><span className="list-trunc" title={alert.sentAt}>{alert.sentAt}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
     </>

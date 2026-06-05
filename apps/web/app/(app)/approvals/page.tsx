@@ -4,7 +4,14 @@ import { PaginatedTable } from "../../../components/PaginatedTable";
 export default function ApprovalsPage() {
   const state = new JsonDatabase().read();
   const rows = [...state.approvals].reverse().map((approval) => (
-    <tr key={approval.id}><td className="mono">{approval.id}</td><td className="mono">{approval.remediationJobId}</td><td>{approval.channel}</td><td>{approval.createdAt}</td><td>{approval.expiresAt}</td><td>{approval.status}</td></tr>
+    <tr key={approval.id}>
+      <td data-label="Approval ID"><span className="id" title={approval.id}>{approval.id}</span></td>
+      <td data-label="Job"><span className="id" title={approval.remediationJobId}>{approval.remediationJobId}</span></td>
+      <td data-label="Channel">{approval.channel}</td>
+      <td data-label="Sent" className="muted"><span className="list-trunc" title={approval.createdAt}>{approval.createdAt}</span></td>
+      <td data-label="Expires" className="muted"><span className="list-trunc" title={approval.expiresAt}>{approval.expiresAt}</span></td>
+      <td data-label="Status">{approval.status}</td>
+    </tr>
   ));
   return (
     <>

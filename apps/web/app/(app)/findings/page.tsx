@@ -14,15 +14,17 @@ export default function FindingsPage() {
     const vuln = state.vulnerabilities.find((v) => v.id === finding.vulnerabilityId);
     const project = state.projects.find((p) => p.id === finding.projectId);
     const reach = REACH[finding.reachability ?? "unknown"]!;
+    const pkg = `${finding.packageName}@${finding.currentVersion}`;
+    const missing = finding.missingRiskData.join(", ") || "none";
     return (
       <tr key={finding.id}>
-        <td className="mono">{vuln?.id}</td>
-        <td>{project?.name}</td>
-        <td className="mono">{finding.packageName}@{finding.currentVersion}</td>
-        <td className={finding.riskLevel}>{finding.riskScore} {finding.riskLevel}</td>
-        <td><span className={`reach ${reach.cls}`} title={finding.reachabilityEvidence ?? reach.title}>{reach.text}</span></td>
-        <td>{finding.fixStrategy}</td>
-        <td className="muted">{finding.missingRiskData.join(", ") || "none"}</td>
+        <td data-label="Vulnerability"><span className="id" title={vuln?.id}>{vuln?.id}</span></td>
+        <td data-label="Project">{project?.name}</td>
+        <td data-label="Package"><span className="pkg" title={pkg}>{pkg}</span></td>
+        <td data-label="Risk" className={finding.riskLevel}>{finding.riskScore} {finding.riskLevel}</td>
+        <td data-label="Reachability"><span className={`reach ${reach.cls}`} title={finding.reachabilityEvidence ?? reach.title}>{reach.text}</span></td>
+        <td data-label="Fix Strategy">{finding.fixStrategy}</td>
+        <td data-label="Missing Data" className="muted"><span className="list-trunc" title={missing}>{missing}</span></td>
       </tr>
     );
   });
