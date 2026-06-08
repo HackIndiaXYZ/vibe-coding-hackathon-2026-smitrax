@@ -10,7 +10,7 @@ export function DemoBanner() {
       <span className="demo-dot" />
       <span>
         <b>Demo data.</b> This hosted preview shows seeded findings so you can explore the UI. For real scans of your repos, self-host or run the CLI. See the{" "}
-        <a href="https://github.com/MokiMeow/RiskRadar" target="_blank" rel="noreferrer">README</a>.
+        <a href="#readme">README</a>.
       </span>
     </div>
   );
