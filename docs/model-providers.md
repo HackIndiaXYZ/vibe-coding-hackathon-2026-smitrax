@@ -1,21 +1,21 @@
 # BYO Model Providers
 
-PatchPilot supports a bring-your-own model provider layer. Select one with
-`PATCHPILOT_AGENT_PROVIDER`:
+RiskRadar supports a bring-your-own model provider layer. Select one with
+`RISKRADAR_AGENT_PROVIDER`:
 
 | Provider | Role | Who edits the repo? | Required env |
 |---|---|---|---|
 | `codex` (default) | Workspace editor | Codex CLI, in a disposable secret-scrubbed workspace | `CODEX_BIN`, `CODEX_ENABLED` |
-| `openrouter` | Strict-JSON plan advisor | **PatchPilot** applies the plan | `PATCHPILOT_LLM_API_KEY`, `PATCHPILOT_AGENT_MODEL` |
-| `openai-compatible` | Strict-JSON plan advisor | **PatchPilot** applies the plan | `PATCHPILOT_LLM_BASE_URL`, `PATCHPILOT_LLM_API_KEY`, `PATCHPILOT_AGENT_MODEL` |
-| `anthropic` | Strict-JSON plan advisor (Claude messages API) | **PatchPilot** applies the plan | `PATCHPILOT_ANTHROPIC_API_KEY` (or `PATCHPILOT_LLM_API_KEY`), `PATCHPILOT_AGENT_MODEL` |
-| `grok` | Strict-JSON plan advisor (xAI, OpenAI-compatible) | **PatchPilot** applies the plan | `PATCHPILOT_GROK_API_KEY` (or `PATCHPILOT_LLM_API_KEY`), `PATCHPILOT_AGENT_MODEL` |
-| `ollama` | Strict-JSON plan advisor (local) | **PatchPilot** applies the plan | `PATCHPILOT_LLM_BASE_URL` (default `http://localhost:11434/v1`), `PATCHPILOT_AGENT_MODEL` |
-| `deterministic` | No model | **PatchPilot** updates to the OSV-known fixed version |, |
+| `openrouter` | Strict-JSON plan advisor | **RiskRadar** applies the plan | `RISKRADAR_LLM_API_KEY`, `RISKRADAR_AGENT_MODEL` |
+| `openai-compatible` | Strict-JSON plan advisor | **RiskRadar** applies the plan | `RISKRADAR_LLM_BASE_URL`, `RISKRADAR_LLM_API_KEY`, `RISKRADAR_AGENT_MODEL` |
+| `anthropic` | Strict-JSON plan advisor (Claude messages API) | **RiskRadar** applies the plan | `RISKRADAR_ANTHROPIC_API_KEY` (or `RISKRADAR_LLM_API_KEY`), `RISKRADAR_AGENT_MODEL` |
+| `grok` | Strict-JSON plan advisor (xAI, OpenAI-compatible) | **RiskRadar** applies the plan | `RISKRADAR_GROK_API_KEY` (or `RISKRADAR_LLM_API_KEY`), `RISKRADAR_AGENT_MODEL` |
+| `ollama` | Strict-JSON plan advisor (local) | **RiskRadar** applies the plan | `RISKRADAR_LLM_BASE_URL` (default `http://localhost:11434/v1`), `RISKRADAR_AGENT_MODEL` |
+| `deterministic` | No model | **RiskRadar** updates to the OSV-known fixed version |, |
 
 ## Safety model
 
-- Only Codex (the workspace editor) and PatchPilot's own deterministic applier
+- Only Codex (the workspace editor) and RiskRadar's own deterministic applier
   mutate files. **The LLM advisors never edit the repo and never run commands.**
 - LLM advisors must return a **strict JSON remediation plan only**:
 
@@ -27,10 +27,10 @@ PatchPilot supports a bring-your-own model provider layer. Select one with
   `update_dependency`; targets any file other than `package.json`; includes a
   command/script field; names a different package; proposes a downgrade, a
   major-version bump, or a version below the known fixed version.
-- PatchPilot then applies the validated version bump itself, regenerates the
+- RiskRadar then applies the validated version bump itself, regenerates the
   lockfile, and runs `npm ci --ignore-scripts` / `npm test` / `npm run build`.
 - If a provider is missing config, times out, errors, or proposes nothing safe,
-  PatchPilot records the status honestly and falls back to the deterministic
+  RiskRadar records the status honestly and falls back to the deterministic
   fixer. Provider completion is reported only when real file changes exist.
 
 ## Verification
@@ -47,15 +47,15 @@ Readiness (env var **names** only, never values) is also exposed at
 
 > Tip: for Ollama, the default model is `qwen2.5-coder:7b` because that coder
 > model returned the cleanest strict JSON in local verification. Override
-> `PATCHPILOT_AGENT_MODEL` if your machine has a different installed model.
+> `RISKRADAR_AGENT_MODEL` if your machine has a different installed model.
 
 ## Env
 
 ```
-PATCHPILOT_AGENT_PROVIDER=codex | openrouter | openai-compatible | ollama | deterministic
-PATCHPILOT_AGENT_MODEL=<model>
-PATCHPILOT_LLM_BASE_URL=<url>
-PATCHPILOT_LLM_API_KEY=<key>
-PATCHPILOT_LLM_TIMEOUT_MS=120000
-PATCHPILOT_LLM_ALLOW_DIRECT_PATCH=false
+RISKRADAR_AGENT_PROVIDER=codex | openrouter | openai-compatible | ollama | deterministic
+RISKRADAR_AGENT_MODEL=<model>
+RISKRADAR_LLM_BASE_URL=<url>
+RISKRADAR_LLM_API_KEY=<key>
+RISKRADAR_LLM_TIMEOUT_MS=120000
+RISKRADAR_LLM_ALLOW_DIRECT_PATCH=false
 ```

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { JsonDatabase, agentProviderReadiness, detectScannerTools, integrationHealth, listAgentAdapters, scannerCoverage, watchStatus } from "@patchpilot/core";
+import { JsonDatabase, agentProviderReadiness, detectScannerTools, integrationHealth, listAgentAdapters, scannerCoverage, watchStatus } from "@riskradar/core";
 
 export function GET() {
   const services = Object.fromEntries(integrationHealth().map((item) => [item.name, item.status]));

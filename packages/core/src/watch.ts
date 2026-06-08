@@ -60,7 +60,7 @@ export function watchStatus(db = new JsonDatabase(), at = new Date()): WatchStat
 
 export interface WatchCycleDeps {
   db: JsonDatabase;
-  /** Scans all inventoried projects (defaults to PatchPilotService.scanAll). */
+  /** Scans all inventoried projects (defaults to RiskRadarService.scanAll). */
   scanAll: () => Promise<unknown>;
   /** Sends an alert; defaults to Telegram. Injected in tests. */
   sendAlert?: (finding: Finding, text: string) => Promise<void>;
@@ -133,14 +133,14 @@ export async function runWatchCycle(deps: WatchCycleDeps): Promise<WatchRun> {
     }
     const project = state.projects.find((item) => item.id === finding.projectId);
     const text = [
-      "PatchPilot watch alert",
+      "RiskRadar watch alert",
       "",
       `Project: ${project?.name ?? finding.projectId}`,
       `Package: ${finding.packageName}@${finding.currentVersion}`,
       `Risk: ${finding.riskScore}/100 ${finding.riskLevel}`,
       `Fix: ${finding.fixedVersion ? `update to ${finding.fixedVersion}` : "manual review"}`,
       "",
-      "New vulnerability found. Start remediation? (review in PatchPilot — watch mode never patches automatically)"
+      "New vulnerability found. Start remediation? (review in RiskRadar — watch mode never patches automatically)"
     ].join("\n");
     if (channel === "telegram") await sendAlert(finding, text);
     const alert: WatchAlert = { id: id("walert"), projectId: finding.projectId, dedupeKey: key, findingId: finding.id, packageName: finding.packageName, advisoryId: finding.vulnerabilityId, severity: finding.riskLevel, channel, sentAt: now() };

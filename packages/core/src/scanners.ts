@@ -78,11 +78,11 @@ interface ExternalTool {
 }
 
 export const EXTERNAL_SCANNER_TOOLS: ExternalTool[] = [
-  { id: "osv-scanner", category: "sca", label: "OSV-Scanner (lockfile SCA)", pathEnv: "PATCHPILOT_SCANNER_OSV_SCANNER_PATH", enabledEnv: "PATCHPILOT_SCANNER_OSV_ENABLED", defaultCommand: "osv-scanner", defaultEnabled: true, installHint: "Install OSV-Scanner: https://google.github.io/osv-scanner/installation/" },
-  { id: "gitleaks", category: "secret", label: "Gitleaks (secret scanner)", pathEnv: "PATCHPILOT_SCANNER_GITLEAKS_PATH", enabledEnv: "PATCHPILOT_SCANNER_GITLEAKS_ENABLED", defaultCommand: "gitleaks", defaultEnabled: true, installHint: "Install Gitleaks: https://github.com/gitleaks/gitleaks#installing" },
-  { id: "semgrep", category: "sast", label: "Semgrep (SAST)", pathEnv: "PATCHPILOT_SCANNER_SEMGREP_PATH", enabledEnv: "PATCHPILOT_SCANNER_SEMGREP_ENABLED", defaultCommand: "semgrep", defaultEnabled: true, installHint: "Install Semgrep: https://semgrep.dev/docs/getting-started/" },
-  { id: "trivy", category: "container", label: "Trivy (fs/IaC/license/SBOM)", pathEnv: "PATCHPILOT_SCANNER_TRIVY_PATH", enabledEnv: "PATCHPILOT_SCANNER_TRIVY_ENABLED", defaultCommand: "trivy", defaultEnabled: true, installHint: "Install Trivy: https://aquasecurity.github.io/trivy/latest/getting-started/installation/" },
-  { id: "syft", category: "sbom", label: "Syft (SBOM)", pathEnv: "PATCHPILOT_SCANNER_SYFT_PATH", enabledEnv: "PATCHPILOT_SCANNER_SYFT_ENABLED", defaultCommand: "syft", defaultEnabled: false, installHint: "Install Syft: https://github.com/anchore/syft#installation" }
+  { id: "osv-scanner", category: "sca", label: "OSV-Scanner (lockfile SCA)", pathEnv: "RISKRADAR_SCANNER_OSV_SCANNER_PATH", enabledEnv: "RISKRADAR_SCANNER_OSV_ENABLED", defaultCommand: "osv-scanner", defaultEnabled: true, installHint: "Install OSV-Scanner: https://google.github.io/osv-scanner/installation/" },
+  { id: "gitleaks", category: "secret", label: "Gitleaks (secret scanner)", pathEnv: "RISKRADAR_SCANNER_GITLEAKS_PATH", enabledEnv: "RISKRADAR_SCANNER_GITLEAKS_ENABLED", defaultCommand: "gitleaks", defaultEnabled: true, installHint: "Install Gitleaks: https://github.com/gitleaks/gitleaks#installing" },
+  { id: "semgrep", category: "sast", label: "Semgrep (SAST)", pathEnv: "RISKRADAR_SCANNER_SEMGREP_PATH", enabledEnv: "RISKRADAR_SCANNER_SEMGREP_ENABLED", defaultCommand: "semgrep", defaultEnabled: true, installHint: "Install Semgrep: https://semgrep.dev/docs/getting-started/" },
+  { id: "trivy", category: "container", label: "Trivy (fs/IaC/license/SBOM)", pathEnv: "RISKRADAR_SCANNER_TRIVY_PATH", enabledEnv: "RISKRADAR_SCANNER_TRIVY_ENABLED", defaultCommand: "trivy", defaultEnabled: true, installHint: "Install Trivy: https://aquasecurity.github.io/trivy/latest/getting-started/installation/" },
+  { id: "syft", category: "sbom", label: "Syft (SBOM)", pathEnv: "RISKRADAR_SCANNER_SYFT_PATH", enabledEnv: "RISKRADAR_SCANNER_SYFT_ENABLED", defaultCommand: "syft", defaultEnabled: false, installHint: "Install Syft: https://github.com/anchore/syft#installation" }
 ];
 
 export interface ScannerToolInfo {
@@ -106,7 +106,7 @@ function toolCommand(tool: ExternalTool): string {
 }
 
 function scannerTimeoutMs(): number {
-  const value = Number(getEnv("PATCHPILOT_SCANNER_TIMEOUT_MS"));
+  const value = Number(getEnv("RISKRADAR_SCANNER_TIMEOUT_MS"));
   return Number.isFinite(value) && value > 0 ? value : 120000;
 }
 
@@ -132,7 +132,7 @@ function probeVersion(command: string): string | undefined {
 
 // ---- WSL-backed Semgrep (Windows) ----
 // Semgrep's launcher doesn't run on native Windows, but it works under WSL.
-// When WSL has semgrep, PatchPilot runs it there transparently.
+// When WSL has semgrep, RiskRadar runs it there transparently.
 const WSL_SEMGREP = "wsl:semgrep";
 // Resolve semgrep inside WSL whether or not ~/.local/bin is on PATH.
 const WSL_SEMGREP_BIN = '"$(command -v semgrep || echo "$HOME/.local/bin/semgrep")"';
@@ -247,7 +247,7 @@ export function scanSecretsLightweight(projectPath: string): ScannerFinding[] {
         const match = line.match(rule.pattern);
         if (match) {
           findings.push(makeFinding({
-            scanner: "patchpilot-secrets-lite",
+            scanner: "riskradar-secrets-lite",
             category: "secret",
             severity: "high",
             title: `Possible ${rule.type} in ${path.relative(projectPath, filePath)}`,
@@ -255,7 +255,7 @@ export function scanSecretsLightweight(projectPath: string): ScannerFinding[] {
             evidencePath: path.relative(projectPath, filePath),
             evidenceLine: index + 1,
             redactedEvidence: maskSecret(match[0]),
-            source: "patchpilot-secrets-lite (lightweight)",
+            source: "riskradar-secrets-lite (lightweight)",
             confidence: "low",
             remediation: "Rotate the credential and remove it from the repository; load secrets from environment/secret manager."
           }));
@@ -294,7 +294,7 @@ export function scanCiHardening(projectPath: string): ScannerFinding[] {
       const index = lines.findIndex((line) => rule.needle.test(line));
       if (index >= 0) {
         findings.push(makeFinding({
-          scanner: "patchpilot-ci-hardening",
+          scanner: "riskradar-ci-hardening",
           category: "ci",
           severity: rule.severity,
           title: rule.title,
@@ -302,7 +302,7 @@ export function scanCiHardening(projectPath: string): ScannerFinding[] {
           evidencePath: rel,
           evidenceLine: index + 1,
           redactedEvidence: redact(lines[index] ?? "").trim().slice(0, 200),
-          source: "patchpilot-ci-hardening",
+          source: "riskradar-ci-hardening",
           confidence: "medium",
           remediation: rule.remediation
         }));
@@ -315,7 +315,7 @@ export function scanCiHardening(projectPath: string): ScannerFinding[] {
         const ref = uses[3];
         if (!ref || !/^[0-9a-f]{40}$/i.test(ref)) {
           findings.push(makeFinding({
-            scanner: "patchpilot-ci-hardening",
+            scanner: "riskradar-ci-hardening",
             category: "ci",
             severity: "medium",
             title: `Unpinned action ${uses[1]}`,
@@ -323,7 +323,7 @@ export function scanCiHardening(projectPath: string): ScannerFinding[] {
             evidencePath: rel,
             evidenceLine: index + 1,
             redactedEvidence: line.trim().slice(0, 200),
-            source: "patchpilot-ci-hardening",
+            source: "riskradar-ci-hardening",
             confidence: "medium",
             remediation: "Pin third-party actions to a full 40-character commit SHA."
           }));
@@ -380,12 +380,12 @@ export function scanMaliciousPackages(projectPath: string, options: { maliciousD
     return [];
   }
   const findings: ScannerFinding[] = [];
-  const maliciousDir = options.maliciousDir ?? getEnv("PATCHPILOT_MALICIOUS_PACKAGES_DIR");
+  const maliciousDir = options.maliciousDir ?? getEnv("RISKRADAR_MALICIOUS_PACKAGES_DIR");
   const allDeps = { ...(manifest.dependencies ?? {}), ...(manifest.devDependencies ?? {}) };
   for (const [name] of Object.entries(allDeps)) {
     if (maliciousDir && existsSync(path.join(maliciousDir, `${name}.json`))) {
       findings.push(makeFinding({
-        scanner: "patchpilot-quarantine",
+        scanner: "riskradar-quarantine",
         category: "malware",
         severity: "critical",
         title: `Known malicious package: ${name}`,
@@ -404,13 +404,13 @@ export function scanMaliciousPackages(projectPath: string, options: { maliciousD
     const target = typosquatTarget(name);
     if (target) {
       findings.push(makeFinding({
-        scanner: "patchpilot-quarantine",
+        scanner: "riskradar-quarantine",
         category: "malware",
         severity: "medium",
         title: `Possible typosquat: ${name} resembles ${target}`,
         description: `Dependency "${name}" is one character away from the popular package "${target}". Heuristic only — verify the package is intended.`,
         packageName: name,
-        source: "patchpilot-quarantine (typosquat heuristic)",
+        source: "riskradar-quarantine (typosquat heuristic)",
         confidence: "low",
         remediation: `Confirm "${name}" is the intended package and not a typo of "${target}".`
       }));
@@ -419,14 +419,14 @@ export function scanMaliciousPackages(projectPath: string, options: { maliciousD
   for (const script of ["preinstall", "install", "postinstall"]) {
     if (manifest.scripts?.[script]) {
       findings.push(makeFinding({
-        scanner: "patchpilot-quarantine",
+        scanner: "riskradar-quarantine",
         category: "malware",
         severity: "medium",
         title: `Lifecycle script: ${script}`,
         description: `package.json defines a ${script} lifecycle script, which can execute code on install.`,
         evidencePath: "package.json",
         redactedEvidence: redact(String(manifest.scripts[script])).slice(0, 200),
-        source: "patchpilot-quarantine",
+        source: "riskradar-quarantine",
         confidence: "medium",
         remediation: "Review lifecycle scripts; install with --ignore-scripts during validation."
       }));
@@ -489,7 +489,7 @@ export type LicensePolicyStatus = "allowed" | "review" | "blocked" | "unknown";
  * Loads a license policy file. Accepts `{ allowed:[], review:[], blocked:[] }`
  * or a flat `{ "GPL-3.0": "blocked" }` map. Returns undefined when unset/missing.
  */
-export function loadLicensePolicy(policyPath = getEnv("PATCHPILOT_LICENSE_POLICY_PATH")): Record<string, LicensePolicyStatus> | undefined {
+export function loadLicensePolicy(policyPath = getEnv("RISKRADAR_LICENSE_POLICY_PATH")): Record<string, LicensePolicyStatus> | undefined {
   if (!policyPath || !existsSync(policyPath)) return undefined;
   try {
     const raw = JSON.parse(readFileSync(policyPath, "utf8")) as Record<string, unknown>;
@@ -602,7 +602,7 @@ function runExternal(command: string, args: string[], cwd: string, timeoutMs: nu
 
 function runGitleaks(projectPath: string, command: string, timeoutMs: number): ScannerResult {
   const startedAt = now();
-  const reportDir = mkdtempSync(path.join(os.tmpdir(), "patchpilot-gitleaks-"));
+  const reportDir = mkdtempSync(path.join(os.tmpdir(), "riskradar-gitleaks-"));
   const reportPath = path.join(reportDir, "report.json");
   try {
     const result = runExternal(command, ["detect", "--source", projectPath, "--no-git", "--no-banner", "--report-format", "json", "--report-path", reportPath], projectPath, timeoutMs);
@@ -655,7 +655,7 @@ function runTrivyFs(projectPath: string, command: string, timeoutMs: number): Sc
 
 /**
  * Scans a container image with Trivy (explicit opt-in: caller must supply an
- * image; PatchPilot never pulls/scans images by default). Returns tool_missing
+ * image; RiskRadar never pulls/scans images by default). Returns tool_missing
  * when Trivy is absent.
  */
 export function scanContainerImage(image: string, timeoutMs = scannerTimeoutMs()): ScannerResult {
@@ -711,7 +711,7 @@ export function scannerCoverage(projectPath?: string): ScannerCoverageEntry[] {
     },
     gitleaks.status === "enabled"
       ? { category: "secret", label: "Secrets", status: "enabled", scanner: "gitleaks", confidence: "high", message: "Authoritative secret scanning via Gitleaks." }
-      : { category: "secret", label: "Secrets", status: "enabled", scanner: "patchpilot-secrets-lite", confidence: "low", message: "Lightweight built-in regex detector (low confidence). Install Gitleaks for authoritative scanning.", installHint: gitleaks.installHint },
+      : { category: "secret", label: "Secrets", status: "enabled", scanner: "riskradar-secrets-lite", confidence: "low", message: "Lightweight built-in regex detector (low confidence). Install Gitleaks for authoritative scanning.", installHint: gitleaks.installHint },
     semgrep.status === "enabled"
       ? { category: "sast", label: "SAST", status: "enabled", scanner: "semgrep", confidence: "high", message: "Static analysis via Semgrep (config auto)." }
       : { category: "sast", label: "SAST", status: semgrep.status === "disabled" ? "disabled" : "tool_missing", scanner: "semgrep", confidence: "high", message: semgrep.status === "disabled" ? "Semgrep disabled by config." : "Semgrep not installed.", installHint: semgrep.installHint },
@@ -722,7 +722,7 @@ export function scannerCoverage(projectPath?: string): ScannerCoverageEntry[] {
       category: "ci",
       label: "GitHub Actions / CI hardening",
       status: hasWorkflows ? "enabled" : "not_applicable",
-      scanner: "patchpilot-ci-hardening",
+      scanner: "riskradar-ci-hardening",
       confidence: "medium",
       message: hasWorkflows ? "Built-in static workflow hardening rules." : "No .github/workflows found."
     },
@@ -730,7 +730,7 @@ export function scannerCoverage(projectPath?: string): ScannerCoverageEntry[] {
       category: "agent",
       label: "Agent / MCP config",
       status: "enabled",
-      scanner: "patchpilot-agent-config",
+      scanner: "riskradar-agent-config",
       confidence: "medium",
       message: "Built-in Codex/MCP/GitHub Actions config risk checks."
     },
@@ -738,10 +738,10 @@ export function scannerCoverage(projectPath?: string): ScannerCoverageEntry[] {
       category: "malware",
       label: "Malicious / suspicious package",
       status: "enabled",
-      scanner: "patchpilot-quarantine",
-      confidence: getEnv("PATCHPILOT_MALICIOUS_PACKAGES_DIR") ? "high" : "low",
-      message: getEnv("PATCHPILOT_MALICIOUS_PACKAGES_DIR") ? "Matches against configured OpenSSF malicious-package data + lifecycle-script heuristics." : "Lifecycle-script + heuristic checks only. Set PATCHPILOT_MALICIOUS_PACKAGES_DIR for authoritative malicious-package matching.",
-      installHint: getEnv("PATCHPILOT_MALICIOUS_PACKAGES_DIR") ? undefined : "Set PATCHPILOT_MALICIOUS_PACKAGES_DIR to an OpenSSF malicious-packages data directory."
+      scanner: "riskradar-quarantine",
+      confidence: getEnv("RISKRADAR_MALICIOUS_PACKAGES_DIR") ? "high" : "low",
+      message: getEnv("RISKRADAR_MALICIOUS_PACKAGES_DIR") ? "Matches against configured OpenSSF malicious-package data + lifecycle-script heuristics." : "Lifecycle-script + heuristic checks only. Set RISKRADAR_MALICIOUS_PACKAGES_DIR for authoritative malicious-package matching.",
+      installHint: getEnv("RISKRADAR_MALICIOUS_PACKAGES_DIR") ? undefined : "Set RISKRADAR_MALICIOUS_PACKAGES_DIR to an OpenSSF malicious-packages data directory."
     },
     trivy.status === "enabled"
       ? { category: "license", label: "License", status: "enabled", scanner: "trivy", confidence: "medium", message: "License detection via Trivy." }
@@ -787,15 +787,15 @@ export function runProjectScanners(projectPath: string, projectId?: string, opti
   if (want("secret")) {
     const gitleaks = tools.find((tool) => tool.id === "gitleaks")!;
     if (gitleaks.status === "enabled") results.push(runGitleaks(projectPath, gitleaks.command, timeoutMs));
-    else results.push(builtin("patchpilot-secrets-lite", "secret", () => scanSecretsLightweight(projectPath)));
+    else results.push(builtin("riskradar-secrets-lite", "secret", () => scanSecretsLightweight(projectPath)));
   }
   if (want("ci")) {
-    if (existsSync(path.join(projectPath, ".github", "workflows"))) results.push(builtin("patchpilot-ci-hardening", "ci", () => scanCiHardening(projectPath)));
-    else results.push({ scanner: "patchpilot-ci-hardening", category: "ci", status: "not_applicable", findings: [], errors: [], complete: true });
+    if (existsSync(path.join(projectPath, ".github", "workflows"))) results.push(builtin("riskradar-ci-hardening", "ci", () => scanCiHardening(projectPath)));
+    else results.push({ scanner: "riskradar-ci-hardening", category: "ci", status: "not_applicable", findings: [], errors: [], complete: true });
   }
   if (want("agent")) {
-    results.push(builtin("patchpilot-agent-config", "agent", () => scanAgentConfig(projectPath, projectId).map((finding) => makeFinding({
-      scanner: "patchpilot-agent-config",
+    results.push(builtin("riskradar-agent-config", "agent", () => scanAgentConfig(projectPath, projectId).map((finding) => makeFinding({
+      scanner: "riskradar-agent-config",
       category: "agent",
       severity: finding.severity,
       title: finding.reason,
@@ -803,13 +803,13 @@ export function runProjectScanners(projectPath: string, projectId?: string, opti
       evidencePath: finding.filePath,
       evidenceLine: finding.line,
       redactedEvidence: finding.redactedSnippet,
-      source: "patchpilot-agent-config",
+      source: "riskradar-agent-config",
       confidence: "medium",
       remediation: finding.recommendation
     }))));
   }
   if (want("malware")) {
-    results.push(builtin("patchpilot-quarantine", "malware", () => scanMaliciousPackages(projectPath, { maliciousDir: options.maliciousDir })));
+    results.push(builtin("riskradar-quarantine", "malware", () => scanMaliciousPackages(projectPath, { maliciousDir: options.maliciousDir })));
   }
   if (want("sast")) {
     const semgrep = tools.find((tool) => tool.id === "semgrep")!;

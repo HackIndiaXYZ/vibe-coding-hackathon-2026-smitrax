@@ -1,4 +1,4 @@
-export class PatchPilotError extends Error {
+export class RiskRadarError extends Error {
   constructor(
     public code: string,
     message: string,
@@ -10,7 +10,7 @@ export class PatchPilotError extends Error {
 }
 
 export function apiError(error: unknown) {
-  if (error instanceof PatchPilotError) {
+  if (error instanceof RiskRadarError) {
     return {
       error: {
         code: error.code,

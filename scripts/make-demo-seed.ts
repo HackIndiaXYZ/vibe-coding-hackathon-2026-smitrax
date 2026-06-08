@@ -1,6 +1,6 @@
 /**
  * Generates demo/seed.json — realistic, type-shaped state for the hosted Vercel
- * preview (PATCHPILOT_DEMO=true). NO real scan data, no secrets. Lets judges
+ * preview (RISKRADAR_DEMO=true). NO real scan data, no secrets. Lets judges
  * explore the dashboard UI without installing anything. Regenerate with:
  *   pnpm tsx scripts/make-demo-seed.ts
  */
@@ -8,13 +8,13 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { emptyState } from "../packages/core/src/database.ts";
-import type { PatchPilotState } from "../packages/core/src/types.ts";
+import type { RiskRadarState } from "../packages/core/src/types.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 const t = (daysAgo: number) => new Date(Date.now() - daysAgo * 86_400_000).toISOString();
 
-const state: PatchPilotState = emptyState();
+const state: RiskRadarState = emptyState();
 
 // ---- Projects ----
 state.projects = [
@@ -91,9 +91,9 @@ state.riskSignals = state.findings.map((f) => ({
 // ---- Remediation job (lodash, completed → pr_ready) ----
 state.remediationJobs = [
   { id: "rem_lodash", findingId: "find_lodash", projectId: "proj_web", status: "pr_ready", agent: "codex",
-    branchName: "patchpilot/fix-lodash-CVE-2019-10744", baseBranch: "main", startedAt: t(0), finishedAt: t(0),
+    branchName: "riskradar/fix-lodash-CVE-2019-10744", baseBranch: "main", startedAt: t(0), finishedAt: t(0),
     fixConfidence: 0.92, summary: "Bumped lodash 4.17.11 → 4.17.21; lockfile updated; build + tests pass.",
-    changedFiles: ["package.json", "package-lock.json"], patchPath: ".patchpilot/patches/rem_lodash.patch",
+    changedFiles: ["package.json", "package-lock.json"], patchPath: ".riskradar/patches/rem_lodash.patch",
     rollbackStatus: "available", createdAt: t(0) }
 ];
 
@@ -101,7 +101,7 @@ state.remediationJobs = [
 state.pullRequests = [
   { id: "pr_lodash", remediationJobId: "rem_lodash", provider: "github", owner: "acme", repo: "web-storefront",
     number: 142, url: "https://github.com/acme/web-storefront/pull/142",
-    branchName: "patchpilot/fix-lodash-CVE-2019-10744", baseBranch: "main", draft: true, status: "created", createdAt: t(0) }
+    branchName: "riskradar/fix-lodash-CVE-2019-10744", baseBranch: "main", draft: true, status: "created", createdAt: t(0) }
 ];
 
 // ---- Validation run ----
@@ -116,7 +116,7 @@ state.auditReceipts = [
     receiptHash: "a1b2c3d4e5f60718", createdAt: t(0) },
   { id: "rcpt_attest", projectId: "proj_web", actorType: "system", agent: "codex", action: "remediation.validation_passed",
     targetType: "remediation_job", targetId: "rem_lodash", changedFiles: ["package.json", "package-lock.json"],
-    outputSummary: { confidence: 0.92, attestation: { signed: true, algorithm: "HMAC-SHA256", keyId: "PATCHPILOT_ATTESTATION_SECRET",
+    outputSummary: { confidence: 0.92, attestation: { signed: true, algorithm: "HMAC-SHA256", keyId: "RISKRADAR_ATTESTATION_SECRET",
       statement: { package: "lodash", ecosystem: "npm", fromVersion: "4.17.11", toVersion: "4.17.21", validation: "passed", agent: "codex" } } },
     redacted: true, previousReceiptHash: "a1b2c3d4e5f60718", receiptHash: "b2c3d4e5f6071829", createdAt: t(0) }
 ];

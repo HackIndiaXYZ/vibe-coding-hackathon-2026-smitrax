@@ -1,14 +1,14 @@
-import { JsonDatabase, PatchPilotService, getSettings, hydrateFromPostgres, integrationHealth, postgresStatus, queueEnabled, queueStatus, runWatchCycle, scheduleWatchCycle, startQueueWorker, watchStatus } from "@patchpilot/core";
+import { JsonDatabase, RiskRadarService, getSettings, hydrateFromPostgres, integrationHealth, postgresStatus, queueEnabled, queueStatus, runWatchCycle, scheduleWatchCycle, startQueueWorker, watchStatus } from "@riskradar/core";
 
 const db = new JsonDatabase();
-const service = new PatchPilotService(db);
+const service = new RiskRadarService(db);
 
 async function main() {
   // Hydrate the local working copy from Postgres (durable system of record) when enabled.
   const hydrated = await hydrateFromPostgres(db);
 
   console.log(JSON.stringify({
-    service: "patchpilot-worker",
+    service: "riskradar-worker",
     mode: queueEnabled() ? "redis-queue" : "local-inline",
     hydratedFromPostgres: hydrated,
     postgres: await postgresStatus(),

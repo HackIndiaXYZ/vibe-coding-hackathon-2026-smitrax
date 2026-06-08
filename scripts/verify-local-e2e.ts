@@ -3,31 +3,31 @@ import os from "node:os";
 import path from "node:path";
 
 const repoRoot = process.cwd();
-const runRoot = path.join(os.tmpdir(), `patchpilot-local-e2e-${Date.now()}`);
+const runRoot = path.join(os.tmpdir(), `riskradar-local-e2e-${Date.now()}`);
 const fixtureSource = path.join(repoRoot, "tests", "fixtures", "vulnerable-npm-project");
 const fixture = path.join(runRoot, "fixture");
-const dataFile = path.join(runRoot, "patchpilot.db.json");
+const dataFile = path.join(runRoot, "riskradar.db.json");
 const logDir = path.join(runRoot, "logs");
 const workspaceDir = path.join(runRoot, "workspaces");
 
 mkdirSync(runRoot, { recursive: true });
 cpSync(fixtureSource, fixture, { recursive: true });
 
-process.env.PATCHPILOT_DATA_FILE = dataFile;
-process.env.PATCHPILOT_LOG_DIR = logDir;
-process.env.PATCHPILOT_WORKSPACE_DIR = workspaceDir;
-process.env.PATCHPILOT_LOCAL_ROOTS = runRoot;
-process.env.PATCHPILOT_RETAIN_WORKSPACES = "false";
+process.env.RISKRADAR_DATA_FILE = dataFile;
+process.env.RISKRADAR_LOG_DIR = logDir;
+process.env.RISKRADAR_WORKSPACE_DIR = workspaceDir;
+process.env.RISKRADAR_LOCAL_ROOTS = runRoot;
+process.env.RISKRADAR_RETAIN_WORKSPACES = "false";
 process.env.TELEGRAM_BOT_TOKEN = "";
 process.env.TELEGRAM_CHAT_ID = "";
 process.env.TELEGRAM_ALLOWED_CHAT_IDS = "";
 
 async function main() {
-  const { JsonDatabase, PatchPilotService } = await import("../packages/core/src/index.ts");
+  const { JsonDatabase, RiskRadarService } = await import("../packages/core/src/index.ts");
 
   const db = new JsonDatabase(dataFile);
-  const service = new PatchPilotService(db);
-  const project = await service.createProject({ sourceType: "local", localPath: fixture, name: "patchpilot-local-e2e-fixture" });
+  const service = new RiskRadarService(db);
+  const project = await service.createProject({ sourceType: "local", localPath: fixture, name: "riskradar-local-e2e-fixture" });
   const scan = await service.scanProject(project.id);
   const scannedState = db.read();
   const finding = scannedState.findings.find((item) => item.projectId === project.id && item.status === "fix_available" && item.fixedVersion);
@@ -86,7 +86,7 @@ local fixture project -> scan -> OSV finding -> risk score -> deterministic reme
 
 ## Notes
 
-This verification uses the real OSV path configured for PatchPilot. It does not create a GitHub PR, send Telegram, or run Codex.
+This verification uses the real OSV path configured for RiskRadar. It does not create a GitHub PR, send Telegram, or run Codex.
 `;
 
 const docsDir = path.join(repoRoot, "docs", "verification");

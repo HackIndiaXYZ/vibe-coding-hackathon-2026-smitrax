@@ -20,7 +20,7 @@ const DIAGNOSTIC_TIMEOUT_MS = Math.max(Number(process.env.CODEX_TIMEOUT_MS ?? 0)
 
 const NO_REPO_PROMPT = [
   "Reply with only the following JSON object and nothing else. Do not run any commands.",
-  '{"ok":true,"message":"patchpilot codex check"}'
+  '{"ok":true,"message":"riskradar codex check"}'
 ].join("\n");
 
 const FILE_EDIT_PROMPT = [
@@ -33,7 +33,7 @@ const FILE_EDIT_PROMPT = [
 function detectLimitation(...results: Array<CodexCliResult | undefined>): string | undefined {
   const text = results.filter(Boolean).map((r) => `${r!.stdout}\n${r!.stderr}`).join("\n");
   if (/usage limit|purchase more credits|insufficient_quota|quota/i.test(text)) {
-    return "Codex CLI launched and accepted the prompt, but the backing account hit its usage limit / quota. This is an account limitation, not a PatchPilot or CLI defect. Retry after the limit resets or top up credits.";
+    return "Codex CLI launched and accepted the prompt, but the backing account hit its usage limit / quota. This is an account limitation, not a RiskRadar or CLI defect. Retry after the limit resets or top up credits.";
   }
   if (/not logged in|unauthorized|authentication|please run .*login/i.test(text)) {
     return "Codex CLI launched but is not authenticated. Run the Codex login flow, then re-run verify:codex-cli.";
@@ -54,13 +54,13 @@ function summarize(result: CodexCliResult) {
 }
 
 function disposableWorkspace(label: string): string {
-  const dir = path.join(os.tmpdir(), `patchpilot-codex-cli-${label}-${Date.now()}`);
+  const dir = path.join(os.tmpdir(), `riskradar-codex-cli-${label}-${Date.now()}`);
   mkdirSync(dir, { recursive: true });
   return dir;
 }
 
 function cleanup(dir: string): void {
-  if (process.env.PATCHPILOT_RETAIN_WORKSPACES === "true") return;
+  if (process.env.RISKRADAR_RETAIN_WORKSPACES === "true") return;
   rmSync(dir, { recursive: true, force: true });
 }
 
@@ -90,7 +90,7 @@ async function main() {
   const noRepoWorkspace = disposableWorkspace("norepo");
   try {
     noRepo = await runCodexPrompt(noRepoWorkspace, NO_REPO_PROMPT, { timeoutMs: DIAGNOSTIC_TIMEOUT_MS });
-    jsonDetected = noRepo.stdout.includes('"patchpilot codex check"');
+    jsonDetected = noRepo.stdout.includes('"riskradar codex check"');
   } catch (error) {
     noRepo = undefined;
     console.error(safeJson({ checkB: "error", message: error instanceof Error ? error.message : String(error) }));

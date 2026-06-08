@@ -1,7 +1,7 @@
 /**
  * LLM output classifier.
  *
- * Inspects model responses BEFORE PatchPilot consumes the plan or summary, so
+ * Inspects model responses BEFORE RiskRadar consumes the plan or summary, so
  * jailbreak signatures, embedded shell-exfiltration commands, and obvious
  * secret-dump attempts are caught and the response can be rejected. Returns
  * "suspicious" plus a list of reasons; the caller decides the policy

@@ -1,4 +1,4 @@
-const baseUrl = (process.argv[2] ?? process.env.PATCHPILOT_SMOKE_BASE_URL ?? "").replace(/\/$/, "");
+const baseUrl = (process.argv[2] ?? process.env.RISKRADAR_SMOKE_BASE_URL ?? "").replace(/\/$/, "");
 
 if (!baseUrl) {
   console.error("Usage: node scripts/smoke-app.mjs http://127.0.0.1:3000");

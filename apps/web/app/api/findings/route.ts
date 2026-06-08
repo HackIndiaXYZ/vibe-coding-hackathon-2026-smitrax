@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { JsonDatabase } from "@patchpilot/core";
+import { JsonDatabase } from "@riskradar/core";
 
 export function GET(request: NextRequest) {
   const status = request.nextUrl.searchParams.get("status");

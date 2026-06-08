@@ -1,33 +1,33 @@
 import { cpSync, existsSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { JsonDatabase, PatchPilotService, createAuditReceipt } from "../packages/core/src/index.ts";
+import { JsonDatabase, RiskRadarService, createAuditReceipt } from "../packages/core/src/index.ts";
 import { loadDotenvFile, safeJson } from "./live-utils.ts";
 
 loadDotenvFile();
 
 // End-to-end PyPI flow: scan a Python project (requirements.txt) via OSV, find a
-// fixable PyPI vulnerability, and have PatchPilot apply the requirements.txt pin
+// fixable PyPI vulnerability, and have RiskRadar apply the requirements.txt pin
 // + write a local patch. Proves multi-ecosystem scan→remediate (no GitHub/Telegram).
 async function main() {
-  const root = path.join(os.tmpdir(), `patchpilot-python-e2e-${Date.now()}`);
+  const root = path.join(os.tmpdir(), `riskradar-python-e2e-${Date.now()}`);
   const fixture = path.join(root, "fixture");
   cpSync(path.join(process.cwd(), "tests", "fixtures", "vulnerable-python-project"), fixture, { recursive: true });
-  process.env.PATCHPILOT_DATA_FILE = path.join(root, "db.json");
-  process.env.PATCHPILOT_LOG_DIR = path.join(root, "logs");
-  process.env.PATCHPILOT_WORKSPACE_DIR = path.join(root, "workspaces");
-  process.env.PATCHPILOT_LOCAL_ROOTS = root;
-  process.env.PATCHPILOT_RETAIN_WORKSPACES = "true";
+  process.env.RISKRADAR_DATA_FILE = path.join(root, "db.json");
+  process.env.RISKRADAR_LOG_DIR = path.join(root, "logs");
+  process.env.RISKRADAR_WORKSPACE_DIR = path.join(root, "workspaces");
+  process.env.RISKRADAR_LOCAL_ROOTS = root;
+  process.env.RISKRADAR_RETAIN_WORKSPACES = "true";
   process.env.TELEGRAM_ALLOWED_CHAT_IDS = "";
   try {
-    const db = new JsonDatabase(process.env.PATCHPILOT_DATA_FILE);
-    const service = new PatchPilotService(db);
-    const project = await service.createProject({ sourceType: "local", localPath: fixture, name: "patchpilot-python-e2e" });
+    const db = new JsonDatabase(process.env.RISKRADAR_DATA_FILE);
+    const service = new RiskRadarService(db);
+    const project = await service.createProject({ sourceType: "local", localPath: fixture, name: "riskradar-python-e2e" });
     const scan = await service.scanProject(project.id);
     const pypiFindings = db.read().findings.filter((f) => f.projectId === project.id && /pypi/i.test(f.ecosystem));
     const fixable = pypiFindings.find((f) => f.status === "fix_available" && f.fixedVersion);
 
-    let job: Awaited<ReturnType<PatchPilotService["startRemediation"]>> | undefined;
+    let job: Awaited<ReturnType<RiskRadarService["startRemediation"]>> | undefined;
     let patchContainsRequirements = false;
     if (fixable) {
       job = await service.startRemediation(fixable.id, "deterministic-npm");
@@ -48,7 +48,7 @@ async function main() {
     }));
     if (!ok) process.exit(1);
   } finally {
-    if (process.env.PATCHPILOT_RETAIN_WORKSPACES !== "true") rmSync(root, { recursive: true, force: true });
+    if (process.env.RISKRADAR_RETAIN_WORKSPACES !== "true") rmSync(root, { recursive: true, force: true });
   }
 }
 

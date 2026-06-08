@@ -1,4 +1,4 @@
-import { JsonDatabase, PatchPilotError, createAuditReceipt, id, now, sendTelegramApproval, signApprovalPayload, verifyApprovalToken } from "../packages/core/src/index.ts";
+import { JsonDatabase, RiskRadarError, createAuditReceipt, id, now, sendTelegramApproval, signApprovalPayload, verifyApprovalToken } from "../packages/core/src/index.ts";
 import { approvalSecret, loadDotenvFile, safeJson, telegramChatId } from "./live-utils.ts";
 
 loadDotenvFile();
@@ -11,7 +11,7 @@ async function main() {
   if (minimal) {
     const result = await recordTelegramAttempt(db, "verification.telegram_live_minimal_sent", "live_telegram_minimal", () => sendTelegramApproval({
       chatId,
-      text: "PatchPilot Telegram live test"
+      text: "RiskRadar Telegram live test"
     }));
     console.log(safeJson({ ok: true, mode: "minimal", messageId: result.messageId, auditReceiptId: result.receiptId }));
     return;
@@ -19,7 +19,7 @@ async function main() {
 
   await recordTelegramAttempt(db, "verification.telegram_live_minimal_preflight_sent", "live_telegram_minimal_preflight", () => sendTelegramApproval({
     chatId,
-    text: "PatchPilot Telegram live test"
+    text: "RiskRadar Telegram live test"
   }));
 
   const state = db.read();
@@ -31,7 +31,7 @@ async function main() {
   const token = signApprovalPayload({ approvalId, action: "approve", exp }, approvalSecret());
   const verified = verifyApprovalToken(token, approvalSecret());
   const text = [
-    "PatchPilot live verification approval request",
+    "RiskRadar live verification approval request",
     `Project: ${latestJob?.projectId ?? "live-readiness"}`,
     `Package: ${latestFinding?.packageName ?? "n/a"}`,
     `Risk: ${latestFinding ? `${latestFinding.riskScore}/100 ${latestFinding.riskLevel}` : "n/a"}`,
@@ -82,7 +82,7 @@ async function recordTelegramAttempt(
     });
     return { ...result, receiptId: receipt.id };
   } catch (error) {
-    const details = error instanceof PatchPilotError ? error.details : {};
+    const details = error instanceof RiskRadarError ? error.details : {};
     const receipt = createAuditReceipt(db, {
       actorType: "system",
       channel: "telegram",
@@ -91,12 +91,12 @@ async function recordTelegramAttempt(
       targetId,
       approvalChannel: "telegram",
       outputSummary: {
-        code: error instanceof PatchPilotError ? error.code : "telegram_send_failed",
+        code: error instanceof RiskRadarError ? error.code : "telegram_send_failed",
         message: error instanceof Error ? error.message : String(error),
         details
       }
     });
-    if (error instanceof PatchPilotError) error.details = { ...error.details, auditReceiptId: receipt.id };
+    if (error instanceof RiskRadarError) error.details = { ...error.details, auditReceiptId: receipt.id };
     throw error;
   }
 }
@@ -106,7 +106,7 @@ main().catch((error) => {
     ok: false,
     mode: minimal ? "minimal" : "full",
     error: error instanceof Error ? error.message : String(error),
-    details: error instanceof PatchPilotError ? error.details : undefined
+    details: error instanceof RiskRadarError ? error.details : undefined
   }));
   process.exit(1);
 });

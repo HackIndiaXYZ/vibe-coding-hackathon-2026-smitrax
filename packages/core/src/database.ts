@@ -3,9 +3,9 @@ import path from "node:path";
 import { nanoid } from "nanoid";
 import { dataFilePath } from "./env";
 import { loadStateFromPostgres, mirrorStateToPostgres, postgresEnabled } from "./postgresStore";
-import type { PatchPilotState } from "./types";
+import type { RiskRadarState } from "./types";
 
-export const emptyState = (): PatchPilotState => ({
+export const emptyState = (): RiskRadarState => ({
   projects: [],
   scanJobs: [],
   vulnerabilities: [],
@@ -28,16 +28,16 @@ export const emptyState = (): PatchPilotState => ({
 export class JsonDatabase {
   constructor(private filePath = dataFilePath()) {}
 
-  read(): PatchPilotState {
+  read(): RiskRadarState {
     try {
       const raw = readFileSync(this.filePath, "utf8");
-      return { ...emptyState(), ...JSON.parse(raw) } as PatchPilotState;
+      return { ...emptyState(), ...JSON.parse(raw) } as RiskRadarState;
     } catch {
       return emptyState();
     }
   }
 
-  write(state: PatchPilotState): PatchPilotState {
+  write(state: RiskRadarState): RiskRadarState {
     mkdirSync(path.dirname(this.filePath), { recursive: true });
     writeFileSync(this.filePath, JSON.stringify(state, null, 2));
     // Durable mirror to Postgres when enabled (best-effort, never blocks).
@@ -45,7 +45,7 @@ export class JsonDatabase {
     return state;
   }
 
-  update(mutator: (state: PatchPilotState) => void): PatchPilotState {
+  update(mutator: (state: RiskRadarState) => void): RiskRadarState {
     const state = this.read();
     mutator(state);
     return this.write(state);

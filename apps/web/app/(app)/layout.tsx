@@ -12,7 +12,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="shell">
       <aside className="side">
-        <a className="brand" href="/">PatchPilot</a>
+        <a className="brand" href="/">RiskRadar</a>
         <SideNav />
         <div className="sidebar-foot">
           <ShieldCheck size={15} />

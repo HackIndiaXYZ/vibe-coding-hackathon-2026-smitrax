@@ -250,7 +250,7 @@ export interface WatchRun {
   errorMessage?: string;
 }
 
-export interface PatchPilotState {
+export interface RiskRadarState {
   projects: Project[];
   scanJobs: ScanJob[];
   vulnerabilities: Vulnerability[];
@@ -306,7 +306,7 @@ export interface RepoFailoverPolicy {
 }
 
 /** Fully resolved settings (env defaults overlaid with persisted overrides). */
-export interface PatchPilotSettings {
+export interface RiskRadarSettings {
   watch: WatchSettings;
   failover: FailoverSettings;
   repoPolicies: Record<string, RepoFailoverPolicy>;

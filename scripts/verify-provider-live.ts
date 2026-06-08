@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import {
   JsonDatabase,
-  PatchPilotService,
+  RiskRadarService,
   type AgentProviderId,
   agentProviderReadiness,
   assertLlmProviderConfigured,
@@ -55,27 +55,27 @@ async function main() {
 
   // For local Ollama, also confirm the endpoint is actually reachable.
   if (provider === "ollama") {
-    const baseUrl = optionalEnv("PATCHPILOT_LLM_BASE_URL") ?? "http://localhost:11434/v1";
+    const baseUrl = optionalEnv("RISKRADAR_LLM_BASE_URL") ?? "http://localhost:11434/v1";
     if (!(await reachable(baseUrl.replace(/\/v1\/?$/, "")))) {
       skip(`No Ollama endpoint reachable at ${baseUrl}.`, "unavailable");
     }
   }
 
-  const root = path.join(os.tmpdir(), `patchpilot-${provider}-live-${Date.now()}`);
+  const root = path.join(os.tmpdir(), `riskradar-${provider}-live-${Date.now()}`);
   const fixture = path.join(root, "fixture");
   cpSync(path.join(process.cwd(), "tests", "fixtures", "vulnerable-npm-project"), fixture, { recursive: true });
   writeFileSync(path.join(fixture, ".env"), "SECRET_SHOULD_NOT_COPY=super-secret-value");
-  process.env.PATCHPILOT_DATA_FILE = path.join(root, "db.json");
-  process.env.PATCHPILOT_LOG_DIR = path.join(root, "logs");
-  process.env.PATCHPILOT_WORKSPACE_DIR = path.join(root, "workspaces");
-  process.env.PATCHPILOT_LOCAL_ROOTS = root;
-  process.env.PATCHPILOT_RETAIN_WORKSPACES = "true";
+  process.env.RISKRADAR_DATA_FILE = path.join(root, "db.json");
+  process.env.RISKRADAR_LOG_DIR = path.join(root, "logs");
+  process.env.RISKRADAR_WORKSPACE_DIR = path.join(root, "workspaces");
+  process.env.RISKRADAR_LOCAL_ROOTS = root;
+  process.env.RISKRADAR_RETAIN_WORKSPACES = "true";
   const previousAllowedChats = process.env.TELEGRAM_ALLOWED_CHAT_IDS;
   process.env.TELEGRAM_ALLOWED_CHAT_IDS = "";
   try {
-    const db = new JsonDatabase(process.env.PATCHPILOT_DATA_FILE);
-    const service = new PatchPilotService(db);
-    const project = await service.createProject({ sourceType: "local", localPath: fixture, name: `patchpilot-${provider}-live-fixture` });
+    const db = new JsonDatabase(process.env.RISKRADAR_DATA_FILE);
+    const service = new RiskRadarService(db);
+    const project = await service.createProject({ sourceType: "local", localPath: fixture, name: `riskradar-${provider}-live-fixture` });
     await service.scanProject(project.id);
     const finding = db.read().findings.find((item) => item.projectId === project.id && item.status === "fix_available" && item.fixedVersion);
     if (!finding) throw new Error("No fixable fixture finding found for provider live verification.");
@@ -85,7 +85,7 @@ async function main() {
     const workspace = job.workspacePath;
     const secretCopied = workspace ? existsSync(path.join(workspace, ".env")) : false;
 
-    let fallbackJob: Awaited<ReturnType<PatchPilotService["startRemediation"]>> | undefined;
+    let fallbackJob: Awaited<ReturnType<RiskRadarService["startRemediation"]>> | undefined;
     if (outcome.shouldFallback) {
       fallbackJob = await service.startRemediation(finding.id, "deterministic-npm");
     }
@@ -122,7 +122,7 @@ async function main() {
     if (previousAllowedChats === undefined) delete process.env.TELEGRAM_ALLOWED_CHAT_IDS;
     else process.env.TELEGRAM_ALLOWED_CHAT_IDS = previousAllowedChats;
     if (existsSync(path.join(root, "logs"))) {
-      writeFileSync(path.join(root, "README.txt"), "PatchPilot retained this provider verification workspace for inspection.\n");
+      writeFileSync(path.join(root, "README.txt"), "RiskRadar retained this provider verification workspace for inspection.\n");
       readFileSync(path.join(root, "README.txt"), "utf8");
     } else {
       rmSync(root, { recursive: true, force: true });

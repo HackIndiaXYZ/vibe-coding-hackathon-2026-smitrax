@@ -308,7 +308,7 @@
       "projectId": "proj_web",
       "status": "pr_ready",
       "agent": "codex",
-      "branchName": "patchpilot/fix-lodash-CVE-2019-10744",
+      "branchName": "riskradar/fix-lodash-CVE-2019-10744",
       "baseBranch": "main",
       "startedAt": "2026-05-29T05:41:19.023Z",
       "finishedAt": "2026-05-29T05:41:19.023Z",
@@ -318,7 +318,7 @@
         "package.json",
         "package-lock.json"
       ],
-      "patchPath": ".patchpilot/patches/rem_lodash.patch",
+      "patchPath": ".riskradar/patches/rem_lodash.patch",
       "rollbackStatus": "available",
       "createdAt": "2026-05-29T05:41:19.023Z"
     }
@@ -344,7 +344,7 @@
       "repo": "web-storefront",
       "number": 142,
       "url": "https://github.com/acme/web-storefront/pull/142",
-      "branchName": "patchpilot/fix-lodash-CVE-2019-10744",
+      "branchName": "riskradar/fix-lodash-CVE-2019-10744",
       "baseBranch": "main",
       "draft": true,
       "status": "created",
@@ -388,7 +388,7 @@
         "attestation": {
           "signed": true,
           "algorithm": "HMAC-SHA256",
-          "keyId": "PATCHPILOT_ATTESTATION_SECRET",
+          "keyId": "RISKRADAR_ATTESTATION_SECRET",
           "statement": {
             "package": "lodash",
             "ecosystem": "npm",

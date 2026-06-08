@@ -1,4 +1,4 @@
-import { JsonDatabase, PatchPilotService, agentProviderReadiness, integrationHealth } from "@patchpilot/core";
+import { JsonDatabase, RiskRadarService, agentProviderReadiness, integrationHealth } from "@riskradar/core";
 import { Activity, AlertTriangle, ShieldCheck, BellRing, ArrowRight } from "lucide-react";
 
 const REACH: Record<string, { text: string; cls: string; title: string }> = {
@@ -11,7 +11,7 @@ const REACH: Record<string, { text: string; cls: string; title: string }> = {
 export default function Dashboard() {
   const db = new JsonDatabase();
   const state = db.read();
-  const service = new PatchPilotService(db);
+  const service = new RiskRadarService(db);
   const radar = service.threatRadar();
   const health = integrationHealth();
   const providers = agentProviderReadiness();
@@ -84,7 +84,7 @@ export default function Dashboard() {
                   <tr>
                     <td colSpan={6} className="empty-cell">
                       <strong>No findings yet.</strong>
-                      <span>Add a project and run a scan to populate the threat radar. Local scans need <code>PATCHPILOT_LOCAL_ROOTS</code>; GitHub scans need <code>GITHUB_TOKEN</code>.</span>
+                      <span>Add a project and run a scan to populate the threat radar. Local scans need <code>RISKRADAR_LOCAL_ROOTS</code>; GitHub scans need <code>GITHUB_TOKEN</code>.</span>
                       <a className="pill-link" href="/projects">Go to Projects <ArrowRight size={13} /></a>
                     </td>
                   </tr>

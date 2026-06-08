@@ -7,7 +7,7 @@ loadDotenvFile();
 // Proves SBOM generation works live via Syft and demonstrates a before/after diff.
 const target = process.argv[2] ? path.resolve(process.argv[2]) : path.join(process.cwd(), "tests", "fixtures", "vulnerable-npm-project");
 if (!sbomToolAvailable()) {
-  console.log(safeJson({ ok: true, status: "tool_missing", message: "Syft not installed. Set SYFT_BIN / PATCHPILOT_SCANNER_SYFT_PATH. (verify:sbom skipped honestly.)" }));
+  console.log(safeJson({ ok: true, status: "tool_missing", message: "Syft not installed. Set SYFT_BIN / RISKRADAR_SCANNER_SYFT_PATH. (verify:sbom skipped honestly.)" }));
   process.exit(0);
 }
 

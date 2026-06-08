@@ -9,17 +9,17 @@ loadDotenvFile();
 // Drives the LIVE webhook the way Telegram does: POST a callback_query with the
 // secret header for each button, against real seeded records in the dashboard's
 // database. Verifies every button's behaviour end-to-end. Cleans up after.
-const WEBHOOK = `http://127.0.0.1:${process.env.PATCHPILOT_WEB_PORT ?? "3001"}/api/integrations/telegram/webhook`;
+const WEBHOOK = `http://127.0.0.1:${process.env.RISKRADAR_WEB_PORT ?? "3001"}/api/integrations/telegram/webhook`;
 const SECRET = requiredEnv("TELEGRAM_WEBHOOK_SECRET");
 const CHAT = Number(telegramChatId());
 const dbPath = dataFilePath();
 const ISO = () => new Date().toISOString();
 const EXP = () => new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
-const fixture = path.join(os.tmpdir(), `patchpilot-tap-fixture-${Date.now()}`);
+const fixture = path.join(os.tmpdir(), `riskradar-tap-fixture-${Date.now()}`);
 
 function project() {
-  return { id: "proj_tap", name: "patchpilot-tap-demo", sourceType: "local", localPath: fixture, isPathAllowlisted: true, packageManager: "npm", deploymentProvider: "none", productionExposed: false, createdAt: ISO(), updatedAt: ISO() } as const;
+  return { id: "proj_tap", name: "riskradar-tap-demo", sourceType: "local", localPath: fixture, isPathAllowlisted: true, packageManager: "npm", deploymentProvider: "none", productionExposed: false, createdAt: ISO(), updatedAt: ISO() } as const;
 }
 function finding() {
   return { id: "find_tap", projectId: "proj_tap", vulnerabilityId: "OSV-tap", packageName: "lodash", ecosystem: "npm", currentVersion: "4.17.20", fixedVersion: "4.17.21", dependencyType: "direct", riskScore: 78, riskLevel: "high", riskFactors: [], missingRiskData: [], fixStrategy: "safe_patch", status: "fix_available", scanConfidence: "direct_manifest_only", createdAt: ISO(), updatedAt: ISO() } as const;
@@ -84,7 +84,7 @@ async function main() {
     const cReject = await tap("consent:reject", "c:pcon_tap_reject:reject");
     results.push({ ...cReject, consentStatus: read().providerConsents?.find((c) => c.id === "pcon_tap_reject")?.status, ranRemediation: read().remediationJobs.some((j) => j.findingId === "find_tap" && j.id.startsWith("rem_") && !j.id.startsWith("rem_tap")) });
 
-    // 4) CONSENT USE DETERMINISTIC (PatchPilot deterministic fix runs)
+    // 4) CONSENT USE DETERMINISTIC (RiskRadar deterministic fix runs)
     reseed((s) => { s.providerConsents.push({ id: "pcon_tap_det", findingId: "find_tap", projectId: "proj_tap", failedProvider: "codex", candidateProvider: "ollama", candidateTrust: "local", status: "pending", readinessSummary: [], createdAt: ISO(), updatedAt: ISO() } as never); });
     const cDet = await tap("consent:use_deterministic", "c:pcon_tap_det:use_deterministic");
     results.push({ ...cDet, consentStatus: read().providerConsents?.find((c) => c.id === "pcon_tap_det")?.status, lastJob: read().remediationJobs.slice(-1)[0] && { agent: read().remediationJobs.slice(-1)[0]!.agent, status: read().remediationJobs.slice(-1)[0]!.status } });

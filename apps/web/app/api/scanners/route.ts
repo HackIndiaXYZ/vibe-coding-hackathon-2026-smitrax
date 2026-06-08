@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { detectScannerTools, scannerCoverage } from "@patchpilot/core";
+import { detectScannerTools, scannerCoverage } from "@riskradar/core";
 
 // Honest scanner coverage + external tool detection. No secrets, no fake green.
 export function GET() {

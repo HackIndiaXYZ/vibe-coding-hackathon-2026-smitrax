@@ -1,7 +1,7 @@
 import { cpSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { JsonDatabase, PatchPilotService, runWatchCycle, updateSettings, watchStatus } from "../packages/core/src/index.ts";
+import { JsonDatabase, RiskRadarService, runWatchCycle, updateSettings, watchStatus } from "../packages/core/src/index.ts";
 import { loadDotenvFile, safeJson } from "./live-utils.ts";
 
 loadDotenvFile();
@@ -10,18 +10,18 @@ loadDotenvFile();
 // cycles, show new findings on the first and deduplication on the second, and
 // confirm no auto-remediation happened.
 async function main() {
-  const root = path.join(os.tmpdir(), `patchpilot-watch-demo-${Date.now()}`);
+  const root = path.join(os.tmpdir(), `riskradar-watch-demo-${Date.now()}`);
   const fixture = path.join(root, "fixture");
   cpSync(path.join(process.cwd(), "tests", "fixtures", "vulnerable-npm-project"), fixture, { recursive: true });
-  process.env.PATCHPILOT_DATA_FILE = path.join(root, "db.json");
-  process.env.PATCHPILOT_LOG_DIR = path.join(root, "logs");
-  process.env.PATCHPILOT_WORKSPACE_DIR = path.join(root, "workspaces");
-  process.env.PATCHPILOT_LOCAL_ROOTS = root;
+  process.env.RISKRADAR_DATA_FILE = path.join(root, "db.json");
+  process.env.RISKRADAR_LOG_DIR = path.join(root, "logs");
+  process.env.RISKRADAR_WORKSPACE_DIR = path.join(root, "workspaces");
+  process.env.RISKRADAR_LOCAL_ROOTS = root;
   process.env.TELEGRAM_ALLOWED_CHAT_IDS = "";
   try {
-    const db = new JsonDatabase(process.env.PATCHPILOT_DATA_FILE);
-    const service = new PatchPilotService(db);
-    await service.createProject({ sourceType: "local", localPath: fixture, name: "patchpilot-watch-demo" });
+    const db = new JsonDatabase(process.env.RISKRADAR_DATA_FILE);
+    const service = new RiskRadarService(db);
+    await service.createProject({ sourceType: "local", localPath: fixture, name: "riskradar-watch-demo" });
     updateSettings(db, { watch: { enabled: true, intervalMinutes: 60, telegramAlerts: false } });
     const cycle1 = await runWatchCycle({ db, scanAll: () => service.scanAll() });
     const cycle2 = await runWatchCycle({ db, scanAll: () => service.scanAll() });

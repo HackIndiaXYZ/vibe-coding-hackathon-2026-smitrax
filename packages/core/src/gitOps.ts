@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { getEnv, logDir } from "./env";
-import { PatchPilotError } from "./errors";
+import { RiskRadarError } from "./errors";
 import { redact } from "./redaction";
 
 export function runGit(args: string[], cwd: string, allowFailure = false): { stdout: string; stderr: string; status: number } {
@@ -13,17 +13,17 @@ export function runGit(args: string[], cwd: string, allowFailure = false): { std
     status: result.status ?? 1
   };
   if (!allowFailure && output.status !== 0) {
-    throw new PatchPilotError("git_command_failed", `git ${args[0]} failed.`, { args: args.slice(0, 2), stderr: output.stderr });
+    throw new RiskRadarError("git_command_failed", `git ${args[0]} failed.`, { args: args.slice(0, 2), stderr: output.stderr });
   }
   return output;
 }
 
 export function initBaselineRepo(workspace: string): void {
   runGit(["init"], workspace);
-  runGit(["config", "user.email", "patchpilot@example.invalid"], workspace);
-  runGit(["config", "user.name", "PatchPilot"], workspace);
+  runGit(["config", "user.email", "riskradar@example.invalid"], workspace);
+  runGit(["config", "user.name", "RiskRadar"], workspace);
   runGit(["add", "-A"], workspace);
-  runGit(["commit", "-m", "patchpilot baseline"], workspace, true);
+  runGit(["commit", "-m", "riskradar baseline"], workspace, true);
 }
 
 export function changedFiles(workspace: string): string[] {
@@ -62,8 +62,8 @@ const UNSAFE_COMMIT_PATTERNS = [
   /^coverage\//,
   /^\.turbo\//,
   /^\.next\//,
-  /^\.patchpilot\//,
-  /^patchpilot-context\.json$/,
+  /^\.riskradar\//,
+  /^riskradar-context\.json$/,
   /^logs?\//,
   /(^|\/)[^/]*(secret|token|private[-_.]?key)[^/]*$/i,
   /\.(pem|key|p8|p12)$/i,
@@ -95,7 +95,7 @@ export function unsafeCommitFiles(files: string[]): string[] {
 export function assertSafeCommitState(workspace: string, files = changedFiles(workspace)): void {
   const unsafe = unsafeCommitFiles(files);
   if (unsafe.length > 0) {
-    throw new PatchPilotError("unsafe_commit_files", "Unsafe generated or secret-like files are present; PR/patch creation is blocked.", { files: unsafe });
+    throw new RiskRadarError("unsafe_commit_files", "Unsafe generated or secret-like files are present; PR/patch creation is blocked.", { files: unsafe });
   }
 }
 
@@ -110,7 +110,7 @@ export function writePatch(workspace: string, jobId: string, includeFiles?: stri
   const patch = runGit(["diff", "--cached", "--binary"], workspace, true).stdout;
   runGit(["reset"], workspace, true);
   if (!patch.trim()) {
-    throw new PatchPilotError("patch_empty", "Patch artifact was empty; no PR-ready local patch was created.", { jobId });
+    throw new RiskRadarError("patch_empty", "Patch artifact was empty; no PR-ready local patch was created.", { jobId });
   }
   const patchDir = path.join(logDir(), "patches");
   mkdirSync(patchDir, { recursive: true });
@@ -123,7 +123,7 @@ export function commitAll(workspace: string, message: string, includeFiles?: str
   const files = includeFiles && includeFiles.length > 0 ? includeFiles : changedFiles(workspace);
   assertSafeCommitState(workspace);
   assertSafeCommitState(workspace, files);
-  if (files.length === 0) throw new PatchPilotError("commit_empty", "No safe files are available to commit.");
+  if (files.length === 0) throw new RiskRadarError("commit_empty", "No safe files are available to commit.");
   runGit(["add", "--", ...files], workspace);
   assertSafeCommitState(workspace, runGit(["diff", "--cached", "--name-only"], workspace, true).stdout.split(/\r?\n/).filter(Boolean));
   runGit(["commit", "-m", message], workspace);
@@ -131,7 +131,7 @@ export function commitAll(workspace: string, message: string, includeFiles?: str
 
 export function tokenizedGithubRemote(owner: string, repo: string): string {
   const token = getEnv("GITHUB_TOKEN");
-  if (!token) throw new PatchPilotError("github_token_missing", "Set GITHUB_TOKEN to clone/push GitHub remediation branches.", { requiredEnv: "GITHUB_TOKEN" });
+  if (!token) throw new RiskRadarError("github_token_missing", "Set GITHUB_TOKEN to clone/push GitHub remediation branches.", { requiredEnv: "GITHUB_TOKEN" });
   return `https://x-access-token:${token}@github.com/${owner}/${repo}.git`;
 }
 

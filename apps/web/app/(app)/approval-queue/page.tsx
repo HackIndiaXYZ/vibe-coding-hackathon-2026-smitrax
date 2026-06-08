@@ -1,4 +1,4 @@
-import { JsonDatabase } from "@patchpilot/core";
+import { JsonDatabase } from "@riskradar/core";
 
 export default function ApprovalQueuePage() {
   const state = new JsonDatabase().read();
@@ -11,7 +11,7 @@ export default function ApprovalQueuePage() {
       <div className="topline">Everything waiting on you</div>
       <h1>Approval Queue</h1>
       <p className="muted" style={{ marginTop: 8, marginBottom: 24 }}>
-        Remediation approvals, provider-failover consent requests, and watch-mode alerts. PatchPilot never auto-merges or auto-deploys; these are the human gates.
+        Remediation approvals, provider-failover consent requests, and watch-mode alerts. RiskRadar never auto-merges or auto-deploys; these are the human gates.
       </p>
 
       <section className="panel">

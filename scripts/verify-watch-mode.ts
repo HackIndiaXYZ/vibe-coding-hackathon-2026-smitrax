@@ -1,7 +1,7 @@
 import { cpSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { JsonDatabase, PatchPilotService, runWatchCycle, updateSettings, watchStatus } from "../packages/core/src/index.ts";
+import { JsonDatabase, RiskRadarService, runWatchCycle, updateSettings, watchStatus } from "../packages/core/src/index.ts";
 import { loadDotenvFile, safeJson } from "./live-utils.ts";
 
 loadDotenvFile();
@@ -9,18 +9,18 @@ loadDotenvFile();
 // Verifies watch mode end-to-end against a disposable local fixture project:
 // disabled-by-default, then enabled scan + dedup + no auto-patch.
 async function main() {
-  const root = path.join(os.tmpdir(), `patchpilot-watch-verify-${Date.now()}`);
+  const root = path.join(os.tmpdir(), `riskradar-watch-verify-${Date.now()}`);
   const fixture = path.join(root, "fixture");
   cpSync(path.join(process.cwd(), "tests", "fixtures", "vulnerable-npm-project"), fixture, { recursive: true });
-  process.env.PATCHPILOT_DATA_FILE = path.join(root, "db.json");
-  process.env.PATCHPILOT_LOG_DIR = path.join(root, "logs");
-  process.env.PATCHPILOT_WORKSPACE_DIR = path.join(root, "workspaces");
-  process.env.PATCHPILOT_LOCAL_ROOTS = root;
+  process.env.RISKRADAR_DATA_FILE = path.join(root, "db.json");
+  process.env.RISKRADAR_LOG_DIR = path.join(root, "logs");
+  process.env.RISKRADAR_WORKSPACE_DIR = path.join(root, "workspaces");
+  process.env.RISKRADAR_LOCAL_ROOTS = root;
   process.env.TELEGRAM_ALLOWED_CHAT_IDS = ""; // dashboard-only alerts for the verifier
   try {
-    const db = new JsonDatabase(process.env.PATCHPILOT_DATA_FILE);
-    const service = new PatchPilotService(db);
-    await service.createProject({ sourceType: "local", localPath: fixture, name: "patchpilot-watch-fixture" });
+    const db = new JsonDatabase(process.env.RISKRADAR_DATA_FILE);
+    const service = new RiskRadarService(db);
+    await service.createProject({ sourceType: "local", localPath: fixture, name: "riskradar-watch-fixture" });
 
     const disabledRun = await runWatchCycle({ db, scanAll: () => service.scanAll() });
 

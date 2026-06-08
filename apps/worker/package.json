@@ -1,5 +1,5 @@
 {
-  "name": "@patchpilot/worker",
+  "name": "@riskradar/worker",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@patchpilot/core": "workspace:*",
+    "@riskradar/core": "workspace:*",
     "tsx": "^4.20.0"
   }
 }

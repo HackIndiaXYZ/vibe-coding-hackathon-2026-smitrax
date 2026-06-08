@@ -6,8 +6,8 @@ import { loadDotenvFile, safeJson } from "./live-utils.ts";
 
 loadDotenvFile();
 // Default to the docker-compose container if not already configured.
-process.env.PATCHPILOT_PERSIST_POSTGRES ||= "true";
-process.env.DATABASE_URL ||= "postgresql://patchpilot:patchpilot@localhost:5432/patchpilot";
+process.env.RISKRADAR_PERSIST_POSTGRES ||= "true";
+process.env.DATABASE_URL ||= "postgresql://riskradar:riskradar@localhost:5432/riskradar";
 
 // Proves durable persistence: (1) round-trip a state document through Postgres,
 // and (2) hydrate a fresh local file from Postgres after the file is deleted.
@@ -20,7 +20,7 @@ async function main() {
   const roundTrip = loaded?.projects?.[0]?.id === marker;
 
   // Cross-process durability: a brand-new local file hydrates from Postgres.
-  const freshFile = path.join(os.tmpdir(), `patchpilot-pg-hydrate-${Date.now()}.json`);
+  const freshFile = path.join(os.tmpdir(), `riskradar-pg-hydrate-${Date.now()}.json`);
   const freshDb = new JsonDatabase(freshFile);
   const hydrated = await hydrateFromPostgres(freshDb);
   const restored = freshDb.read().projects.some((p) => p.id === marker);

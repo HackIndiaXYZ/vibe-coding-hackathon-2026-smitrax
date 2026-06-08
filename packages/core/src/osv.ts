@@ -4,7 +4,7 @@ import semver from "semver";
 import type { Vulnerability } from "./types";
 import type { PackageManifest } from "./packageDetection";
 import { getEnv } from "./env";
-import { PatchPilotError } from "./errors";
+import { RiskRadarError } from "./errors";
 
 export interface NormalizedOsvFinding {
   vulnerability: Vulnerability;
@@ -40,11 +40,11 @@ interface OsvVulnerability {
 }
 
 function osvScannerBin(): string {
-  return getEnv("PATCHPILOT_SCANNER_OSV_SCANNER_PATH") ?? "osv-scanner";
+  return getEnv("RISKRADAR_SCANNER_OSV_SCANNER_PATH") ?? "osv-scanner";
 }
 
 export function osvScannerAvailable(): boolean {
-  if (getEnv("PATCHPILOT_DISABLE_OSV_SCANNER") === "true") return false;
+  if (getEnv("RISKRADAR_DISABLE_OSV_SCANNER") === "true") return false;
   const bin = osvScannerBin();
   if (bin.includes("\\") || bin.includes("/")) return existsSync(bin);
   const result = spawnSync(process.platform === "win32" ? "where.exe" : "command", process.platform === "win32" ? [bin] : ["-v", bin], {
@@ -73,7 +73,7 @@ export async function queryOsvApi(manifest: PackageManifest): Promise<Normalized
       })
     });
     if (!response.ok) {
-      throw new PatchPilotError("osv_api_failed", `OSV API returned ${response.status}.`, { status: response.status }, 502);
+      throw new RiskRadarError("osv_api_failed", `OSV API returned ${response.status}.`, { status: response.status }, 502);
     }
     const body = (await response.json()) as { results?: Array<{ vulns?: OsvVulnerability[] }> };
     for (const [index, result] of (body.results ?? []).entries()) {
@@ -106,7 +106,7 @@ export async function queryOsvFindings(projectPath: string, manifests: PackageMa
       : spawnSync(bin, args, { encoding: "utf8", shell: bare && process.platform === "win32", maxBuffer: 64 * 1024 * 1024 });
     if ((result.status ?? 1) !== 0 && !result.stdout) {
       if ((result.stderr ?? "").includes("No package sources found")) return await queryDirectManifests();
-      throw new PatchPilotError("osv_scanner_failed", "OSV-Scanner failed before producing JSON output.", { stderr: result.stderr }, 502);
+      throw new RiskRadarError("osv_scanner_failed", "OSV-Scanner failed before producing JSON output.", { stderr: result.stderr }, 502);
     }
     const findings = parseOsvScannerJson(result.stdout, directNames);
     return { findings, scanner: "osv-scanner", scanConfidence: "lockfile" };
@@ -138,7 +138,7 @@ export function parseOsvScannerJson(raw: string, directNames: Set<string>): Norm
 async function fetchOsvVulnerability(id: string): Promise<OsvVulnerability> {
   const base = (getEnv("OSV_API_URL") ?? "https://api.osv.dev/v1/querybatch").replace(/\/querybatch$/, "");
   const response = await fetch(`${base}/vulns/${encodeURIComponent(id)}`);
-  if (!response.ok) throw new PatchPilotError("osv_vulnerability_fetch_failed", `OSV vulnerability detail returned ${response.status}.`, { id, status: response.status }, 502);
+  if (!response.ok) throw new RiskRadarError("osv_vulnerability_fetch_failed", `OSV vulnerability detail returned ${response.status}.`, { id, status: response.status }, 502);
   return await response.json() as OsvVulnerability;
 }
 

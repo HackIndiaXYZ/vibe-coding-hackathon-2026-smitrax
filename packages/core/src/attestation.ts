@@ -4,7 +4,7 @@ import { getEnv } from "./env";
 /**
  * Provenance attestation for a remediation.
  *
- * When PatchPilot upgrades a vulnerable dependency, it produces a signed,
+ * When RiskRadar upgrades a vulnerable dependency, it produces a signed,
  * verifiable statement of WHAT changed and HOW it was validated — in the spirit
  * of SLSA provenance / in-toto attestations, but lightweight (HMAC, no PKI).
  * The statement is canonicalized (stable key order) before signing so the
@@ -12,7 +12,7 @@ import { getEnv } from "./env";
  * PR body and the audit receipt, so a reviewer can confirm the fix's origin.
  */
 export interface AttestationStatement {
-  predicateType: "https://patchpilot.dev/attestation/remediation/v1";
+  predicateType: "https://riskradar.dev/attestation/remediation/v1";
   package: string;
   ecosystem: string;
   fromVersion: string;
@@ -22,7 +22,7 @@ export interface AttestationStatement {
   vulnerabilityIds: string[];
   changedFiles: string[];
   remediationJobId: string;
-  builder: "patchpilot";
+  builder: "riskradar";
   agent: string;
   timestamp: string;
 }
@@ -32,7 +32,7 @@ export interface SignedAttestation {
   signature: string | null;
   signed: boolean;
   algorithm: "HMAC-SHA256";
-  keyId: "PATCHPILOT_ATTESTATION_SECRET" | "APPROVAL_HMAC_SECRET" | null;
+  keyId: "RISKRADAR_ATTESTATION_SECRET" | "APPROVAL_HMAC_SECRET" | null;
 }
 
 /** Deterministically serialize an object with sorted keys so signing is stable. */
@@ -49,8 +49,8 @@ function canonicalize(value: unknown): string {
 }
 
 function resolveSecret(): { secret: string; keyId: SignedAttestation["keyId"] } | null {
-  const dedicated = getEnv("PATCHPILOT_ATTESTATION_SECRET");
-  if (dedicated) return { secret: dedicated, keyId: "PATCHPILOT_ATTESTATION_SECRET" };
+  const dedicated = getEnv("RISKRADAR_ATTESTATION_SECRET");
+  if (dedicated) return { secret: dedicated, keyId: "RISKRADAR_ATTESTATION_SECRET" };
   const shared = getEnv("APPROVAL_HMAC_SECRET");
   if (shared) return { secret: shared, keyId: "APPROVAL_HMAC_SECRET" };
   return null;
@@ -77,7 +77,7 @@ export interface AttestRemediationInput {
  */
 export function attestRemediation(input: AttestRemediationInput): SignedAttestation {
   const statement: AttestationStatement = {
-    predicateType: "https://patchpilot.dev/attestation/remediation/v1",
+    predicateType: "https://riskradar.dev/attestation/remediation/v1",
     package: input.package,
     ecosystem: input.ecosystem,
     fromVersion: input.fromVersion,
@@ -87,7 +87,7 @@ export function attestRemediation(input: AttestRemediationInput): SignedAttestat
     vulnerabilityIds: input.vulnerabilityIds ?? [],
     changedFiles: input.changedFiles ?? [],
     remediationJobId: input.remediationJobId,
-    builder: "patchpilot",
+    builder: "riskradar",
     agent: input.agent ?? "deterministic",
     timestamp: input.timestamp ?? new Date().toISOString()
   };
@@ -115,5 +115,5 @@ export function attestationLine(att: SignedAttestation): string {
   if (att.signed && att.signature) {
     return `🔏 Provenance attestation (HMAC-SHA256, key ${att.keyId}): ${provenance} · sig ${att.signature.slice(0, 16)}…`;
   }
-  return `🔏 Provenance attestation (unsigned — set PATCHPILOT_ATTESTATION_SECRET to sign): ${provenance}`;
+  return `🔏 Provenance attestation (unsigned — set RISKRADAR_ATTESTATION_SECRET to sign): ${provenance}`;
 }

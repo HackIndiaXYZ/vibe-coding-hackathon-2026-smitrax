@@ -4,11 +4,11 @@ import { loadDotenvFile, optionalEnv, safeJson } from "./live-utils.ts";
 loadDotenvFile();
 
 // Verifies a deployment/preview URL is live (no deploy triggered). Opt-in: pass a
-// URL arg or set PATCHPILOT_DEPLOYMENT_URL. Skips honestly when unset.
+// URL arg or set RISKRADAR_DEPLOYMENT_URL. Skips honestly when unset.
 async function main() {
-  const url = process.argv[2] ?? optionalEnv("PATCHPILOT_DEPLOYMENT_URL");
+  const url = process.argv[2] ?? optionalEnv("RISKRADAR_DEPLOYMENT_URL");
   if (!url) {
-    console.log(safeJson({ ok: true, status: "not_configured", message: "Pass a URL arg or set PATCHPILOT_DEPLOYMENT_URL to verify a deployment. Skipped honestly." }));
+    console.log(safeJson({ ok: true, status: "not_configured", message: "Pass a URL arg or set RISKRADAR_DEPLOYMENT_URL to verify a deployment. Skipped honestly." }));
     process.exit(0);
   }
   const check = await verifyDeploymentUrl(url);

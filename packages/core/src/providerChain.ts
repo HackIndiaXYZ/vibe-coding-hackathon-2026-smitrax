@@ -10,7 +10,7 @@ import type { FailoverSettings } from "./types";
  * remediation. Unconfigured providers are skipped instantly with no network
  * call. Switching to a lower-trust provider (local model or deterministic) can
  * require explicit Telegram consent. Nothing here ever lets a non-Codex model
- * edit a repo — providers only return plans that PatchPilot applies.
+ * edit a repo — providers only return plans that RiskRadar applies.
  */
 export type ProviderRuntimeStatus =
   | "ready"
@@ -112,24 +112,24 @@ function providerConfigured(provider: string): { configured: boolean; reason?: s
   }
   if (provider === "deterministic") return { configured: true };
   if (provider === "openrouter") {
-    return getEnv("PATCHPILOT_LLM_API_KEY") ? { configured: true } : { configured: false, reason: "PATCHPILOT_LLM_API_KEY missing" };
+    return getEnv("RISKRADAR_LLM_API_KEY") ? { configured: true } : { configured: false, reason: "RISKRADAR_LLM_API_KEY missing" };
   }
   if (provider === "openai-compatible") {
-    if (!getEnv("PATCHPILOT_LLM_BASE_URL")) return { configured: false, reason: "PATCHPILOT_LLM_BASE_URL missing" };
-    return getEnv("PATCHPILOT_LLM_API_KEY") ? { configured: true } : { configured: false, reason: "PATCHPILOT_LLM_API_KEY missing" };
+    if (!getEnv("RISKRADAR_LLM_BASE_URL")) return { configured: false, reason: "RISKRADAR_LLM_BASE_URL missing" };
+    return getEnv("RISKRADAR_LLM_API_KEY") ? { configured: true } : { configured: false, reason: "RISKRADAR_LLM_API_KEY missing" };
   }
   if (provider === "grok") {
-    return getEnv("PATCHPILOT_GROK_API_KEY") ?? getEnv("PATCHPILOT_LLM_API_KEY") ? { configured: true } : { configured: false, reason: "PATCHPILOT_GROK_API_KEY missing" };
+    return getEnv("RISKRADAR_GROK_API_KEY") ?? getEnv("RISKRADAR_LLM_API_KEY") ? { configured: true } : { configured: false, reason: "RISKRADAR_GROK_API_KEY missing" };
   }
   if (provider === "anthropic") {
-    return getEnv("PATCHPILOT_ANTHROPIC_API_KEY") ?? getEnv("PATCHPILOT_LLM_API_KEY") ? { configured: true } : { configured: false, reason: "PATCHPILOT_ANTHROPIC_API_KEY missing" };
+    return getEnv("RISKRADAR_ANTHROPIC_API_KEY") ?? getEnv("RISKRADAR_LLM_API_KEY") ? { configured: true } : { configured: false, reason: "RISKRADAR_ANTHROPIC_API_KEY missing" };
   }
   if (provider === "ollama") return { configured: true };
   return { configured: false, reason: `${provider} provider is not implemented` };
 }
 
 function ollamaBaseUrl(): string {
-  return (getEnv("PATCHPILOT_LLM_BASE_URL") ?? "http://localhost:11434/v1").replace(/\/$/, "");
+  return (getEnv("RISKRADAR_LLM_BASE_URL") ?? "http://localhost:11434/v1").replace(/\/$/, "");
 }
 
 async function fetchWithTimeout(url: string, timeoutMs: number, init: RequestInit = {}): Promise<Response> {
@@ -164,7 +164,7 @@ export async function checkProviderReadiness(provider: string, options: { timeou
   if (!config.configured) return base("not_configured", { failureReason: config.reason });
   if (provider === "codex" || provider === "deterministic") return base("ready");
 
-  const timeoutMs = options.timeoutMs ?? Number(getEnv("PATCHPILOT_PROVIDER_READINESS_TIMEOUT_MS") ?? 3000);
+  const timeoutMs = options.timeoutMs ?? Number(getEnv("RISKRADAR_PROVIDER_READINESS_TIMEOUT_MS") ?? 3000);
   try {
     if (provider === "ollama") {
       const response = await fetchWithTimeout(`${ollamaBaseUrl().replace(/\/v1$/, "")}/api/tags`, timeoutMs);
@@ -175,21 +175,21 @@ export async function checkProviderReadiness(provider: string, options: { timeou
       return base("ready", { cold });
     }
     if (provider === "anthropic") {
-      const baseUrl = (getEnv("PATCHPILOT_ANTHROPIC_BASE_URL") ?? "https://api.anthropic.com").replace(/\/$/, "");
-      const key = getEnv("PATCHPILOT_ANTHROPIC_API_KEY") ?? getEnv("PATCHPILOT_LLM_API_KEY");
-      const response = await fetchWithTimeout(`${baseUrl}/v1/models`, timeoutMs, { headers: { "x-api-key": key ?? "", "anthropic-version": getEnv("PATCHPILOT_ANTHROPIC_VERSION") ?? "2023-06-01" } });
+      const baseUrl = (getEnv("RISKRADAR_ANTHROPIC_BASE_URL") ?? "https://api.anthropic.com").replace(/\/$/, "");
+      const key = getEnv("RISKRADAR_ANTHROPIC_API_KEY") ?? getEnv("RISKRADAR_LLM_API_KEY");
+      const response = await fetchWithTimeout(`${baseUrl}/v1/models`, timeoutMs, { headers: { "x-api-key": key ?? "", "anthropic-version": getEnv("RISKRADAR_ANTHROPIC_VERSION") ?? "2023-06-01" } });
       if (response.status === 401 || response.status === 403) return base("auth_failed", { failureReason: `HTTP ${response.status}` });
       if (!response.ok) return base("endpoint_unreachable", { failureReason: `HTTP ${response.status}` });
       return base("ready");
     }
     // openrouter / grok / openai-compatible: quick OpenAI-style model list probe.
     const baseUrl = (provider === "openrouter"
-      ? getEnv("PATCHPILOT_LLM_BASE_URL") ?? "https://openrouter.ai/api/v1"
+      ? getEnv("RISKRADAR_LLM_BASE_URL") ?? "https://openrouter.ai/api/v1"
       : provider === "grok"
-        ? getEnv("PATCHPILOT_GROK_BASE_URL") ?? getEnv("PATCHPILOT_LLM_BASE_URL") ?? "https://api.x.ai/v1"
-        : getEnv("PATCHPILOT_LLM_BASE_URL")!).replace(/\/$/, "");
+        ? getEnv("RISKRADAR_GROK_BASE_URL") ?? getEnv("RISKRADAR_LLM_BASE_URL") ?? "https://api.x.ai/v1"
+        : getEnv("RISKRADAR_LLM_BASE_URL")!).replace(/\/$/, "");
     const headers: Record<string, string> = {};
-    const key = provider === "grok" ? getEnv("PATCHPILOT_GROK_API_KEY") ?? getEnv("PATCHPILOT_LLM_API_KEY") : getEnv("PATCHPILOT_LLM_API_KEY");
+    const key = provider === "grok" ? getEnv("RISKRADAR_GROK_API_KEY") ?? getEnv("RISKRADAR_LLM_API_KEY") : getEnv("RISKRADAR_LLM_API_KEY");
     if (key) headers.authorization = `Bearer ${key}`;
     const response = await fetchWithTimeout(`${baseUrl}/models`, timeoutMs, { headers });
     if (response.status === 401 || response.status === 403) return base("auth_failed", { failureReason: `HTTP ${response.status}` });
@@ -305,7 +305,7 @@ const STATUS_LABEL: Record<ProviderRuntimeStatus, string> = {
 
 /** Builds the Telegram consent message body shown before a lower-trust provider runs. */
 export function buildFailoverConsentMessage(readiness: ProviderReadiness[], candidate: ProviderReadiness): string {
-  const lines = ["PatchPilot provider failover needed.", ""];
+  const lines = ["RiskRadar provider failover needed.", ""];
   for (const entry of readiness) {
     const latency = entry.status === "ready" && entry.latencyMs !== undefined ? `, ${entry.latencyMs}ms` : "";
     const name = entry.model ? `${entry.provider} ${entry.model}` : entry.provider;
@@ -313,12 +313,12 @@ export function buildFailoverConsentMessage(readiness: ProviderReadiness[], cand
   }
   lines.push("");
   if (candidate.trust === "deterministic") {
-    lines.push("Allow PatchPilot's deterministic fixer to update the dependency to the known fixed version?");
+    lines.push("Allow RiskRadar's deterministic fixer to update the dependency to the known fixed version?");
   } else {
     const cold = candidate.cold ? " Local model available but cold; estimated slow start." : "";
     lines.push(`Allow local model ${candidate.model ?? candidate.provider} to generate a strict JSON patch plan?${cold}`);
   }
-  lines.push("PatchPilot will apply changes itself, run validation, create a draft PR, and ask for final approval.");
+  lines.push("RiskRadar will apply changes itself, run validation, create a draft PR, and ask for final approval.");
   return lines.join("\n");
 }
 

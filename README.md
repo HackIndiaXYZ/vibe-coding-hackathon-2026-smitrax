@@ -1,30 +1,29 @@
-# PatchPilot Watch Commander
+# RiskRadar — Watch Commander for Supply-Chain Security
 
-PatchPilot is an open-source CVE and supply-chain response command center. It inventories GitHub repos and allowlisted local folders, scans Node.js dependencies with real OSV data, enriches risk with EPSS/CISA KEV when available, shows blast radius, records audit receipts, and gates remediation/approval through real tools or explicit configuration errors.
+RiskRadar is an open-source CVE and supply-chain response command center. It inventories GitHub repos and allowlisted local folders, scans Node.js dependencies with real OSV data, enriches risk with EPSS/CISA KEV when available, shows blast radius, records audit receipts, and gates remediation/approval through real tools or explicit configuration errors.
 
 Every integration runs live. Anything you haven't configured (GitHub, Telegram, Codex, OpenClaw, Vercel, Redis, or SBOM tooling) is shown honestly as `not_configured` or `unavailable`, so the dashboard always reflects reality.
 
-## Live demo
+## 🚀 Live demo
 
-**[trypatchpilot.vercel.app](https://trypatchpilot.vercel.app)** is a hosted
+**[tryriskradar.vercel.app](https://tryriskradar.vercel.app)** is a hosted
 preview with seeded demo data so you can explore the landing page and dashboard
 without installing anything. For real scans of your own repos, self-host (below)
 or use the CLI.
 
-## Scan any project in one command
+## 🎯 What RiskRadar does
 
-```bash
-# from anywhere (published on npm)
-npx patchpilot-cli scan ./my-app --fail-on high
-
-# or from this repo
-pnpm scan:cli /absolute/path/to/your/project
-```
+- Inventories GitHub repos and allowlisted local folders
+- Scans Node.js dependencies with real OSV data
+- Enriches risk with EPSS / CISA KEV when available
+- Shows blast radius and records audit receipts
+- Gates remediation and approval through real tools or explicit configuration errors
+- Scans in one command via `npx riskradar-cli scan ./my-app --fail-on high`
 
 The CLI runs a real OSV scan and tags each finding with the **reachability
 (VEX-lite)** signal, so you fix what's actually imported first. See `apps/cli/README.md`.
 
-## Quick Start
+## 🚀 Quick Start
 
 ```bash
 pnpm install
@@ -35,14 +34,14 @@ pnpm dev
 
 Open `http://127.0.0.1:3000`.
 
-To scan a local folder, set `PATCHPILOT_LOCAL_ROOTS` in `.env` to the parent folder that contains the project. Local scanning rejects paths outside this allowlist.
+To scan a local folder, set `RISKRADAR_LOCAL_ROOTS` in `.env` to the parent folder that contains the project. Local scanning rejects paths outside this allowlist.
 
 ```bash
-$env:PATCHPILOT_LOCAL_ROOTS="<absolute path to>\patchpilot\tests\fixtures"
+$env:RISKRADAR_LOCAL_ROOTS="<absolute path to>\riskradar\tests\fixtures"
 pnpm scan:fixture
 ```
 
-## Main Commands
+## 📋 Main Commands
 
 ```bash
 pnpm dev          # Next.js dashboard and API
@@ -55,9 +54,9 @@ pnpm verify:local-e2e
 pnpm smoke:app http://127.0.0.1:3000
 ```
 
-## Required Env Vars By Integration
+## 🔧 Required Environment Variables by Integration
 
-- Local folder scanning: `PATCHPILOT_LOCAL_ROOTS`
+- Local folder scanning: `RISKRADAR_LOCAL_ROOTS`
 - GitHub repo validation and PRs: `GITHUB_TOKEN`
 - Telegram approval: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_CHAT_IDS`, `APPROVAL_HMAC_SECRET`
 - Codex remediation execution: `CODEX_BIN`, `CODEX_ENABLED=true`, authenticated Codex CLI
@@ -65,11 +64,13 @@ pnpm smoke:app http://127.0.0.1:3000
 - Vercel AI SDK plan adapter: `AI_GATEWAY_API_KEY` or `VERCEL_OIDC_TOKEN`, optional `AI_GATEWAY_MODEL`
 - Vercel deployment API: `VERCEL_TOKEN`
 - SBOM generation: `SYFT_BIN` pointing to installed Syft
-- Optional local state path: `PATCHPILOT_DATA_FILE`
+- Optional local state path: `RISKRADAR_DATA_FILE`
 
-## What Works Locally
+## ✅ Feature Overview
 
-- File-backed persistent state at `.patchpilot/patchpilot.db.json`.
+### What works locally
+
+- File-backed persistent state at `.riskradar/riskradar.db.json`.
 - Dashboard metrics from stored state only.
 - Local project inventory with path traversal/allowlist checks.
 - Real OSV API dependency scanning for direct npm dependencies, with OSV-Scanner lockfile/transitive scanning when the CLI is installed.
@@ -82,10 +83,10 @@ pnpm smoke:app http://127.0.0.1:3000
 - MCP server tools that call the real application services and report honest status.
 - Deterministic npm remediation that validates, writes a local patch artifact, and does not mark rollback available until the patch is applied.
 - Codex CLI remediation in disposable secret-scrubbed workspaces when authenticated.
-- BYO model provider layer (`PATCHPILOT_AGENT_PROVIDER`): Codex workspace editor, OpenRouter / OpenAI-compatible / Ollama strict-JSON plan advisors, and the deterministic fixer. Only Codex and PatchPilot's own applier mutate files; advisors only return plans. See `docs/model-providers.md`.
+- BYO model provider layer (`RISKRADAR_AGENT_PROVIDER`): Codex workspace editor, OpenRouter / OpenAI-compatible / Ollama strict-JSON plan advisors, and the deterministic fixer. Only Codex and RiskRadar's own applier mutate files; advisors only return plans. See `docs/model-providers.md`.
 - OpenAI SDK and Vercel AI SDK remediation-plan adapters.
 
-## Configuration-Gated Features
+### Configuration-gated features
 
 - GitHub PR creation requires a valid `GITHUB_TOKEN`; a PR URL is stored only when a real PR is created.
 - Codex remediation requires a real Codex CLI; otherwise use OpenAI SDK, Vercel AI SDK, or manual plan-only adapters.
@@ -93,14 +94,14 @@ pnpm smoke:app http://127.0.0.1:3000
 - SBOM generation requires Syft; otherwise `sbom_tool_missing` is returned.
 - Vercel API lookups require `VERCEL_TOKEN`; local `.vercel/project.json` mapping still works.
 
-## Verification Status
+## 🧪 Verification Status
 
-- Implemented and verified locally: local fixture scan, risk score, deterministic remediation, validation with ignored install scripts, local patch artifact, audit receipt, dashboard/API smoke, production `pnpm start`.
-- Implemented but requires credentials for live proof: GitHub repo scan against github.com, GitHub PR creation, Telegram send, live Codex remediation.
-- Implemented but not live-tested here: OSV-Scanner CLI path, NVD API key path, GitHub Advisory authenticated path.
-- Optional/partial: Redis/BullMQ durable queue and Postgres persistence are opt-in Docker paths; GitHub PR rollback closes draft PRs and deletes branches; signed plugin registry, SBOM generation/diff helpers, and deployment URL verification are implemented/config-gated. OpenClaw remains documented/config-gated rather than a native plugin.
+- **Implemented and verified locally**: local fixture scan, risk score, deterministic remediation, validation with ignored install scripts, local patch artifact, audit receipt, dashboard/API smoke, production `pnpm start`.
+- **Implemented but requires credentials for live proof**: GitHub repo scan against github.com, GitHub PR creation, Telegram send, live Codex remediation.
+- **Implemented but not live-tested here**: OSV-Scanner CLI path, NVD API key path, GitHub Advisory authenticated path.
+- **Optional / partial**: Redis/BullMQ durable queue and Postgres persistence are opt-in Docker paths; GitHub PR rollback closes draft PRs and deletes branches; signed plugin registry, SBOM generation/diff helpers, and deployment URL verification are implemented/config-gated. OpenClaw remains documented/config-gated rather than a native plugin.
 
-## Documentation
+## 📚 Documentation
 
 Start with `docs/CONCEPT.md` for the product walkthrough. The rest of `docs/`
 covers architecture, security, scanners, watch mode, Codex integration, model

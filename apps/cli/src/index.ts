@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 /**
- * PatchPilot CLI — a thin, standalone scanner over @patchpilot/core.
+ * RiskRadar CLI — a thin, standalone scanner over @riskradar/core.
  *
- *   patchpilot scan [path]     Scan a project folder for vulnerable deps (npm + PyPI)
- *   patchpilot --help
+ *   riskradar scan [path]     Scan a project folder for vulnerable deps (npm + PyPI)
+ *   riskradar --help
  *
  * It queries the live OSV database and tags each finding with the reachability
  * (VEX-lite) signal — so you fix what's actually imported first. Real results
  * only; with no network it simply reports no findings.
  */
 import path from "node:path";
-import { detectManifests } from "@patchpilot/core";
-import { queryOsvFindings } from "@patchpilot/core";
-import { collectFirstPartyImports, reachabilityForFinding } from "@patchpilot/core";
+import { detectManifests } from "@riskradar/core";
+import { queryOsvFindings } from "@riskradar/core";
+import { collectFirstPartyImports, reachabilityForFinding } from "@riskradar/core";
 
 const C = {
   reset: "\x1b[0m", dim: "\x1b[2m", bold: "\x1b[1m",
@@ -29,11 +29,11 @@ const SHORT_SEV: Record<string, string> = { critical: "CRIT", high: "HIGH", medi
 
 function usage(): void {
   console.log(`
-${c(C.orange, "●")} ${c(C.bold, "PatchPilot CLI")} — supply-chain scanner (npm + PyPI)
+${c(C.orange, "●")} ${c(C.bold, "RiskRadar CLI")} — supply-chain scanner (npm + PyPI)
 
 ${c(C.bold, "Usage")}
-  patchpilot scan [path]        Scan a project folder (default: current directory)
-  patchpilot --help             Show this help
+  riskradar scan [path]        Scan a project folder (default: current directory)
+  riskradar --help             Show this help
 
 ${c(C.bold, "Options")}
   --json                        Output findings as JSON
@@ -41,9 +41,9 @@ ${c(C.bold, "Options")}
                                 (critical | high | medium | low). Default: never fail.
 
 ${c(C.bold, "Examples")}
-  npx patchpilot-cli scan
-  npx patchpilot-cli scan ./my-app --fail-on high
-  patchpilot scan . --json > findings.json
+  npx riskradar-cli scan
+  npx riskradar-cli scan ./my-app --fail-on high
+  riskradar scan . --json > findings.json
 
 Reachability: ${c(C.orange, "● reachable")} = imported in your source · ${c(C.gray, "○ likely unused / transitive")} = de-prioritized.
 Queries the live OSV database; with no network it reports no findings.
@@ -109,13 +109,13 @@ async function main(): Promise<void> {
 
   if (!json) {
     console.error("");
-    console.error(c(C.dim, `  $ patchpilot scan ${positional[0] ?? "."}`));
+    console.error(c(C.dim, `  $ riskradar scan ${positional[0] ?? "."}`));
     console.error(c(C.dim, `  Scanning ${target} via OSV…`));
   }
 
   const manifests = detectManifests(target);
   if (manifests.length === 0) {
-    const msg = "No package.json or requirements.txt found. PatchPilot scans Node.js (npm) and Python (PyPI) projects.";
+    const msg = "No package.json or requirements.txt found. RiskRadar scans Node.js (npm) and Python (PyPI) projects.";
     if (json) console.log(JSON.stringify({ error: "unsupported_project", message: msg }, null, 2));
     else console.error(c(C.red, "  " + msg));
     process.exit(2);
@@ -284,6 +284,6 @@ function printReport(groups: Group[], advisoryCount: number, scanner: string): v
 }
 
 main().catch((err) => {
-  console.error(c(C.red, "PatchPilot CLI error: ") + (err instanceof Error ? err.message : String(err)));
+  console.error(c(C.red, "RiskRadar CLI error: ") + (err instanceof Error ? err.message : String(err)));
   process.exit(1);
 });

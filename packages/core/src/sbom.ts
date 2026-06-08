@@ -1,10 +1,10 @@
 import { spawnSync } from "node:child_process";
 import { commandExists, getEnv } from "./env";
-import { PatchPilotError } from "./errors";
+import { RiskRadarError } from "./errors";
 import { redact } from "./redaction";
 
 function syftBin(): string {
-  return getEnv("SYFT_BIN") ?? getEnv("PATCHPILOT_SCANNER_SYFT_PATH") ?? "syft";
+  return getEnv("SYFT_BIN") ?? getEnv("RISKRADAR_SCANNER_SYFT_PATH") ?? "syft";
 }
 
 export function sbomToolAvailable(): boolean {
@@ -14,12 +14,12 @@ export function sbomToolAvailable(): boolean {
 export function generateSbom(projectPath: string): { format: string; output: string } {
   const bin = syftBin();
   if (!commandExists(bin)) {
-    throw new PatchPilotError("sbom_tool_missing", "SBOM generation requires Syft. Install syft or set SYFT_BIN.", { requiredTool: bin });
+    throw new RiskRadarError("sbom_tool_missing", "SBOM generation requires Syft. Install syft or set SYFT_BIN.", { requiredTool: bin });
   }
   // No shell: absolute paths (which may contain spaces) are passed as argv.
   const result = spawnSync(bin, [projectPath, "-o", "cyclonedx-json", "-q"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
   if (result.status !== 0) {
-    throw new PatchPilotError("sbom_generation_failed", "Syft failed to generate an SBOM.", { stderr: redact(result.stderr) }, 502);
+    throw new RiskRadarError("sbom_generation_failed", "Syft failed to generate an SBOM.", { stderr: redact(result.stderr) }, 502);
   }
   return { format: "cyclonedx-json", output: redact(result.stdout) };
 }

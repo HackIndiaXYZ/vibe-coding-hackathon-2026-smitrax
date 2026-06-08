@@ -3,11 +3,11 @@ import { loadDotenvFile, optionalEnv, safeJson } from "./live-utils.ts";
 
 loadDotenvFile();
 
-// Container image scan via Trivy. Opt-in only: requires PATCHPILOT_CONTAINER_IMAGE
-// (PatchPilot never pulls/scans images by default). Skips honestly when unset.
-const image = process.argv[2] ?? optionalEnv("PATCHPILOT_CONTAINER_IMAGE");
+// Container image scan via Trivy. Opt-in only: requires RISKRADAR_CONTAINER_IMAGE
+// (RiskRadar never pulls/scans images by default). Skips honestly when unset.
+const image = process.argv[2] ?? optionalEnv("RISKRADAR_CONTAINER_IMAGE");
 if (!image) {
-  console.log(safeJson({ ok: true, status: "not_configured", message: "Set PATCHPILOT_CONTAINER_IMAGE (or pass an image arg) to scan a container image. Skipped honestly." }));
+  console.log(safeJson({ ok: true, status: "not_configured", message: "Set RISKRADAR_CONTAINER_IMAGE (or pass an image arg) to scan a container image. Skipped honestly." }));
   process.exit(0);
 }
 

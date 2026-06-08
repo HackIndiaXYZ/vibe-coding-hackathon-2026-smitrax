@@ -23,7 +23,7 @@ export function classifyDeploymentResponse(status: number, headers: { get(name: 
 }
 
 export async function verifyDeploymentUrl(url: string, options: { timeoutMs?: number } = {}): Promise<DeploymentCheck> {
-  const timeoutMs = options.timeoutMs ?? Number(getEnv("PATCHPILOT_DEPLOYMENT_TIMEOUT_MS") ?? 8000);
+  const timeoutMs = options.timeoutMs ?? Number(getEnv("RISKRADAR_DEPLOYMENT_TIMEOUT_MS") ?? 8000);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const started = Date.now();

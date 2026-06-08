@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Downloads official Windows release binaries for the external scanners into a
 // gitignored .tools/ directory (no admin / winget prompts). Prints the resolved
-// paths so they can be set as PATCHPILOT_SCANNER_*_PATH.
+// paths so they can be set as RISKRADAR_SCANNER_*_PATH.
 import { execSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";

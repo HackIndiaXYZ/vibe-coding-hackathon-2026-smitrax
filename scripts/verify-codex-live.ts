@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import {
   JsonDatabase,
-  PatchPilotService,
+  RiskRadarService,
   buildScopedCodexPrompt,
   classifyCodexRemediation,
   codexStatus,
@@ -20,32 +20,32 @@ const liveTimeoutMs = process.env.CODEX_TIMEOUT_MS ? Number(process.env.CODEX_TI
 
 async function main() {
   const status = codexStatus();
-  const root = path.join(os.tmpdir(), `patchpilot-codex-live-${Date.now()}`);
+  const root = path.join(os.tmpdir(), `riskradar-codex-live-${Date.now()}`);
   const fixture = path.join(root, "fixture");
   cpSync(path.join(process.cwd(), "tests", "fixtures", "vulnerable-npm-project"), fixture, { recursive: true });
   // Plant secret-like files to prove the workspace copy scrubs them.
   writeFileSync(path.join(fixture, ".env"), "SECRET_SHOULD_NOT_COPY=super-secret-value");
   writeFileSync(path.join(fixture, "private.key"), "PRIVATE_KEY_SHOULD_NOT_COPY");
-  process.env.PATCHPILOT_DATA_FILE = path.join(root, "db.json");
-  process.env.PATCHPILOT_LOG_DIR = path.join(root, "logs");
-  process.env.PATCHPILOT_WORKSPACE_DIR = path.join(root, "workspaces");
-  process.env.PATCHPILOT_LOCAL_ROOTS = root;
-  process.env.PATCHPILOT_RETAIN_WORKSPACES = "true";
+  process.env.RISKRADAR_DATA_FILE = path.join(root, "db.json");
+  process.env.RISKRADAR_LOG_DIR = path.join(root, "logs");
+  process.env.RISKRADAR_WORKSPACE_DIR = path.join(root, "workspaces");
+  process.env.RISKRADAR_LOCAL_ROOTS = root;
+  process.env.RISKRADAR_RETAIN_WORKSPACES = "true";
   // This verifier exercises Codex remediation + the deterministic fallback, not
   // the Telegram channel (that is verify:telegram-live). Suppress approval sends
   // so the run never depends on, or spams, the phone channel.
   const previousAllowedChats = process.env.TELEGRAM_ALLOWED_CHAT_IDS;
   process.env.TELEGRAM_ALLOWED_CHAT_IDS = "";
   try {
-    const db = new JsonDatabase(process.env.PATCHPILOT_DATA_FILE);
-    const service = new PatchPilotService(db);
-    const project = await service.createProject({ sourceType: "local", localPath: fixture, name: "patchpilot-codex-live-fixture" });
+    const db = new JsonDatabase(process.env.RISKRADAR_DATA_FILE);
+    const service = new RiskRadarService(db);
+    const project = await service.createProject({ sourceType: "local", localPath: fixture, name: "riskradar-codex-live-fixture" });
     await service.scanProject(project.id);
     const finding = db.read().findings.find((item) => item.projectId === project.id && item.status === "fix_available" && item.fixedVersion);
     if (!finding) throw new Error("No fixable fixture finding found for Codex live verification.");
 
     // Step 3: compact, bounded prompt. Codex only edits package.json; it must not
-    // run install/test/build. PatchPilot owns validation (ownLockfile: true).
+    // run install/test/build. RiskRadar owns validation (ownLockfile: true).
     const scopedPrompt = buildScopedCodexPrompt({
       packageName: finding.packageName,
       currentVersion: finding.currentVersion,
@@ -69,7 +69,7 @@ async function main() {
     const secretCopied = workspace ? existsSync(path.join(workspace, ".env")) || existsSync(path.join(workspace, "private.key")) : false;
 
     // Step 5: only fall back when Codex did not genuinely complete.
-    let fallbackJob: Awaited<ReturnType<PatchPilotService["startRemediation"]>> | undefined;
+    let fallbackJob: Awaited<ReturnType<RiskRadarService["startRemediation"]>> | undefined;
     if (outcome.shouldFallback) {
       fallbackJob = await service.startRemediation(finding.id, "deterministic-npm");
     }
@@ -128,10 +128,10 @@ async function main() {
   } finally {
     if (previousAllowedChats === undefined) delete process.env.TELEGRAM_ALLOWED_CHAT_IDS;
     else process.env.TELEGRAM_ALLOWED_CHAT_IDS = previousAllowedChats;
-    if (process.env.PATCHPILOT_RETAIN_WORKSPACES !== "true") rmSync(root, { recursive: true, force: true });
+    if (process.env.RISKRADAR_RETAIN_WORKSPACES !== "true") rmSync(root, { recursive: true, force: true });
     else if (existsSync(path.join(root, "logs"))) {
       const marker = path.join(root, "README.txt");
-      writeFileSync(marker, "PatchPilot retained this Codex verification workspace for inspection. Remove it after review.\n");
+      writeFileSync(marker, "RiskRadar retained this Codex verification workspace for inspection. Remove it after review.\n");
       readFileSync(marker, "utf8");
     }
   }

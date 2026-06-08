@@ -9,7 +9,7 @@ loadDotenvFile();
 // Builds a synthetic risky workspace and verifies the built-in scanners actually
 // detect issues (CI hardening, lightweight secret, suspicious package). External
 // scanners report tool_missing honestly when not installed. Secrets stay masked.
-const root = path.join(os.tmpdir(), `patchpilot-scanners-verify-${Date.now()}`);
+const root = path.join(os.tmpdir(), `riskradar-scanners-verify-${Date.now()}`);
 try {
   mkdirSync(path.join(root, ".github", "workflows"), { recursive: true });
   writeFileSync(path.join(root, ".github", "workflows", "ci.yml"), "permissions: write-all\njobs:\n  a:\n    steps:\n      - uses: actions/checkout@v4\n");

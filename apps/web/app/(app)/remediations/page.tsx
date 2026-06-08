@@ -1,4 +1,4 @@
-import { JsonDatabase, codexStatus } from "@patchpilot/core";
+import { JsonDatabase, codexStatus } from "@riskradar/core";
 import { PaginatedTable } from "../../../components/PaginatedTable";
 
 export default function RemediationsPage() {

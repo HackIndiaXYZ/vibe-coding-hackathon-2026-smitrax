@@ -1,5 +1,5 @@
 {
-  "id": "patchpilot-example-scanner",
+  "id": "riskradar-example-scanner",
   "version": "0.1.0",
   "entry": "./dist/index.js",
   "permissions": [

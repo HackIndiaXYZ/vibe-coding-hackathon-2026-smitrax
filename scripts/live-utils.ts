@@ -31,18 +31,18 @@ export function telegramChatId(): string {
 }
 
 export function parseTestRepo(): TestRepo {
-  const raw = requiredEnv("PATCHPILOT_TEST_REPO");
+  const raw = requiredEnv("RISKRADAR_TEST_REPO");
   const match = raw.match(/github\.com[:/](?<owner>[^/\s]+)\/(?<repo>[^/\s#?]+?)(?:\.git)?(?:[?#].*)?$/i) ?? raw.match(/^(?<owner>[^/\s]+)\/(?<repo>[^/\s#?]+)$/);
   const owner = match?.groups?.owner;
   const repo = match?.groups?.repo?.replace(/\.git$/i, "");
-  if (!owner || !repo) throw new Error("PATCHPILOT_TEST_REPO must be a GitHub URL or owner/repo.");
+  if (!owner || !repo) throw new Error("RISKRADAR_TEST_REPO must be a GitHub URL or owner/repo.");
   assertSafeDemoRepo(repo);
   return { owner, repo, url: raw };
 }
 
 export function assertSafeDemoRepo(repo: string): void {
-  if (!/(patchpilot-(test|demo)|patchpilot.*(test|demo)|(test|demo).*patchpilot)/i.test(repo)) {
-    throw new Error("Refusing live run: repository name must clearly include patchpilot-test or patchpilot-demo.");
+  if (!/(riskradar-(test|demo)|riskradar.*(test|demo)|(test|demo).*riskradar)/i.test(repo)) {
+    throw new Error("Refusing live run: repository name must clearly include riskradar-test or riskradar-demo.");
   }
 }
 
@@ -112,18 +112,18 @@ export async function assertGithubWritePermissions(repo = parseTestRepo()): Prom
 
 function assertGitPushDryRunWorks(repo: TestRepo): void {
   const token = requiredEnv("GITHUB_TOKEN");
-  const root = mkdtempSync(path.join(os.tmpdir(), "patchpilot-git-write-check-"));
+  const root = mkdtempSync(path.join(os.tmpdir(), "riskradar-git-write-check-"));
   const remote = `https://github.com/${repo.owner}/${repo.repo}.git`;
   const basic = Buffer.from(`x-access-token:${token}`).toString("base64");
   try {
     run("git", ["init"], root);
-    run("git", ["config", "user.email", "patchpilot@example.invalid"], root);
-    run("git", ["config", "user.name", "PatchPilot Live QA"], root);
-    writeFileSync(path.join(root, "README.md"), "PatchPilot git write dry-run check\n");
+    run("git", ["config", "user.email", "riskradar@example.invalid"], root);
+    run("git", ["config", "user.name", "RiskRadar Live QA"], root);
+    writeFileSync(path.join(root, "README.md"), "RiskRadar git write dry-run check\n");
     run("git", ["add", "README.md"], root);
-    run("git", ["commit", "-m", "patchpilot dry-run permission check"], root);
+    run("git", ["commit", "-m", "riskradar dry-run permission check"], root);
     run("git", ["remote", "add", "origin", remote], root);
-    const result = spawnSync("git", ["-c", "credential.helper=", "-c", `http.extraHeader=Authorization: Basic ${basic}`, "push", "--dry-run", "origin", "HEAD:refs/heads/patchpilot-permission-check"], {
+    const result = spawnSync("git", ["-c", "credential.helper=", "-c", `http.extraHeader=Authorization: Basic ${basic}`, "push", "--dry-run", "origin", "HEAD:refs/heads/riskradar-permission-check"], {
       cwd: root,
       encoding: "utf8"
     });

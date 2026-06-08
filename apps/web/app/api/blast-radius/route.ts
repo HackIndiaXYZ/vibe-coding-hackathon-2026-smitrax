@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { JsonDatabase, PatchPilotService } from "@patchpilot/core";
+import { JsonDatabase, RiskRadarService } from "@riskradar/core";
 
 export function GET() {
-  return NextResponse.json({ blastRadius: new PatchPilotService(new JsonDatabase()).blastRadius() });
+  return NextResponse.json({ blastRadius: new RiskRadarService(new JsonDatabase()).blastRadius() });
 }

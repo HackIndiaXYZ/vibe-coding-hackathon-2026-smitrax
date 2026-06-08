@@ -1,6 +1,6 @@
-# PatchPilot, Concept & Full Walkthrough
+# RiskRadar, Concept & Full Walkthrough
 
-> **One-liner:** PatchPilot is a *Watch Commander for software supply-chain
+> **One-liner:** RiskRadar is a *Watch Commander for software supply-chain
 > security*, it continuously watches your repos and AI-agent configs, finds the
 > vulnerabilities that actually matter, drafts the fix with the AI model **you**
 > choose, and never touches production without a signed human approval from your
@@ -47,7 +47,7 @@ and *human-in-the-loop approval with cryptographic provenance*, safely.
 
 ## 2. The idea
 
-**PatchPilot is a command center that sits between your code and the act of
+**RiskRadar is a command center that sits between your code and the act of
 changing it.** It behaves like an on-call "watch commander":
 
 - It **inventories** what you run, GitHub repos and allow-listed local folders,
@@ -69,14 +69,14 @@ changing it.** It behaves like an on-call "watch commander":
   inline buttons), backed by HMAC-signed callbacks. **No auto-merge. No
   auto-deploy. No silent provider switching.**
 - It is **agent-native**: every capability is exposed as **MCP tools**, so other
-  AI agents can drive PatchPilot safely instead of touching the repo directly.
+  AI agents can drive RiskRadar safely instead of touching the repo directly.
 
 The thesis: **AI should plan the fix; a deterministic, audited, human-approved
 pipeline should apply it.**
 
 ---
 
-## 3. Everything PatchPilot offers (at a glance)
+## 3. Everything RiskRadar offers (at a glance)
 
 | Capability | What it does | Why it's different |
 |---|---|---|
@@ -92,34 +92,34 @@ pipeline should apply it.**
 | **Continuous watch mode** | Re-scans on a schedule, alerts on *new* findings, dedupes | Never auto-patches; alert-only |
 | **Audit receipts** | Hash-chained receipt for every action | Tamper-evident trail for compliance |
 | **Durable layer (opt-in)** | Postgres system-of-record + Redis/BullMQ queue & schedule | Survives restarts; Docker one-command up |
-| **MCP server** | ~25 tools exposing scan/triage/remediate/approve/rollback | Other agents drive PatchPilot, not your repo |
-| **OpenClaw bridge** | Optional chat channel that drives PatchPilot via MCP (`/patchpilot scan\|approve`) | Same gated tools as the dashboard; never edits the repo |
+| **MCP server** | ~25 tools exposing scan/triage/remediate/approve/rollback | Other agents drive RiskRadar, not your repo |
+| **OpenClaw bridge** | Optional chat channel that drives RiskRadar via MCP (`/riskradar scan\|approve`) | Same gated tools as the dashboard; never edits the repo |
 
 ---
 
 ## 4. Relevance to 2026
 
-PatchPilot is built directly on the security themes dominating 2025–2026:
+RiskRadar is built directly on the security themes dominating 2025–2026:
 
 - **The AI-agent attack surface is now real.** With coding agents and MCP servers
-  everywhere, *agent configuration* is a first-class supply-chain risk. PatchPilot
+  everywhere, *agent configuration* is a first-class supply-chain risk. RiskRadar
   scans `mcp.json`/agent configs for auto-approve, over-permissive tokens, and
   dangerous tools, something traditional scanners do not do.
 - **Reachability / VEX is the industry's answer to alert fatigue.** Vendors are
-  racing to add "is this CVE actually exploitable here?" PatchPilot ships a
+  racing to add "is this CVE actually exploitable here?" RiskRadar ships a
   lightweight, honest **VEX-lite** signal in the same spirit.
 - **Provenance & SLSA are mainstream requirements.** Buyers increasingly demand
-  signed evidence of *how* an artifact/change was produced. PatchPilot signs each
+  signed evidence of *how* an artifact/change was produced. RiskRadar signs each
   remediation with a verifiable attestation.
 - **Agentic remediation with human oversight** is the accepted safe pattern:
   let the model propose, keep a human in the loop, keep an audit trail.
-  PatchPilot is architected around exactly this.
-- **Bring-your-own / local models** matter for data-sensitive teams. PatchPilot
+  RiskRadar is architected around exactly this.
+- **Bring-your-own / local models** matter for data-sensitive teams. RiskRadar
   runs end-to-end on a **local Ollama** model or your **Codex subscription**:   no data leaves your machine unless you opt in.
-- **AIBOM / SBOM** expectations are rising. PatchPilot generates a Syft CycloneDX
+- **AIBOM / SBOM** expectations are rising. RiskRadar generates a Syft CycloneDX
   SBOM and a before/after diff for each fix.
 
-In short: PatchPilot isn't chasing a trend, it sits at the intersection of the
+In short: RiskRadar isn't chasing a trend, it sits at the intersection of the
 five biggest ones.
 
 ---
@@ -138,7 +138,7 @@ five biggest ones.
 **Secondary:**
 
 - **Data-sensitive / regulated teams** (fintech, health, gov-adjacent) who
-  **cannot** send code to a cloud LLM, PatchPilot's local Ollama + deterministic
+  **cannot** send code to a cloud LLM, RiskRadar's local Ollama + deterministic
   paths and audit receipts fit their constraints.
 - **Open-source maintainers** who want validated, reviewable dependency-bump PRs
   without babysitting every advisory.
@@ -149,7 +149,7 @@ five biggest ones.
 an eng lead / CTO who needs the audit trail and the "no auto-merge / no data
 leak" guarantees to say yes.
 
-**Why they choose PatchPilot:** it's the only option that is *safe by default*
+**Why they choose RiskRadar:** it's the only option that is *safe by default*
 (human approval, no silent actions, secrets never leave), *honest* (no fake
 green), *model-agnostic* (BYO/local), and *agent-native* (MCP).
 
@@ -170,7 +170,7 @@ green), *model-agnostic* (BYO/local), and *agent-native* (MCP).
   available; missing data is labeled, not guessed.
 
 ### 6.2 Reachability / VEX-lite triage *(new)*
-- After findings are built, PatchPilot walks first-party source **once** and
+- After findings are built, RiskRadar walks first-party source **once** and
   records which top-level packages are actually imported (npm `require/import`,
   Python `import/from`).
 - Each finding is tagged:
@@ -187,7 +187,7 @@ green), *model-agnostic* (BYO/local), and *agent-native* (MCP).
 ### 6.3 Bring-your-own model ladder + safe failover
 - Providers: **Codex** (the only model allowed to edit the repo, via your
   subscription login), **OpenRouter / OpenAI-compatible / Anthropic / Grok**
-  (strict-JSON *plan advisors*, PatchPilot applies the change, the model never
+  (strict-JSON *plan advisors*, RiskRadar applies the change, the model never
   touches the repo), **Ollama** (local), and **deterministic** (no model; bump to
   the OSV-known fixed version).
 - **Failover chain** with a readiness cache; on failure it advances the chain.
@@ -209,7 +209,7 @@ green), *model-agnostic* (BYO/local), and *agent-native* (MCP).
 - Each successful remediation emits a **canonical, HMAC-signed statement**:
   `{package, ecosystem, fromVersion→toVersion, fixStrategy, validation result,
   CVE/OSV ids, changed files, remediationJobId, agent, timestamp}`.
-- Signed with `PATCHPILOT_ATTESTATION_SECRET` (falls back to
+- Signed with `RISKRADAR_ATTESTATION_SECRET` (falls back to
   `APPROVAL_HMAC_SECRET`); if no secret is set it returns an **honest unsigned**
   statement (never a fake signature).
 - The signed line + JSON go into the **PR body** and the **audit receipt**, and
@@ -236,15 +236,15 @@ green), *model-agnostic* (BYO/local), and *agent-native* (MCP).
 - **Hash-chained audit receipts** for every action (tamper-evident).
 - **MCP server** exposes ~25 tools (list/scan/triage/remediate/validate/PR/
   approve/rollback/readiness/coverage/watch) so *other agents and IDEs drive
-  PatchPilot* rather than the repo.
+  RiskRadar* rather than the repo.
 - **OpenClaw bridge (optional):** a chat front-end that connects to the same MCP
-  server, giving commands like `/patchpilot status`, `/patchpilot scan`,
-  `/patchpilot affected`, `/patchpilot approve <id>`. It uses the identical gated
+  server, giving commands like `/riskradar status`, `/riskradar scan`,
+  `/riskradar affected`, `/riskradar approve <id>`. It uses the identical gated
   tools, it can request scans/remediation but **cannot auto-merge, auto-deploy,
   or edit the repo**, and only reports success when actually configured
   (`OPENCLAW_ENABLED=true` + CLI installed).
 - **Secrets hygiene:** redaction everywhere; secret-manager file indirection
-  (`PATCHPILOT_SECRETS_FILE`); optional dashboard/API token; signed plugin
+  (`RISKRADAR_SECRETS_FILE`); optional dashboard/API token; signed plugin
   registry (HMAC).
 - **Deployment verification (Vercel):** can ping a preview/prod URL and report
   live/status, it **never triggers a deploy**.
@@ -294,10 +294,10 @@ the credential or binary is actually present, otherwise `not_configured`,
 `unavailable`, or `tool_missing`. Nothing is faked. This is the full surface
 (matches the dashboard's integration-health panel):
 
-| Integration | Type | Role in PatchPilot | Default state |
+| Integration | Type | Role in RiskRadar | Default state |
 |---|---|---|---|
 | **GitHub** | Source + PR | Clone repos to ephemeral secret-scrubbed workspace; open **draft** PRs (token or GitHub App) | `not_configured` until `GITHUB_TOKEN`/App set |
-| **Local folders** | Source | Scan allow-listed local paths (traversal-guarded) | available when `PATCHPILOT_LOCAL_ROOTS` set |
+| **Local folders** | Source | Scan allow-listed local paths (traversal-guarded) | available when `RISKRADAR_LOCAL_ROOTS` set |
 | **OSV.dev API** | Vuln intel | Primary CVE source for npm + PyPI | configured (public API) |
 | **OSV-Scanner CLI** | Scanner | Lockfile-aware SCA, multi-ecosystem | `tool_missing` until installed |
 | **EPSS (FIRST)** | Risk intel | Exploit-probability score per CVE | configured (public API) |
@@ -314,16 +314,16 @@ the credential or binary is actually present, otherwise `not_configured`,
 | **Ollama** | Local model | Fully offline plan advisor (verified live) | available when daemon running |
 | **OpenRouter / OpenAI-compatible / Anthropic / Grok** | Cloud advisors | Strict-JSON plan advisors (never edit repo) | **intentionally `not_configured`** |
 | **Telegram Bot API** | Approval channel | Inline-button approvals/consent + webhook (HMAC) | `not_configured` until bot token/chat set |
-| **OpenClaw** | Approval / chat bridge | Alternate channel that drives PatchPilot **through the MCP server** (`/patchpilot status\|scan\|affected\|approve`); respects all approval/consent gates | optional, `OPENCLAW_ENABLED=true` + CLI |
-| **MCP server** | Agent interface | ~25 tools so other agents/IDEs orchestrate PatchPilot (not the repo) | enabled (`PATCHPILOT_MCP_ENABLED`) |
+| **OpenClaw** | Approval / chat bridge | Alternate channel that drives RiskRadar **through the MCP server** (`/riskradar status\|scan\|affected\|approve`); respects all approval/consent gates | optional, `OPENCLAW_ENABLED=true` + CLI |
+| **MCP server** | Agent interface | ~25 tools so other agents/IDEs orchestrate RiskRadar (not the repo) | enabled (`RISKRADAR_MCP_ENABLED`) |
 | **Vercel (deployment)** | Verify only | Pings a preview/prod URL, detects Vercel, reports live/status, **never deploys** | optional URL |
-| **Postgres 16** | Persistence | Write-through JSONB system-of-record + hydrate-on-restart (Docker) | opt-in `PATCHPILOT_PERSIST_POSTGRES` |
-| **Redis 7 / BullMQ** | Queue/scheduler | Durable jobs + repeatable watch schedule (Docker) | opt-in `PATCHPILOT_QUEUE_MODE=redis` |
-| **Secret-manager file** | Secrets | Fills unset keys from Docker/K8s mount or Vault file sink | optional `PATCHPILOT_SECRETS_FILE` |
+| **Postgres 16** | Persistence | Write-through JSONB system-of-record + hydrate-on-restart (Docker) | opt-in `RISKRADAR_PERSIST_POSTGRES` |
+| **Redis 7 / BullMQ** | Queue/scheduler | Durable jobs + repeatable watch schedule (Docker) | opt-in `RISKRADAR_QUEUE_MODE=redis` |
+| **Secret-manager file** | Secrets | Fills unset keys from Docker/K8s mount or Vault file sink | optional `RISKRADAR_SECRETS_FILE` |
 | **Signed plugin registry** | Extensibility | HMAC-signed plugin manifests; unsigned/tampered rejected | optional signing secret |
 | **cloudflared** | Demo infra | Tunnels the Telegram webhook for local demos | dev-only |
 
-**Trust tiers (who may touch the repo):** only **Codex** and PatchPilot's own
+**Trust tiers (who may touch the repo):** only **Codex** and RiskRadar's own
 deterministic applier can mutate files. **All cloud/local advisors and OpenClaw
 plan or orchestrate only**: they never write to your repo, and raw secret
 findings are never sent to cloud models.
@@ -334,7 +334,7 @@ findings are never sent to cloud models.
 
 ```
                  ┌───────────────────────────────────────────────────────┐
-                 │                  PatchPilot core (TS)                   │
+                 │                  RiskRadar core (TS)                   │
   GitHub repo ─► │  inventory → SCAN (OSV + scanner matrix + agent/MCP)   │
   Local folder ► │      │                                                 │
                  │      ▼                                                  │
@@ -371,7 +371,7 @@ This is the order to **show in the video**. Each step has a real command.
 1. **Boot the command center.** `pnpm dev` → dashboard at
    `http://127.0.0.1:3000`. Show projects, threat radar, audit log.
 2. **Scan a real project.** Add a GitHub repo or a local folder
-   (`PATCHPILOT_LOCAL_ROOTS`), run `pnpm scan:fixture` / `scan:project-full`.
+   (`RISKRADAR_LOCAL_ROOTS`), run `pnpm scan:fixture` / `scan:project-full`.
    Show real OSV findings for npm **and** PyPI.
 3. **Triage with reachability.** On the **Findings** page, point to the new
    **Reachability** column: `🎯 reachable` vs `💤 likely unused` vs
@@ -391,8 +391,8 @@ This is the order to **show in the video**. Each step has a real command.
 9. **Continuous watch.** `demo:watch`: scheduled re-scan, new-finding alert,
    dedupe, **no auto-patch**.
 10. **Agent-native.** `pnpm mcp:dev`: show the MCP tools an external agent or
-    IDE can call (and the optional **OpenClaw** chat bridge: `/patchpilot scan`,
-    `/patchpilot approve`). The point: agents orchestrate PatchPilot, not your repo.
+    IDE can call (and the optional **OpenClaw** chat bridge: `/riskradar scan`,
+    `/riskradar approve`). The point: agents orchestrate RiskRadar, not your repo.
 11. **Durability (optional).** `docker compose up -d` + `verify:postgres` /
     `verify:queue`: survives restarts.
 12. **Honesty & audit.** Show `not_configured`/`tool_missing` statuses and the
@@ -423,13 +423,13 @@ Being explicit here *increases* credibility with technical judges:
 
 **Safety guarantees (features, not gaps):** no auto-merge, no auto-deploy, no
 silent provider switching, no secrets in repo/API/logs; only Codex and
-PatchPilot's own applier mutate files, advisor LLMs only plan.
+RiskRadar's own applier mutate files, advisor LLMs only plan.
 
 ---
 
 ## 11. Suggested pitch-deck outline (map to this doc)
 
-1. **Title**: PatchPilot: the Watch Commander for supply-chain security. (§1 one-liner)
+1. **Title**: RiskRadar: the Watch Commander for supply-chain security. (§1 one-liner)
 2. **Problem**: assembled software + alert overload + the new AI-agent surface. (§1)
 3. **Why now / 2026**: agents, VEX, SLSA, BYO/local models, AIBOM. (§4)
 4. **The idea**: AI plans, an audited human-approved pipeline applies. (§2)

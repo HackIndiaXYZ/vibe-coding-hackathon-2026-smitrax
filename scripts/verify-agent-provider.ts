@@ -12,7 +12,7 @@ try {
     ok: true,
     selectedProvider,
     providers,
-    note: "LLM providers return strict JSON plans only; PatchPilot applies safe dependency changes itself."
+    note: "LLM providers return strict JSON plans only; RiskRadar applies safe dependency changes itself."
   }));
 } catch (error) {
   console.error(safeJson({ ok: false, error: error instanceof Error ? error.message : String(error) }));

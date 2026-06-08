@@ -1,7 +1,7 @@
 import semver from "semver";
 import { z } from "zod";
 import { getEnv } from "./env";
-import { PatchPilotError } from "./errors";
+import { RiskRadarError } from "./errors";
 import { redact } from "./redaction";
 import { codexStatus } from "./codex";
 
@@ -10,7 +10,7 @@ import { codexStatus } from "./codex";
  *
  * Only Codex (the workspace editor) and the deterministic fixer are allowed to
  * mutate a repository. The LLM providers (OpenRouter, OpenAI-compatible, Ollama)
- * are advisors: they return a strict JSON remediation plan, which PatchPilot
+ * are advisors: they return a strict JSON remediation plan, which RiskRadar
  * validates and then applies itself. Models never run commands and never edit
  * files directly.
  */
@@ -22,9 +22,9 @@ export const LLM_PROVIDER_IDS: AgentProviderId[] = ["openrouter", "openai-compat
 
 /** Resolves the API key for a provider (dedicated key falls back to the shared key). */
 function providerApiKey(provider: AgentProviderId): string | undefined {
-  if (provider === "grok") return getEnv("PATCHPILOT_GROK_API_KEY") ?? getEnv("PATCHPILOT_LLM_API_KEY");
-  if (provider === "anthropic") return getEnv("PATCHPILOT_ANTHROPIC_API_KEY") ?? getEnv("PATCHPILOT_LLM_API_KEY");
-  return getEnv("PATCHPILOT_LLM_API_KEY");
+  if (provider === "grok") return getEnv("RISKRADAR_GROK_API_KEY") ?? getEnv("RISKRADAR_LLM_API_KEY");
+  if (provider === "anthropic") return getEnv("RISKRADAR_ANTHROPIC_API_KEY") ?? getEnv("RISKRADAR_LLM_API_KEY");
+  return getEnv("RISKRADAR_LLM_API_KEY");
 }
 
 export function isLlmProvider(provider: AgentProviderId): boolean {
@@ -33,9 +33,9 @@ export function isLlmProvider(provider: AgentProviderId): boolean {
 
 /** Resolves the configured provider. Defaults to Codex; rejects unknown values. */
 export function resolveAgentProvider(): AgentProviderId {
-  const raw = (getEnv("PATCHPILOT_AGENT_PROVIDER") ?? "codex").trim().toLowerCase();
+  const raw = (getEnv("RISKRADAR_AGENT_PROVIDER") ?? "codex").trim().toLowerCase();
   if ((AGENT_PROVIDER_IDS as string[]).includes(raw)) return raw as AgentProviderId;
-  throw new PatchPilotError("unknown_agent_provider", `Unknown PATCHPILOT_AGENT_PROVIDER "${raw}".`, { allowed: AGENT_PROVIDER_IDS });
+  throw new RiskRadarError("unknown_agent_provider", `Unknown RISKRADAR_AGENT_PROVIDER "${raw}".`, { allowed: AGENT_PROVIDER_IDS });
 }
 
 interface LlmEndpoint {
@@ -47,16 +47,16 @@ interface LlmEndpoint {
 }
 
 function llmEndpoint(provider: AgentProviderId): LlmEndpoint {
-  const baseUrl = getEnv("PATCHPILOT_LLM_BASE_URL");
+  const baseUrl = getEnv("RISKRADAR_LLM_BASE_URL");
   if (provider === "openrouter") {
     return { baseUrl: baseUrl ?? "https://openrouter.ai/api/v1", requiresKey: true, defaultModel: "openai/gpt-4o-mini", api: "openai" };
   }
   if (provider === "grok") {
     // xAI is OpenAI-compatible.
-    return { baseUrl: getEnv("PATCHPILOT_GROK_BASE_URL") ?? baseUrl ?? "https://api.x.ai/v1", requiresKey: true, defaultModel: "grok-2-latest", api: "openai" };
+    return { baseUrl: getEnv("RISKRADAR_GROK_BASE_URL") ?? baseUrl ?? "https://api.x.ai/v1", requiresKey: true, defaultModel: "grok-2-latest", api: "openai" };
   }
   if (provider === "anthropic") {
-    return { baseUrl: getEnv("PATCHPILOT_ANTHROPIC_BASE_URL") ?? "https://api.anthropic.com", requiresKey: true, defaultModel: "claude-3-5-sonnet-latest", api: "anthropic" };
+    return { baseUrl: getEnv("RISKRADAR_ANTHROPIC_BASE_URL") ?? "https://api.anthropic.com", requiresKey: true, defaultModel: "claude-3-5-sonnet-latest", api: "anthropic" };
   }
   if (provider === "ollama") {
     return { baseUrl: baseUrl ?? "http://localhost:11434/v1", requiresKey: false, defaultModel: "qwen2.5-coder:7b", api: "openai" };
@@ -66,17 +66,17 @@ function llmEndpoint(provider: AgentProviderId): LlmEndpoint {
 }
 
 export function agentProviderModel(provider: AgentProviderId): string {
-  return getEnv("PATCHPILOT_AGENT_MODEL") ?? llmEndpoint(provider).defaultModel;
+  return getEnv("RISKRADAR_AGENT_MODEL") ?? llmEndpoint(provider).defaultModel;
 }
 
 export function llmTimeoutMs(): number {
-  return Number(getEnv("PATCHPILOT_LLM_TIMEOUT_MS") ?? 120000);
+  return Number(getEnv("RISKRADAR_LLM_TIMEOUT_MS") ?? 120000);
 }
 
 export function llmAllowDirectPatch(): boolean {
-  // Reserved safety switch. Even when true, PatchPilot still applies the change
+  // Reserved safety switch. Even when true, RiskRadar still applies the change
   // itself; the model is never given repo-write access.
-  return getEnv("PATCHPILOT_LLM_ALLOW_DIRECT_PATCH") === "true";
+  return getEnv("RISKRADAR_LLM_ALLOW_DIRECT_PATCH") === "true";
 }
 
 /**
@@ -85,15 +85,15 @@ export function llmAllowDirectPatch(): boolean {
  */
 export function assertLlmProviderConfigured(provider: AgentProviderId): void {
   if (!isLlmProvider(provider)) {
-    throw new PatchPilotError("not_llm_provider", `${provider} is not an LLM advisor provider.`, { provider });
+    throw new RiskRadarError("not_llm_provider", `${provider} is not an LLM advisor provider.`, { provider });
   }
   const endpoint = llmEndpoint(provider);
   if (provider === "openai-compatible" && !endpoint.baseUrl) {
-    throw new PatchPilotError("llm_base_url_missing", "Set PATCHPILOT_LLM_BASE_URL for the openai-compatible provider.", { requiredEnv: "PATCHPILOT_LLM_BASE_URL" });
+    throw new RiskRadarError("llm_base_url_missing", "Set RISKRADAR_LLM_BASE_URL for the openai-compatible provider.", { requiredEnv: "RISKRADAR_LLM_BASE_URL" });
   }
   if (endpoint.requiresKey && !providerApiKey(provider)) {
-    const keyEnv = provider === "grok" ? "PATCHPILOT_GROK_API_KEY" : provider === "anthropic" ? "PATCHPILOT_ANTHROPIC_API_KEY" : "PATCHPILOT_LLM_API_KEY";
-    throw new PatchPilotError("llm_api_key_missing", `Set ${keyEnv} for the ${provider} provider.`, { requiredEnv: keyEnv, provider });
+    const keyEnv = provider === "grok" ? "RISKRADAR_GROK_API_KEY" : provider === "anthropic" ? "RISKRADAR_ANTHROPIC_API_KEY" : "RISKRADAR_LLM_API_KEY";
+    throw new RiskRadarError("llm_api_key_missing", `Set ${keyEnv} for the ${provider} provider.`, { requiredEnv: keyEnv, provider });
   }
 }
 
@@ -107,7 +107,7 @@ export interface AgentProviderReadiness {
   /** True only for providers whose model edits the repo directly (Codex). */
   modelEditsRepo: boolean;
   /** Human description of how the change is applied. */
-  applyStrategy: "codex-workspace-edit" | "patchpilot-applies-plan" | "patchpilot-deterministic";
+  applyStrategy: "codex-workspace-edit" | "riskradar-applies-plan" | "riskradar-deterministic";
   message: string;
   /** Env var NAMES only — never values. */
   requiredEnv: string[];
@@ -125,8 +125,8 @@ export function agentProviderReadiness(): AgentProviderReadiness[] {
     selected = "codex";
   }
   const codex = codexStatus();
-  const hasKey = Boolean(getEnv("PATCHPILOT_LLM_API_KEY"));
-  const hasBaseUrl = Boolean(getEnv("PATCHPILOT_LLM_BASE_URL"));
+  const hasKey = Boolean(getEnv("RISKRADAR_LLM_API_KEY"));
+  const hasBaseUrl = Boolean(getEnv("RISKRADAR_LLM_BASE_URL"));
   return [
     {
       id: "codex",
@@ -144,9 +144,9 @@ export function agentProviderReadiness(): AgentProviderReadiness[] {
       selected: selected === "openrouter",
       status: hasKey ? "configured" : "not_configured",
       modelEditsRepo: false,
-      applyStrategy: "patchpilot-applies-plan",
-      message: hasKey ? "Returns a strict JSON remediation plan; PatchPilot applies the safe version bump itself." : "Set PATCHPILOT_LLM_API_KEY to enable the OpenRouter plan advisor.",
-      requiredEnv: ["PATCHPILOT_LLM_API_KEY", "PATCHPILOT_AGENT_MODEL"]
+      applyStrategy: "riskradar-applies-plan",
+      message: hasKey ? "Returns a strict JSON remediation plan; RiskRadar applies the safe version bump itself." : "Set RISKRADAR_LLM_API_KEY to enable the OpenRouter plan advisor.",
+      requiredEnv: ["RISKRADAR_LLM_API_KEY", "RISKRADAR_AGENT_MODEL"]
     },
     {
       id: "openai-compatible",
@@ -154,9 +154,9 @@ export function agentProviderReadiness(): AgentProviderReadiness[] {
       selected: selected === "openai-compatible",
       status: hasKey && hasBaseUrl ? "configured" : "not_configured",
       modelEditsRepo: false,
-      applyStrategy: "patchpilot-applies-plan",
-      message: hasKey && hasBaseUrl ? "Returns a strict JSON remediation plan; PatchPilot applies the safe version bump itself." : "Set PATCHPILOT_LLM_BASE_URL and PATCHPILOT_LLM_API_KEY to enable an OpenAI-compatible endpoint.",
-      requiredEnv: ["PATCHPILOT_LLM_BASE_URL", "PATCHPILOT_LLM_API_KEY", "PATCHPILOT_AGENT_MODEL"]
+      applyStrategy: "riskradar-applies-plan",
+      message: hasKey && hasBaseUrl ? "Returns a strict JSON remediation plan; RiskRadar applies the safe version bump itself." : "Set RISKRADAR_LLM_BASE_URL and RISKRADAR_LLM_API_KEY to enable an OpenAI-compatible endpoint.",
+      requiredEnv: ["RISKRADAR_LLM_BASE_URL", "RISKRADAR_LLM_API_KEY", "RISKRADAR_AGENT_MODEL"]
     },
     {
       id: "anthropic",
@@ -164,9 +164,9 @@ export function agentProviderReadiness(): AgentProviderReadiness[] {
       selected: selected === "anthropic",
       status: providerApiKey("anthropic") ? "configured" : "not_configured",
       modelEditsRepo: false,
-      applyStrategy: "patchpilot-applies-plan",
-      message: providerApiKey("anthropic") ? "Returns a strict JSON remediation plan via the Anthropic messages API; PatchPilot applies the change itself." : "Set PATCHPILOT_ANTHROPIC_API_KEY (or PATCHPILOT_LLM_API_KEY) to enable Anthropic Claude.",
-      requiredEnv: ["PATCHPILOT_ANTHROPIC_API_KEY", "PATCHPILOT_AGENT_MODEL"]
+      applyStrategy: "riskradar-applies-plan",
+      message: providerApiKey("anthropic") ? "Returns a strict JSON remediation plan via the Anthropic messages API; RiskRadar applies the change itself." : "Set RISKRADAR_ANTHROPIC_API_KEY (or RISKRADAR_LLM_API_KEY) to enable Anthropic Claude.",
+      requiredEnv: ["RISKRADAR_ANTHROPIC_API_KEY", "RISKRADAR_AGENT_MODEL"]
     },
     {
       id: "grok",
@@ -174,9 +174,9 @@ export function agentProviderReadiness(): AgentProviderReadiness[] {
       selected: selected === "grok",
       status: providerApiKey("grok") ? "configured" : "not_configured",
       modelEditsRepo: false,
-      applyStrategy: "patchpilot-applies-plan",
-      message: providerApiKey("grok") ? "Returns a strict JSON remediation plan via the xAI OpenAI-compatible API; PatchPilot applies the change itself." : "Set PATCHPILOT_GROK_API_KEY (or PATCHPILOT_LLM_API_KEY) to enable Grok / xAI.",
-      requiredEnv: ["PATCHPILOT_GROK_API_KEY", "PATCHPILOT_AGENT_MODEL"]
+      applyStrategy: "riskradar-applies-plan",
+      message: providerApiKey("grok") ? "Returns a strict JSON remediation plan via the xAI OpenAI-compatible API; RiskRadar applies the change itself." : "Set RISKRADAR_GROK_API_KEY (or RISKRADAR_LLM_API_KEY) to enable Grok / xAI.",
+      requiredEnv: ["RISKRADAR_GROK_API_KEY", "RISKRADAR_AGENT_MODEL"]
     },
     {
       id: "ollama",
@@ -184,9 +184,9 @@ export function agentProviderReadiness(): AgentProviderReadiness[] {
       selected: selected === "ollama",
       status: "configured",
       modelEditsRepo: false,
-      applyStrategy: "patchpilot-applies-plan",
-      message: "Assumes a local Ollama OpenAI-compatible endpoint (PATCHPILOT_LLM_BASE_URL, default http://localhost:11434/v1). Verify with verify:ollama-live.",
-      requiredEnv: ["PATCHPILOT_LLM_BASE_URL", "PATCHPILOT_AGENT_MODEL"]
+      applyStrategy: "riskradar-applies-plan",
+      message: "Assumes a local Ollama OpenAI-compatible endpoint (RISKRADAR_LLM_BASE_URL, default http://localhost:11434/v1). Verify with verify:ollama-live.",
+      requiredEnv: ["RISKRADAR_LLM_BASE_URL", "RISKRADAR_AGENT_MODEL"]
     },
     {
       id: "deterministic",
@@ -194,14 +194,14 @@ export function agentProviderReadiness(): AgentProviderReadiness[] {
       selected: selected === "deterministic",
       status: "configured",
       modelEditsRepo: false,
-      applyStrategy: "patchpilot-deterministic",
+      applyStrategy: "riskradar-deterministic",
       message: "No model. Updates the direct dependency to the OSV-known fixed version and validates in a disposable workspace.",
       requiredEnv: []
     }
   ];
 }
 
-export const REMEDIATION_PLAN_SYSTEM_PROMPT = `You are PatchPilot's dependency remediation planner.
+export const REMEDIATION_PLAN_SYSTEM_PROMPT = `You are RiskRadar's dependency remediation planner.
 You do NOT have access to the repository and you cannot run commands.
 Return ONLY a strict JSON object (no markdown, no prose, no code fences) of exactly this shape:
 {"action":"update_dependency","ecosystem":"npm","file":"package.json","packageName":"<name>","fromVersion":"<current>","toVersion":"<fixed>","summary":"<one short sentence>"}
@@ -252,41 +252,41 @@ export function parseRemediationPlan(raw: string, expected: RemediationPlanExpec
   try {
     parsed = JSON.parse(stripCodeFences(raw));
   } catch {
-    throw new PatchPilotError("plan_invalid_json", "Model did not return valid JSON.", { sample: redact(raw).slice(0, 200) });
+    throw new RiskRadarError("plan_invalid_json", "Model did not return valid JSON.", { sample: redact(raw).slice(0, 200) });
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new PatchPilotError("plan_invalid_schema", "Model plan was not a JSON object.");
+    throw new RiskRadarError("plan_invalid_schema", "Model plan was not a JSON object.");
   }
   const record = parsed as Record<string, unknown>;
   const dangerous = Object.keys(record).find((key) => DANGEROUS_PLAN_KEYS.includes(key.toLowerCase()));
   if (dangerous) {
-    throw new PatchPilotError("plan_arbitrary_command", "Model plan included a command/script field, which is not allowed.", { key: dangerous });
+    throw new RiskRadarError("plan_arbitrary_command", "Model plan included a command/script field, which is not allowed.", { key: dangerous });
   }
   if (typeof record.file === "string" && record.file !== "package.json") {
-    throw new PatchPilotError("plan_forbidden_file", "Model plan targeted a file other than package.json.", { file: record.file });
+    throw new RiskRadarError("plan_forbidden_file", "Model plan targeted a file other than package.json.", { file: record.file });
   }
   const result = remediationPlanSchema.safeParse(record);
   if (!result.success) {
-    throw new PatchPilotError("plan_invalid_schema", "Model plan did not match the required schema.", { issues: result.error.issues.map((issue) => issue.path.join(".")) });
+    throw new RiskRadarError("plan_invalid_schema", "Model plan did not match the required schema.", { issues: result.error.issues.map((issue) => issue.path.join(".")) });
   }
   const plan = result.data;
   if (plan.packageName !== expected.packageName) {
-    throw new PatchPilotError("plan_package_mismatch", "Model plan targeted a different package than the finding.", { expected: expected.packageName, got: plan.packageName });
+    throw new RiskRadarError("plan_package_mismatch", "Model plan targeted a different package than the finding.", { expected: expected.packageName, got: plan.packageName });
   }
   const from = cleanVersion(expected.fromVersion);
   const to = cleanVersion(plan.toVersion);
   if (!to) {
-    throw new PatchPilotError("plan_invalid_version", "Model plan proposed an invalid target version.", { toVersion: plan.toVersion });
+    throw new RiskRadarError("plan_invalid_version", "Model plan proposed an invalid target version.", { toVersion: plan.toVersion });
   }
   if (from && semver.lte(to, from)) {
-    throw new PatchPilotError("plan_not_an_upgrade", "Model plan did not propose an upgrade.", { fromVersion: expected.fromVersion, toVersion: plan.toVersion });
+    throw new RiskRadarError("plan_not_an_upgrade", "Model plan did not propose an upgrade.", { fromVersion: expected.fromVersion, toVersion: plan.toVersion });
   }
   if (from && semver.major(to) > semver.major(from)) {
-    throw new PatchPilotError("plan_major_upgrade", "Model plan proposed a major-version upgrade, which is blocked.", { fromVersion: expected.fromVersion, toVersion: plan.toVersion });
+    throw new RiskRadarError("plan_major_upgrade", "Model plan proposed a major-version upgrade, which is blocked.", { fromVersion: expected.fromVersion, toVersion: plan.toVersion });
   }
   const fixed = expected.fixedVersion ? cleanVersion(expected.fixedVersion) : null;
   if (fixed && semver.lt(to, fixed)) {
-    throw new PatchPilotError("plan_below_fixed_version", "Model plan target is below the known safe fixed version.", { fixedVersion: expected.fixedVersion, toVersion: plan.toVersion });
+    throw new RiskRadarError("plan_below_fixed_version", "Model plan target is below the known safe fixed version.", { fixedVersion: expected.fixedVersion, toVersion: plan.toVersion });
   }
   return plan;
 }
@@ -307,14 +307,14 @@ export interface LlmChatRequest {
 export function buildLlmChatRequest(provider: AgentProviderId, context: unknown): LlmChatRequest {
   const endpoint = llmEndpoint(provider);
   if (!endpoint.baseUrl) {
-    throw new PatchPilotError("llm_base_url_missing", "No base URL resolved for the provider.", { provider });
+    throw new RiskRadarError("llm_base_url_missing", "No base URL resolved for the provider.", { provider });
   }
   const apiKey = providerApiKey(provider);
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (apiKey) headers.authorization = `Bearer ${apiKey}`;
   if (provider === "openrouter") {
-    headers["HTTP-Referer"] = getEnv("APP_PUBLIC_URL") ?? "https://github.com/patchpilot";
-    headers["X-Title"] = "PatchPilot";
+    headers["HTTP-Referer"] = getEnv("APP_PUBLIC_URL") ?? "https://github.com/riskradar";
+    headers["X-Title"] = "RiskRadar";
   }
   return {
     url: `${endpoint.baseUrl.replace(/\/$/, "")}/chat/completions`,
@@ -349,7 +349,7 @@ export function buildAnthropicRequest(context: unknown): AnthropicRequest {
   const apiKey = providerApiKey("anthropic");
   const headers: Record<string, string> = {
     "content-type": "application/json",
-    "anthropic-version": getEnv("PATCHPILOT_ANTHROPIC_VERSION") ?? "2023-06-01"
+    "anthropic-version": getEnv("RISKRADAR_ANTHROPIC_VERSION") ?? "2023-06-01"
   };
   if (apiKey) headers["x-api-key"] = apiKey;
   return {
@@ -392,19 +392,19 @@ export async function requestRemediationPlan(
     });
   } catch (error) {
     const aborted = error instanceof Error && error.name === "AbortError";
-    throw new PatchPilotError(aborted ? "llm_timeout" : "llm_request_failed", aborted ? `LLM request timed out after ${llmTimeoutMs()}ms.` : `LLM request failed: ${redact(error instanceof Error ? error.message : String(error))}`, { provider });
+    throw new RiskRadarError(aborted ? "llm_timeout" : "llm_request_failed", aborted ? `LLM request timed out after ${llmTimeoutMs()}ms.` : `LLM request failed: ${redact(error instanceof Error ? error.message : String(error))}`, { provider });
   } finally {
     clearTimeout(timer);
   }
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    throw new PatchPilotError("llm_request_failed", `LLM provider returned HTTP ${response.status}.`, { provider, body: redact(text).slice(0, 300) });
+    throw new RiskRadarError("llm_request_failed", `LLM provider returned HTTP ${response.status}.`, { provider, body: redact(text).slice(0, 300) });
   }
   const data = await response.json().catch(() => ({})) as { choices?: Array<{ message?: { content?: string } }>; content?: Array<{ text?: string }> };
   // Anthropic returns content[].text; OpenAI-compatible returns choices[].message.content.
   const content = isAnthropic ? data.content?.[0]?.text : data.choices?.[0]?.message?.content;
   if (!content || content.trim().length === 0) {
-    throw new PatchPilotError("llm_empty_response", "LLM provider returned an empty message.", { provider });
+    throw new RiskRadarError("llm_empty_response", "LLM provider returned an empty message.", { provider });
   }
   const plan = parseRemediationPlan(content, expected);
   return { plan, raw: redact(content).slice(0, 2000), provider, model: agentProviderModel(provider) };

@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { JsonDatabase, id, now } from "./database";
 import { getEnv, localRoots, workspaceDir } from "./env";
-import { PatchPilotError } from "./errors";
+import { RiskRadarError } from "./errors";
 import { assertSafeLocalPath } from "./pathSafety";
 import { detectManifests, detectPackageManager, readPackageManifest } from "./packageDetection";
 import { fetchEpss, fetchKev } from "./enrichment";
@@ -58,7 +58,7 @@ export interface GuardedRemediationResult {
   consent?: ProviderConsent;
 }
 
-export class PatchPilotService {
+export class RiskRadarService {
   constructor(public db = new JsonDatabase()) {}
 
   /** Maps a provider id to the remediation agent that implements it. */
@@ -78,7 +78,7 @@ export class PatchPilotService {
   async startGuardedRemediation(findingId: string): Promise<GuardedRemediationResult> {
     const settings = getSettings(this.db);
     const finding = this.db.read().findings.find((item) => item.id === findingId);
-    if (!finding) throw new PatchPilotError("finding_not_found", "Finding was not found.", { findingId }, 404);
+    if (!finding) throw new RiskRadarError("finding_not_found", "Finding was not found.", { findingId }, 404);
     const chain = settings.failover.chain.length > 0 ? settings.failover.chain : ["codex", "deterministic"];
     const selected = chain[0] ?? "codex";
     const timeline: ProviderTimelineEntry[] = [];
@@ -194,7 +194,7 @@ export class PatchPilotService {
   /** Resolves a provider-failover consent decision (from Telegram or dashboard). */
   async resolveProviderConsent(consentId: string, option: FailoverConsentOption, actorId?: string): Promise<{ status: string; job?: RemediationJob }> {
     const consent = this.db.read().providerConsents?.find((item) => item.id === consentId);
-    if (!consent) throw new PatchPilotError("provider_consent_not_found", "Provider consent request was not found.", { consentId }, 404);
+    if (!consent) throw new RiskRadarError("provider_consent_not_found", "Provider consent request was not found.", { consentId }, 404);
     if (consent.status !== "pending") return { status: consent.status };
 
     if (option === "reject") {
@@ -238,13 +238,13 @@ export class PatchPilotService {
   /** Push gate approved: push the validated fix as a branch, open the PR, then ask to merge. */
   async confirmPush(jobId: string, actorId?: string): Promise<RemediationJob> {
     const job = this.db.read().remediationJobs.find((item) => item.id === jobId);
-    if (!job) throw new PatchPilotError("remediation_not_found", "Remediation job was not found.", { jobId }, 404);
+    if (!job) throw new RiskRadarError("remediation_not_found", "Remediation job was not found.", { jobId }, 404);
     if (job.status !== "push_pending") return job;
     const state = this.db.read();
     const project = state.projects.find((item) => item.id === job.projectId);
     const finding = state.findings.find((item) => item.id === job.findingId);
-    if (!project?.githubOwner || !project.githubRepo) throw new PatchPilotError("github_metadata_missing", "GitHub project metadata is missing.", { jobId });
-    if (!job.branchName) throw new PatchPilotError("push_state_missing", "No branch is available to push.", { jobId });
+    if (!project?.githubOwner || !project.githubRepo) throw new RiskRadarError("github_metadata_missing", "GitHub project metadata is missing.", { jobId });
+    if (!job.branchName) throw new RiskRadarError("push_state_missing", "No branch is available to push.", { jobId });
     const owner = project.githubOwner;
     const repo = project.githubRepo;
     const base = job.baseBranch ?? project.githubDefaultBranch ?? "main";
@@ -256,7 +256,7 @@ export class PatchPilotService {
     let workspace = job.workspacePath && existsSync(job.workspacePath) ? job.workspacePath : undefined;
     try {
       if (!workspace) {
-        if (!job.patchPath) throw new PatchPilotError("push_state_missing", "No workspace or stashed patch is available to push.", { jobId });
+        if (!job.patchPath) throw new RiskRadarError("push_state_missing", "No workspace or stashed patch is available to push.", { jobId });
         workspace = path.join(workspaceDir(), `${job.id}-push`);
         mkdirSync(path.dirname(workspace), { recursive: true });
         cloneGithubRepo({ owner, repo, branch: base, workspace, remoteUrl: project.repoUrl });
@@ -265,7 +265,7 @@ export class PatchPilotService {
         commitAll(workspace, title, job.changedFiles);
       }
       pushBranch(workspace, job.branchName, owner, repo);
-      const pr = await createPullRequest({ owner, repo, title, head: job.branchName, base, body: job.prBody ?? "PatchPilot security fix." });
+      const pr = await createPullRequest({ owner, repo, title, head: job.branchName, base, body: job.prBody ?? "RiskRadar security fix." });
       this.db.update((draft) => {
         draft.pullRequests.push({ id: id("pr"), remediationJobId: job.id, provider: "github", owner, repo, number: pr.number, url: pr.url, branchName: job.branchName!, baseBranch: base, draft: false, status: "created", createdAt: now() });
       });
@@ -285,7 +285,7 @@ export class PatchPilotService {
   /** Push gate declined: nothing was pushed, so drop the staged workspace + mark discarded. */
   async discardPush(jobId: string, actorId?: string): Promise<RemediationJob> {
     const job = this.db.read().remediationJobs.find((item) => item.id === jobId);
-    if (!job) throw new PatchPilotError("remediation_not_found", "Remediation job was not found.", { jobId }, 404);
+    if (!job) throw new RiskRadarError("remediation_not_found", "Remediation job was not found.", { jobId }, 404);
     if (job.status !== "push_pending") return job;
     if (job.workspacePath && existsSync(job.workspacePath)) cleanupWorkspace(job.workspacePath);
     this.updateJob(jobId, { status: "discarded", workspacePath: undefined, rollbackStatus: "not_available" });
@@ -297,11 +297,11 @@ export class PatchPilotService {
   async confirmMerge(jobId: string, actorId?: string): Promise<RemediationJob> {
     const state = this.db.read();
     const job = state.remediationJobs.find((item) => item.id === jobId);
-    if (!job) throw new PatchPilotError("remediation_not_found", "Remediation job was not found.", { jobId }, 404);
+    if (!job) throw new RiskRadarError("remediation_not_found", "Remediation job was not found.", { jobId }, 404);
     if (job.status !== "pr_open") return job;
     const pr = state.pullRequests.find((item) => item.remediationJobId === jobId);
-    if (!pr || !pr.number) throw new PatchPilotError("pull_request_not_found", "No open PR to merge for this job.", { jobId }, 404);
-    const result = await mergePullRequest(pr.owner, pr.repo, pr.number, { commitTitle: `fix(security): PatchPilot merge for job ${jobId}` });
+    if (!pr || !pr.number) throw new RiskRadarError("pull_request_not_found", "No open PR to merge for this job.", { jobId }, 404);
+    const result = await mergePullRequest(pr.owner, pr.repo, pr.number, { commitTitle: `fix(security): RiskRadar merge for job ${jobId}` });
     this.db.update((draft) => {
       const stored = draft.pullRequests.find((item) => item.id === pr.id);
       if (stored && result.merged) stored.status = "merged";
@@ -316,7 +316,7 @@ export class PatchPilotService {
   async rejectMerge(jobId: string, actorId?: string): Promise<RemediationJob> {
     const state = this.db.read();
     const job = state.remediationJobs.find((item) => item.id === jobId);
-    if (!job) throw new PatchPilotError("remediation_not_found", "Remediation job was not found.", { jobId }, 404);
+    if (!job) throw new RiskRadarError("remediation_not_found", "Remediation job was not found.", { jobId }, 404);
     if (job.status !== "pr_open") return job;
     const pr = state.pullRequests.find((item) => item.remediationJobId === jobId);
     if (pr && pr.number) {
@@ -340,7 +340,7 @@ export class PatchPilotService {
       return;
     }
     const message = [
-      "PatchPilot fix ready",
+      "RiskRadar fix ready",
       "",
       `Project: ${project.name}`,
       `Package: ${finding.packageName}`,
@@ -370,7 +370,7 @@ export class PatchPilotService {
     const chats = (getEnv("TELEGRAM_ALLOWED_CHAT_IDS") ?? "").split(",").map((value) => value.trim()).filter(Boolean);
     if (!getEnv("TELEGRAM_BOT_TOKEN") || chats.length === 0) return;
     const message = [
-      "PatchPilot PR opened",
+      "RiskRadar PR opened",
       "",
       `Project: ${project.name}`,
       `Package: ${finding.packageName}`,
@@ -406,7 +406,7 @@ export class PatchPilotService {
     const createdAt = now();
     let project: Project;
     if (input.sourceType === "github") {
-      if (!input.githubOwner || !input.githubRepo) throw new PatchPilotError("github_repo_required", "githubOwner and githubRepo are required.");
+      if (!input.githubOwner || !input.githubRepo) throw new RiskRadarError("github_repo_required", "githubOwner and githubRepo are required.");
       const repo = await validateGithubRepo(input.githubOwner, input.githubRepo);
       project = {
         id: id("proj"),
@@ -427,7 +427,7 @@ export class PatchPilotService {
         updatedAt: createdAt
       };
     } else if (input.sourceType === "local") {
-      if (!input.localPath) throw new PatchPilotError("local_path_required", "localPath is required for local projects.");
+      if (!input.localPath) throw new RiskRadarError("local_path_required", "localPath is required for local projects.");
       const safePath = assertSafeLocalPath(input.localPath, localRoots());
       const manifest = readPackageManifest(safePath);
       const vercelLinked = existsSync(path.join(safePath, ".vercel", "project.json"));
@@ -446,7 +446,7 @@ export class PatchPilotService {
         updatedAt: createdAt
       };
     } else {
-      throw new PatchPilotError("source_type_not_implemented", "This source type is modeled but not yet addable from this API.", { sourceType: input.sourceType });
+      throw new RiskRadarError("source_type_not_implemented", "This source type is modeled but not yet addable from this API.", { sourceType: input.sourceType });
     }
     this.db.update((state) => {
       state.projects.push(project);
@@ -474,7 +474,7 @@ export class PatchPilotService {
   async scanProject(projectId: string): Promise<ScanJob> {
     const state = this.db.read();
     const project = state.projects.find((item) => item.id === projectId);
-    if (!project) throw new PatchPilotError("project_not_found", "Project was not found.", { projectId }, 404);
+    if (!project) throw new RiskRadarError("project_not_found", "Project was not found.", { projectId }, 404);
     const scanJob: ScanJob = { id: id("scan"), projectId, status: "running", scanner: "osv-api", startedAt: now(), createdAt: now() };
     this.db.update((draft) => draft.scanJobs.push(scanJob));
     let sourcePath: string | undefined;
@@ -485,7 +485,7 @@ export class PatchPilotService {
       cleanupSource = resolved.cleanup;
       const projectPath = sourcePath;
       const manifests = detectManifests(projectPath);
-      if (manifests.length === 0) throw new PatchPilotError("unsupported_project", "No package.json or requirements.txt was found. PatchPilot scans Node.js (npm) and Python (PyPI) projects.");
+      if (manifests.length === 0) throw new RiskRadarError("unsupported_project", "No package.json or requirements.txt was found. RiskRadar scans Node.js (npm) and Python (PyPI) projects.");
       const manifest = manifests[0]!; // primary (npm preferred, else python)
       const agentFindings = scanAgentConfig(projectPath, project.id);
       const osvResult = await queryOsvFindings(projectPath, manifests);
@@ -582,7 +582,7 @@ export class PatchPilotService {
       return { ...scanJob, scanner: osvResult.scanner, status: "completed", finishedAt: now() };
     } catch (error) {
       if (cleanupSource && sourcePath) cleanupWorkspace(sourcePath);
-      const code = error instanceof PatchPilotError ? error.code : "scan_failed";
+      const code = error instanceof RiskRadarError ? error.code : "scan_failed";
       const message = error instanceof Error ? error.message : String(error);
       this.db.update((draft) => {
         const jobIndex = draft.scanJobs.findIndex((job) => job.id === scanJob.id);
@@ -611,7 +611,7 @@ export class PatchPilotService {
         const job = await this.scanProject(project.id);
         scanJobIds.push(job.id);
       } catch (error) {
-        errors.push({ projectId: project.id, code: error instanceof PatchPilotError ? error.code : "scan_failed", message: error instanceof Error ? error.message : String(error) });
+        errors.push({ projectId: project.id, code: error instanceof RiskRadarError ? error.code : "scan_failed", message: error instanceof Error ? error.message : String(error) });
       }
     }
     return { mode: "inline", scanned: scanJobIds.length, scanJobIds, errors };
@@ -675,10 +675,10 @@ export class PatchPilotService {
   ): Promise<RemediationJob> {
     const state = this.db.read();
     const finding = state.findings.find((item) => item.id === findingId);
-    if (!finding) throw new PatchPilotError("finding_not_found", "Finding was not found.", { findingId }, 404);
+    if (!finding) throw new RiskRadarError("finding_not_found", "Finding was not found.", { findingId }, 404);
     const project = state.projects.find((item) => item.id === finding.projectId);
     const vulnerability = state.vulnerabilities.find((item) => item.id === finding.vulnerabilityId);
-    if (!project || !vulnerability) throw new PatchPilotError("finding_context_missing", "Finding project or vulnerability record is missing.", { findingId });
+    if (!project || !vulnerability) throw new RiskRadarError("finding_context_missing", "Finding project or vulnerability record is missing.", { findingId });
 
     const job: RemediationJob = {
       id: id("rem"),
@@ -713,13 +713,13 @@ export class PatchPilotService {
     }
 
     // LLM advisor providers must be configured before we touch a workspace. They
-    // never edit the repo themselves; PatchPilot applies their validated plan.
+    // never edit the repo themselves; RiskRadar applies their validated plan.
     const usesLlmProvider = isLlmProvider(agent as AgentProviderId);
     if (usesLlmProvider) {
       try {
         assertLlmProviderConfigured(agent as AgentProviderId);
       } catch (error) {
-        return this.failRemediation(job, error instanceof PatchPilotError ? error.code : "llm_provider_not_configured", error instanceof Error ? error.message : String(error));
+        return this.failRemediation(job, error instanceof RiskRadarError ? error.code : "llm_provider_not_configured", error instanceof Error ? error.message : String(error));
       }
     }
 
@@ -731,17 +731,17 @@ export class PatchPilotService {
       remediationWorkspace = workspace;
       mkdirSync(path.dirname(workspace), { recursive: true });
       if (project.sourceType === "github") {
-        if (!project.githubOwner || !project.githubRepo) throw new PatchPilotError("github_metadata_missing", "GitHub project is missing owner/repo metadata.");
+        if (!project.githubOwner || !project.githubRepo) throw new RiskRadarError("github_metadata_missing", "GitHub project is missing owner/repo metadata.");
         remediationGithub = { owner: project.githubOwner, repo: project.githubRepo };
         cloneGithubRepo({ owner: project.githubOwner, repo: project.githubRepo, branch: project.githubDefaultBranch ?? "main", workspace, remoteUrl: project.repoUrl });
-        const branch = `patchpilot/${safeSlug(finding.packageName)}-${safeSlug(vulnerability.cveIds[0] ?? vulnerability.id)}-${job.id.slice(-5)}`;
+        const branch = `riskradar/${safeSlug(finding.packageName)}-${safeSlug(vulnerability.cveIds[0] ?? vulnerability.id)}-${job.id.slice(-5)}`;
         createBranch(workspace, branch);
         job.branchName = branch;
       } else if (project.localPath) {
         copyProjectToWorkspace(project.localPath, workspace);
         initBaselineRepo(workspace);
       } else {
-        throw new PatchPilotError("source_unavailable", "Project source could not be resolved for remediation.", { projectId: project.id });
+        throw new RiskRadarError("source_unavailable", "Project source could not be resolved for remediation.", { projectId: project.id });
       }
 
       ensureCommitGitignore(workspace);
@@ -756,7 +756,7 @@ export class PatchPilotService {
         agentSummary = this.applyDeterministicNpmFix(workspace, finding);
         this.event("remediation", job.id, "deterministic_npm.completed", "info", "Deterministic npm remediation completed.", { summary: agentSummary });
       } else if (usesLlmProvider) {
-        // The model only advises (strict JSON plan). PatchPilot applies the safe
+        // The model only advises (strict JSON plan). RiskRadar applies the safe
         // version bump itself — the model never edits files or runs commands.
         if (!finding.fixedVersion) {
           return this.failRemediation(job, "fixed_version_missing", "No known fixed version is available for an LLM-planned remediation.");
@@ -778,7 +778,7 @@ export class PatchPilotService {
         }
         agentSummary = this.applyNpmVersionFix(workspace, finding.packageName, planResult.plan.toVersion, finding.ecosystem)
           + ` (plan by ${planResult.provider}/${planResult.model}: ${planResult.plan.summary})`;
-        this.event("remediation", job.id, "llm.plan.applied", "info", "PatchPilot applied the validated plan.", { summary: agentSummary });
+        this.event("remediation", job.id, "llm.plan.applied", "info", "RiskRadar applied the validated plan.", { summary: agentSummary });
       } else {
         this.event("remediation", job.id, "codex.started", "info", "Codex CLI execution started.");
         const result = await runCodexExec(workspace, options.codexPrompt ?? CODEX_REMEDIATION_PROMPT, { timeoutMs: options.codexTimeoutMs });
@@ -807,17 +807,17 @@ export class PatchPilotService {
           const message = timedOut
             ? "Codex CLI timed out before producing a safe remediation."
             : code === "codex_quota_limited"
-              ? "Codex CLI is usage-limited; PatchPilot did not treat this as a code success."
+              ? "Codex CLI is usage-limited; RiskRadar did not treat this as a code success."
               : code === "codex_rate_limited"
-                ? "Codex CLI is rate-limited; PatchPilot did not treat this as a code success."
+                ? "Codex CLI is rate-limited; RiskRadar did not treat this as a code success."
                 : code === "codex_auth_failed"
-                  ? "Codex CLI authentication failed; PatchPilot did not treat this as a code success."
+                  ? "Codex CLI authentication failed; RiskRadar did not treat this as a code success."
                   : "Codex CLI returned a non-zero exit code.";
           return this.failRemediation(job, code, message, { summary: result.stderr || result.stdout });
         }
       }
 
-      rmSync(path.join(workspace, "patchpilot-context.json"), { force: true });
+      rmSync(path.join(workspace, "riskradar-context.json"), { force: true });
       const files = changedFiles(workspace);
       assertSafeCommitState(workspace, files);
       if (files.length === 0) {
@@ -834,7 +834,7 @@ export class PatchPilotService {
       const validations = await this.runValidationSuite(job.id, workspace, { ownLockfile: options.ownLockfile });
       cleanupValidationArtifacts(workspace);
       assertSafeCommitState(workspace);
-      // When PatchPilot owns the lockfile, the validation step regenerated
+      // When RiskRadar owns the lockfile, the validation step regenerated
       // package-lock.json after the agent's edits, so recompute the commit set to
       // include it (still rejecting any secret-like files that appeared).
       let commitFiles = files;
@@ -842,12 +842,12 @@ export class PatchPilotService {
         const refreshed = changedFiles(workspace);
         const refreshedForbidden = refreshed.filter((file) => isSecretLikePath(file));
         if (refreshedForbidden.length > 0) {
-          return this.failRemediation(job, "forbidden_files_changed", "PatchPilot lockfile regeneration produced secret-like or forbidden files; PR/patch creation is blocked.", { changedFiles: refreshed });
+          return this.failRemediation(job, "forbidden_files_changed", "RiskRadar lockfile regeneration produced secret-like or forbidden files; PR/patch creation is blocked.", { changedFiles: refreshed });
         }
         assertSafeCommitState(workspace, refreshed);
         commitFiles = refreshed.length > 0 ? refreshed : files;
         this.updateJob(job.id, { changedFiles: commitFiles });
-        this.event("remediation", job.id, "git.lockfile.regenerated", "info", "PatchPilot regenerated the lockfile after the scoped edit.", { files: commitFiles });
+        this.event("remediation", job.id, "git.lockfile.regenerated", "info", "RiskRadar regenerated the lockfile after the scoped edit.", { files: commitFiles });
       }
       // Lightweight before/after lockfile diff for the vulnerable package.
       const afterLockfile = existsSync(lockfilePath) ? readFileSync(lockfilePath, "utf8") : "";
@@ -863,7 +863,7 @@ export class PatchPilotService {
         lockfileUpdated: commitFiles.some((file) => file.includes("lock")),
         testsPassed: validations.some((run) => run.command.includes("test") && run.status === "passed"),
         buildPassed: validations.some((run) => run.command.includes("build") && run.status === "passed"),
-        unrelatedFilesChanged: commitFiles.some((file) => !["package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "patchpilot-context.json"].includes(file) && !file.startsWith("src/") && !file.startsWith("test")),
+        unrelatedFilesChanged: commitFiles.some((file) => !["package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "riskradar-context.json"].includes(file) && !file.startsWith("src/") && !file.startsWith("test")),
         secretsTouched: forbidden.length > 0,
         smallDiff: commitFiles.length <= 4,
         missingTests: validations.some((run) => run.command === "npm test" && run.status === "skipped_no_script"),
@@ -940,7 +940,7 @@ export class PatchPilotService {
 
       return this.db.read().remediationJobs.find((item) => item.id === job.id)!;
     } catch (error) {
-      return this.failRemediation(job, error instanceof PatchPilotError ? error.code : "remediation_failed", error instanceof Error ? error.message : String(error));
+      return this.failRemediation(job, error instanceof RiskRadarError ? error.code : "remediation_failed", error instanceof Error ? error.message : String(error));
     } finally {
       // Keep the workspace for a push_pending GitHub job (confirmPush/discardPush
       // own its cleanup); otherwise dispose of it now.
@@ -954,11 +954,11 @@ export class PatchPilotService {
   async rollback(remediationJobId: string): Promise<RemediationJob> {
     const state = this.db.read();
     const job = state.remediationJobs.find((item) => item.id === remediationJobId);
-    if (!job) throw new PatchPilotError("remediation_not_found", "Remediation job was not found.", { remediationJobId }, 404);
+    if (!job) throw new RiskRadarError("remediation_not_found", "Remediation job was not found.", { remediationJobId }, 404);
     const project = state.projects.find((item) => item.id === job.projectId);
-    if (!project) throw new PatchPilotError("project_not_found", "Project was not found.", { projectId: job.projectId }, 404);
+    if (!project) throw new RiskRadarError("project_not_found", "Project was not found.", { projectId: job.projectId }, 404);
     if (job.rollbackStatus !== "available") {
-      throw new PatchPilotError("rollback_not_available", "Rollback is not available for this remediation job.", { remediationJobId, rollbackStatus: job.rollbackStatus ?? "not_available" });
+      throw new RiskRadarError("rollback_not_available", "Rollback is not available for this remediation job.", { remediationJobId, rollbackStatus: job.rollbackStatus ?? "not_available" });
     }
     this.updateJob(job.id, { rollbackStatus: "requested" });
     try {
@@ -976,7 +976,7 @@ export class PatchPilotService {
         applyPatch(project.localPath, job.patchPath, true);
         this.updateJob(job.id, { rollbackStatus: "completed" });
       } else {
-        throw new PatchPilotError("rollback_not_available", "Rollback requires an applied local patch or an open GitHub PR.", { remediationJobId });
+        throw new RiskRadarError("rollback_not_available", "Rollback requires an applied local patch or an open GitHub PR.", { remediationJobId });
       }
       createAuditReceipt(this.db, {
         projectId: project.id,
@@ -1005,7 +1005,7 @@ export class PatchPilotService {
   private async resolveProjectPath(project: Project): Promise<{ path: string; cleanup: boolean }> {
     if (project.localPath) return { path: project.localPath, cleanup: false };
     if (project.sourceType === "github") {
-      if (!project.githubOwner || !project.githubRepo) throw new PatchPilotError("github_metadata_missing", "GitHub project is missing owner/repo metadata.");
+      if (!project.githubOwner || !project.githubRepo) throw new RiskRadarError("github_metadata_missing", "GitHub project is missing owner/repo metadata.");
       const workspace = path.join(workspaceDir(), `scan_${project.id}_${Date.now()}`);
       mkdirSync(path.dirname(workspace), { recursive: true });
       try {
@@ -1027,7 +1027,7 @@ export class PatchPilotService {
         ? await createOpenAiRemediationPlan(context)
         : agent === "vercel-ai"
           ? await createVercelAiRemediationPlan(context)
-          : `Manual plan: inspect patchpilot context, update the vulnerable package to the smallest safe fixed version, run install/test/build, and open a draft PR or local patch.`;
+          : `Manual plan: inspect riskradar context, update the vulnerable package to the smallest safe fixed version, run install/test/build, and open a draft PR or local patch.`;
       this.updateJob(job.id, {
         status: agent === "manual" ? "codex_not_executed" : "completed",
         summary,
@@ -1045,7 +1045,7 @@ export class PatchPilotService {
       });
       return this.db.read().remediationJobs.find((item) => item.id === job.id)!;
     } catch (error) {
-      return this.failRemediation(job, error instanceof PatchPilotError ? error.code : "agent_plan_failed", error instanceof Error ? error.message : String(error));
+      return this.failRemediation(job, error instanceof RiskRadarError ? error.code : "agent_plan_failed", error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -1059,9 +1059,9 @@ export class PatchPilotService {
       this.db.update((state) => state.validationRuns.push(skipped));
       return [skipped];
     }
-    // When PatchPilot owns the lockfile (e.g. scoped Codex edited only package.json),
+    // When RiskRadar owns the lockfile (e.g. scoped Codex edited only package.json),
     // it regenerates the lockfile itself, then validates with `npm ci`. This keeps
-    // Codex usage minimal while PatchPilot stays in control of install/test/build.
+    // Codex usage minimal while RiskRadar stays in control of install/test/build.
     const hasLockfile = existsSync(path.join(workspace, "package-lock.json")) || Boolean(options.ownLockfile);
     const commands = [
       options.ownLockfile ? "npm install --package-lock-only --ignore-scripts" : undefined,
@@ -1104,7 +1104,7 @@ export class PatchPilotService {
     for (const chatId of chats) {
       const approvalId = id("appr");
       const message = [
-        "PatchPilot approval needed",
+        "RiskRadar approval needed",
         "",
         `Project: ${project.name}`,
         `Package: ${finding.packageName}`,
@@ -1222,7 +1222,7 @@ export class PatchPilotService {
   }
 
   private applyDeterministicNpmFix(workspace: string, finding: Finding): string {
-    if (!finding.fixedVersion) throw new PatchPilotError("fixed_version_missing", "Deterministic fixer requires a known fixed version.");
+    if (!finding.fixedVersion) throw new RiskRadarError("fixed_version_missing", "Deterministic fixer requires a known fixed version.");
     // Multi-ecosystem routing: PyPI edits requirements.txt; npm edits package.json + lockfile.
     if (/^pypi$|^pip$|^python$/i.test(finding.ecosystem)) {
       return this.applyPypiVersionFix(workspace, finding.packageName, finding.fixedVersion);
@@ -1230,27 +1230,27 @@ export class PatchPilotService {
     return this.applyNpmVersionFix(workspace, finding.packageName, finding.fixedVersion, finding.ecosystem);
   }
 
-  /** PatchPilot-owned safe PyPI update: pins the dependency in requirements.txt. */
+  /** RiskRadar-owned safe PyPI update: pins the dependency in requirements.txt. */
   private applyPypiVersionFix(workspace: string, packageName: string, version: string): string {
     const requirementsPath = path.join(workspace, "requirements.txt");
     const updated = updateRequirementsVersion(requirementsPath, packageName, version);
-    if (!updated) throw new PatchPilotError("dependency_not_direct", "PatchPilot can only update direct requirements.txt dependencies.", { packageName });
+    if (!updated) throw new RiskRadarError("dependency_not_direct", "RiskRadar can only update direct requirements.txt dependencies.", { packageName });
     return `Updated ${packageName} to ${version} in requirements.txt.`;
   }
 
   /**
-   * PatchPilot-owned safe dependency update: edits only package.json and
+   * RiskRadar-owned safe dependency update: edits only package.json and
    * regenerates the lockfile. Used by both the deterministic fixer and the
-   * LLM-plan path, so a model's advice is always applied by PatchPilot itself.
+   * LLM-plan path, so a model's advice is always applied by RiskRadar itself.
    */
   private applyNpmVersionFix(workspace: string, packageName: string, version: string, ecosystem: string): string {
-    if (ecosystem !== "npm") throw new PatchPilotError("deterministic_fix_unsupported", "PatchPilot's safe applier currently supports npm findings only.");
+    if (ecosystem !== "npm") throw new RiskRadarError("deterministic_fix_unsupported", "RiskRadar's safe applier currently supports npm findings only.");
     const manifestPath = path.join(workspace, "package.json");
     const updated = updateManifestDependencyVersion(manifestPath, packageName, version);
-    if (!updated) throw new PatchPilotError("dependency_not_direct", "PatchPilot can only update direct manifest dependencies.", { packageName });
+    if (!updated) throw new RiskRadarError("dependency_not_direct", "RiskRadar can only update direct manifest dependencies.", { packageName });
     const lockUpdate = spawnSync("npm install --package-lock-only --ignore-scripts", { cwd: workspace, encoding: "utf8", shell: true });
     if ((lockUpdate.status ?? 1) !== 0) {
-      throw new PatchPilotError("lockfile_update_failed", "npm failed to update the lockfile for the remediation.", { stderr: lockUpdate.stderr });
+      throw new RiskRadarError("lockfile_update_failed", "npm failed to update the lockfile for the remediation.", { stderr: lockUpdate.stderr });
     }
     return `Updated ${packageName} to ${version} in package.json. Lockfile will be validated by npm install/npm ci.`;
   }
@@ -1301,7 +1301,7 @@ function prBody(input: {
   changedFiles: string[];
   attestation: ReturnType<typeof attestRemediation>;
 }): string {
-  return `# PatchPilot security fix
+  return `# RiskRadar security fix
 
 ## Finding
 
@@ -1337,7 +1337,7 @@ ${attestationLine(input.attestation)}
 ${JSON.stringify({ statement: input.attestation.statement, signature: input.attestation.signature, algorithm: input.attestation.algorithm }, null, 2)}
 \`\`\`
 
-Verify with \`verifyAttestation(statement, signature)\` using the same \`${input.attestation.keyId ?? "PATCHPILOT_ATTESTATION_SECRET"}\` secret.
+Verify with \`verifyAttestation(statement, signature)\` using the same \`${input.attestation.keyId ?? "RISKRADAR_ATTESTATION_SECRET"}\` secret.
 
 ## Audit receipt
 

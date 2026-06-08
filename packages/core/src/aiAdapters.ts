@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { getEnv } from "./env";
-import { PatchPilotError } from "./errors";
+import { RiskRadarError } from "./errors";
 import { CODEX_REMEDIATION_PROMPT } from "./codex";
 
 export type AgentAdapterStatus = "configured" | "not_configured" | "unavailable";
@@ -57,7 +57,7 @@ export function listAgentAdapters(): AgentAdapterInfo[] {
 
 export async function createOpenAiRemediationPlan(context: unknown): Promise<string> {
   if (!getEnv("OPENAI_API_KEY")) {
-    throw new PatchPilotError("openai_sdk_not_configured", "Set OPENAI_API_KEY to use the OpenAI SDK adapter.", { requiredEnv: "OPENAI_API_KEY" });
+    throw new RiskRadarError("openai_sdk_not_configured", "Set OPENAI_API_KEY to use the OpenAI SDK adapter.", { requiredEnv: "OPENAI_API_KEY" });
   }
   const client = new OpenAI({ apiKey: getEnv("OPENAI_API_KEY") });
   const response = await client.responses.create({
@@ -69,7 +69,7 @@ export async function createOpenAiRemediationPlan(context: unknown): Promise<str
 
 export async function createVercelAiRemediationPlan(context: unknown): Promise<string> {
   if (!getEnv("AI_GATEWAY_API_KEY") && !getEnv("VERCEL_OIDC_TOKEN")) {
-    throw new PatchPilotError("ai_gateway_not_configured", "Set AI_GATEWAY_API_KEY or VERCEL_OIDC_TOKEN to use the Vercel AI SDK adapter.", {
+    throw new RiskRadarError("ai_gateway_not_configured", "Set AI_GATEWAY_API_KEY or VERCEL_OIDC_TOKEN to use the Vercel AI SDK adapter.", {
       requiredEnv: ["AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN"]
     });
   }

@@ -58,33 +58,33 @@ export function repoRoot(): string {
 
 export function dataFilePath(): string {
   // Demo mode (hosted preview): always read the bundled seed, regardless of any
-  // PATCHPILOT_DATA_FILE in a local .env. Work on a throwaway temp copy so the
+  // RISKRADAR_DATA_FILE in a local .env. Work on a throwaway temp copy so the
   // committed demo/seed.json is never mutated by any write.
-  if (getEnv("PATCHPILOT_DEMO") === "true") {
-    const seedRel = getEnv("PATCHPILOT_DATA_FILE") ?? "demo/seed.json";
+  if (getEnv("RISKRADAR_DEMO") === "true") {
+    const seedRel = getEnv("RISKRADAR_DATA_FILE") ?? "demo/seed.json";
     const seedSrc = path.isAbsolute(seedRel) ? seedRel : path.resolve(repoRoot(), seedRel);
-    const work = path.join(os.tmpdir(), "patchpilot-demo.db.json");
+    const work = path.join(os.tmpdir(), "riskradar-demo.db.json");
     try {
       if (!existsSync(work) && existsSync(seedSrc)) copyFileSync(seedSrc, work);
     } catch { /* fall back to reading the seed directly */ }
     return existsSync(work) ? work : seedSrc;
   }
-  const configured = getEnv("PATCHPILOT_DATA_FILE") ?? ".patchpilot/patchpilot.db.json";
+  const configured = getEnv("RISKRADAR_DATA_FILE") ?? ".riskradar/riskradar.db.json";
   return path.isAbsolute(configured) ? configured : path.resolve(repoRoot(), configured);
 }
 
 export function logDir(): string {
-  const configured = getEnv("PATCHPILOT_LOG_DIR") ?? ".patchpilot/logs";
+  const configured = getEnv("RISKRADAR_LOG_DIR") ?? ".riskradar/logs";
   return path.isAbsolute(configured) ? configured : path.resolve(repoRoot(), configured);
 }
 
 export function workspaceDir(): string {
-  const configured = getEnv("PATCHPILOT_WORKSPACE_DIR") ?? ".patchpilot/workspaces";
+  const configured = getEnv("RISKRADAR_WORKSPACE_DIR") ?? ".riskradar/workspaces";
   return path.isAbsolute(configured) ? configured : path.resolve(repoRoot(), configured);
 }
 
 export function localRoots(): string[] {
-  return (getEnv("PATCHPILOT_LOCAL_ROOTS") ?? "")
+  return (getEnv("RISKRADAR_LOCAL_ROOTS") ?? "")
     .split(path.delimiter)
     .map((entry) => entry.trim())
     .filter(Boolean);
@@ -180,7 +180,7 @@ export function integrationHealth(): IntegrationHealth[] {
     {
       name: "Local roots",
       status: localRoots().some((root) => existsSync(root)) ? "configured" : "not_configured",
-      message: localRoots().length > 0 ? `Allowed roots: ${localRoots().join(", ")}` : "Set PATCHPILOT_LOCAL_ROOTS before adding local folders."
+      message: localRoots().length > 0 ? `Allowed roots: ${localRoots().join(", ")}` : "Set RISKRADAR_LOCAL_ROOTS before adding local folders."
     }
   ];
 }

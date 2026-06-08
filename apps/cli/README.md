@@ -1,6 +1,6 @@
-# @patchpilot/cli
+# @riskradar/cli
 
-A thin, standalone supply-chain scanner over `@patchpilot/core`. Scans a project
+A thin, standalone supply-chain scanner over `@riskradar/core`. Scans a project
 folder (npm + PyPI) against the real OSV database and tags each finding with the
 **reachability (VEX-lite)** signal, so you fix what's actually imported first.
 
@@ -8,9 +8,9 @@ folder (npm + PyPI) against the real OSV database and tags each finding with the
 
 ```bash
 # Published on npm, run from anywhere
-npx patchpilot-cli scan ./my-app
-npx patchpilot-cli scan . --fail-on high
-npx patchpilot-cli scan . --json > findings.json
+npx riskradar-cli scan ./my-app
+npx riskradar-cli scan . --fail-on high
+npx riskradar-cli scan . --json > findings.json
 
 # From this monorepo
 pnpm scan:cli /absolute/path/to/project
@@ -23,7 +23,7 @@ Options:
   above that severity exists (for CI gating). Default: never fails.
 - `NO_COLOR=1`: disable ANSI colors.
 
-It queries the live OSV API / OSV-Scanner. No network → no findings. PatchPilot
+It queries the live OSV API / OSV-Scanner. No network → no findings. RiskRadar
 never fabricates results.
 
 ## Reachability tag
@@ -47,9 +47,9 @@ node apps/cli/dist/index.js scan ./my-app   # verify
 
 ## Publishing a new version
 
-The published package (`patchpilot-cli` on npm) is a single bundled file with no
+The published package (`riskradar-cli` on npm) is a single bundled file with no
 runtime dependencies (core is inlined). To cut a new version, bundle, then
-publish a clean manifest (name `patchpilot-cli`, no workspace deps):
+publish a clean manifest (name `riskradar-cli`, no workspace deps):
 
 ```bash
 pnpm cli:bundle                  # → apps/cli/dist/index.js

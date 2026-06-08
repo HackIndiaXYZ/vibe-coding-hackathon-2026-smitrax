@@ -1,9 +1,9 @@
 import { getEnv } from "./env";
-import { PatchPilotError } from "./errors";
+import { RiskRadarError } from "./errors";
 
 export async function sendTelegramApproval(input: { chatId: string; text: string; replyMarkup?: unknown }): Promise<{ messageId: string }> {
   const token = getEnv("TELEGRAM_BOT_TOKEN");
-  if (!token) throw new PatchPilotError("telegram_not_configured", "Set TELEGRAM_BOT_TOKEN to send approval requests.", { requiredEnv: "TELEGRAM_BOT_TOKEN" });
+  if (!token) throw new RiskRadarError("telegram_not_configured", "Set TELEGRAM_BOT_TOKEN to send approval requests.", { requiredEnv: "TELEGRAM_BOT_TOKEN" });
   const bodyPayload: Record<string, unknown> = {
     chat_id: input.chatId,
     text: input.text
@@ -16,7 +16,7 @@ export async function sendTelegramApproval(input: { chatId: string; text: string
   });
   const body = (await response.json()) as { ok: boolean; result?: { message_id: number }; description?: string; error_code?: number };
   if (!response.ok || !body.ok || !body.result) {
-    throw new PatchPilotError("telegram_send_failed", "Telegram API did not send the approval message.", {
+    throw new RiskRadarError("telegram_send_failed", "Telegram API did not send the approval message.", {
       method: "sendMessage",
       status: response.status,
       error_code: body.error_code,
@@ -40,7 +40,7 @@ export function inlineKeyboard(rows: TelegramButton[][]): { inline_keyboard: Arr
   for (const row of rows) {
     for (const button of row) {
       if (Buffer.byteLength(button.callbackData, "utf8") > 64) {
-        throw new PatchPilotError("telegram_callback_too_long", "Telegram callback_data exceeds the 64-byte limit.", { callbackData: button.callbackData.slice(0, 16) });
+        throw new RiskRadarError("telegram_callback_too_long", "Telegram callback_data exceeds the 64-byte limit.", { callbackData: button.callbackData.slice(0, 16) });
       }
     }
   }
@@ -90,9 +90,9 @@ export function validateTelegramWebhookSecret(headerValue: string | null | undef
   const expected = getEnv("TELEGRAM_WEBHOOK_SECRET");
   if (!expected) return;
   if (!headerValue) {
-    throw new PatchPilotError("telegram_webhook_secret_missing", "Telegram webhook secret header is required.", { header: "X-Telegram-Bot-Api-Secret-Token" }, 401);
+    throw new RiskRadarError("telegram_webhook_secret_missing", "Telegram webhook secret header is required.", { header: "X-Telegram-Bot-Api-Secret-Token" }, 401);
   }
   if (headerValue !== expected) {
-    throw new PatchPilotError("telegram_webhook_secret_invalid", "Telegram webhook secret header is invalid.", { header: "X-Telegram-Bot-Api-Secret-Token" }, 403);
+    throw new RiskRadarError("telegram_webhook_secret_invalid", "Telegram webhook secret header is invalid.", { header: "X-Telegram-Bot-Api-Secret-Token" }, 403);
   }
 }

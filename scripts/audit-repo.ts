@@ -22,7 +22,7 @@ if (files.includes(".env")) hard.push(".env is tracked");
 for (const f of files) {
   if (/(^|\/)node_modules\//.test(f)) hard.push(`node_modules tracked: ${f}`);
   if (/(^|\/)\.next\//.test(f)) hard.push(`.next tracked: ${f}`);
-  if (/(^|\/)\.patchpilot\//.test(f)) hard.push(`.patchpilot tracked: ${f}`);
+  if (/(^|\/)\.riskradar\//.test(f)) hard.push(`.riskradar tracked: ${f}`);
 }
 
 // HARD: no real secret tokens in tracked NON-test files

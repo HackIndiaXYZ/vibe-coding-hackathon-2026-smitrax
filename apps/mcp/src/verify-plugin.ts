@@ -8,7 +8,7 @@ type McpConfig = {
   mcpServers?: Record<string, { command?: string; args?: string[] }>;
 };
 
-const pluginDir = process.env.PATCHPILOT_CODEX_PLUGIN_DIR ?? path.join(os.homedir(), "plugins", "patchpilot");
+const pluginDir = process.env.RISKRADAR_CODEX_PLUGIN_DIR ?? path.join(os.homedir(), "plugins", "riskradar");
 const mcpConfigPath = path.join(pluginDir, ".mcp.json");
 
 if (!existsSync(mcpConfigPath)) {
@@ -17,7 +17,7 @@ if (!existsSync(mcpConfigPath)) {
 }
 
 const config = JSON.parse(readFileSync(mcpConfigPath, "utf8")) as McpConfig;
-const server = config.mcpServers?.patchpilot;
+const server = config.mcpServers?.riskradar;
 if (!server?.command) {
   console.log(JSON.stringify({ ok: false, status: "mcp_server_missing", pluginDir, mcpConfigPath }, null, 2));
   process.exit(1);
@@ -27,14 +27,14 @@ const transport = new StdioClientTransport({
   command: server.command,
   args: server.args ?? []
 });
-const client = new Client({ name: "patchpilot-codex-plugin-verifier", version: "0.1.0" });
+const client = new Client({ name: "riskradar-codex-plugin-verifier", version: "0.1.0" });
 
 await client.connect(transport);
 try {
   const tools = await client.listTools();
   const names = tools.tools.map((tool) => tool.name).sort();
   const scannerCoverage = await client.callTool({
-    name: "patchpilot.get_scanner_coverage",
+    name: "riskradar.get_scanner_coverage",
     arguments: {}
   });
   const scannerContent = Array.isArray(scannerCoverage.content) ? scannerCoverage.content : [];
@@ -42,11 +42,11 @@ try {
     ? scannerContent[0].text.length
     : 0;
   const required = [
-    "patchpilot.get_provider_readiness",
-    "patchpilot.get_scanner_coverage",
-    "patchpilot.get_watch_status",
-    "patchpilot.get_approval_queue",
-    "patchpilot.request_remediation"
+    "riskradar.get_provider_readiness",
+    "riskradar.get_scanner_coverage",
+    "riskradar.get_watch_status",
+    "riskradar.get_approval_queue",
+    "riskradar.request_remediation"
   ];
   const missingRequired = required.filter((name) => !names.includes(name));
   const ok = names.length >= 20 && missingRequired.length === 0 && scannerCoverageBytes > 0;

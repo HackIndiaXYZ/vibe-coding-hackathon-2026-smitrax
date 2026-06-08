@@ -1,4 +1,4 @@
-import { detectScannerTools, scannerCoverage } from "@patchpilot/core";
+import { detectScannerTools, scannerCoverage } from "@riskradar/core";
 
 export default function ScannersPage() {
   const coverage = scannerCoverage();

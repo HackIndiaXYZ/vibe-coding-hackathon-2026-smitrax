@@ -1,10 +1,10 @@
 import path from "node:path";
-import { PatchPilotService } from "./services";
+import { RiskRadarService } from "./services";
 
-process.env.PATCHPILOT_LOCAL_ROOTS = path.resolve("../../tests/fixtures");
+process.env.RISKRADAR_LOCAL_ROOTS = path.resolve("../../tests/fixtures");
 
 const fixture = path.resolve("../../tests/fixtures/vulnerable-npm-project");
-const service = new PatchPilotService();
-const project = await service.createProject({ sourceType: "local", localPath: fixture, name: "patchpilot-vulnerable-demo" });
+const service = new RiskRadarService();
+const project = await service.createProject({ sourceType: "local", localPath: fixture, name: "riskradar-vulnerable-demo" });
 const job = await service.scanProject(project.id);
 console.log(JSON.stringify({ project, job, radar: service.threatRadar() }, null, 2));

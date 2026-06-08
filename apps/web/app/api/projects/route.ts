@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { JsonDatabase, PatchPilotService, apiError } from "@patchpilot/core";
+import { JsonDatabase, RiskRadarService, apiError } from "@riskradar/core";
 
 export async function GET() {
-  return NextResponse.json({ projects: new PatchPilotService(new JsonDatabase()).listProjects() });
+  return NextResponse.json({ projects: new RiskRadarService(new JsonDatabase()).listProjects() });
 }
 
 export async function POST(request: NextRequest) {
-  const service = new PatchPilotService(new JsonDatabase());
+  const service = new RiskRadarService(new JsonDatabase());
   try {
     const contentType = request.headers.get("content-type") ?? "";
     let input: Record<string, string | undefined>;

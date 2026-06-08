@@ -1,4 +1,4 @@
-import { JsonDatabase, getSettings, watchStatus } from "@patchpilot/core";
+import { JsonDatabase, getSettings, watchStatus } from "@riskradar/core";
 import { SettingsControls } from "../../../components/SettingsControls";
 
 export default function WatchPage() {
@@ -13,7 +13,7 @@ export default function WatchPage() {
       <div className="topline">Continuous monitoring</div>
       <h1>Watch Mode</h1>
       <p className="muted" style={{ marginTop: 8, marginBottom: 24 }}>
-        Disabled by default. When enabled, PatchPilot re-scans inventoried projects on an interval, records new findings, and alerts you, but never patches automatically. Every remediation still requires approval.
+        Disabled by default. When enabled, RiskRadar re-scans inventoried projects on an interval, records new findings, and alerts you, but never patches automatically. Every remediation still requires approval.
       </p>
 
       <section className="grid two">

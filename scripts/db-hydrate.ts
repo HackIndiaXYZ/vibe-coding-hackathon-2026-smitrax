@@ -6,7 +6,7 @@ loadDotenvFile();
 // Rebuilds the local state file from the Postgres durable store of record.
 async function main() {
   if (!postgresEnabled()) {
-    console.log(safeJson({ ok: false, message: "Postgres persistence disabled (set PATCHPILOT_PERSIST_POSTGRES=true + DATABASE_URL)." }));
+    console.log(safeJson({ ok: false, message: "Postgres persistence disabled (set RISKRADAR_PERSIST_POSTGRES=true + DATABASE_URL)." }));
     process.exit(1);
   }
   const db = new JsonDatabase();

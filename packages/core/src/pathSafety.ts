@@ -1,6 +1,6 @@
 import { existsSync, lstatSync, realpathSync } from "node:fs";
 import path from "node:path";
-import { PatchPilotError } from "./errors";
+import { RiskRadarError } from "./errors";
 
 function normalizeForCompare(value: string): string {
   const resolved = path.resolve(value);
@@ -9,15 +9,15 @@ function normalizeForCompare(value: string): string {
 
 export function assertSafeLocalPath(requestedPath: string, allowlistRoots: string[]): string {
   if (!requestedPath || requestedPath.includes("\0")) {
-    throw new PatchPilotError("local_path_invalid", "Local path is empty or invalid.");
+    throw new RiskRadarError("local_path_invalid", "Local path is empty or invalid.");
   }
   if (allowlistRoots.length === 0) {
-    throw new PatchPilotError("local_roots_not_configured", "Set PATCHPILOT_LOCAL_ROOTS before adding local folders.", {
-      requiredEnv: "PATCHPILOT_LOCAL_ROOTS"
+    throw new RiskRadarError("local_roots_not_configured", "Set RISKRADAR_LOCAL_ROOTS before adding local folders.", {
+      requiredEnv: "RISKRADAR_LOCAL_ROOTS"
     });
   }
   if (!existsSync(requestedPath)) {
-    throw new PatchPilotError("local_path_not_found", "The requested local path does not exist.", { requestedPath });
+    throw new RiskRadarError("local_path_not_found", "The requested local path does not exist.", { requestedPath });
   }
   const realRequested = realpathSync(requestedPath);
   const normalizedRequested = normalizeForCompare(realRequested);
@@ -30,14 +30,14 @@ export function assertSafeLocalPath(requestedPath: string, allowlistRoots: strin
     return normalizedRequested === normalizedRoot || normalizedRequested.startsWith(normalizedRoot + path.sep);
   });
   if (!allowed) {
-    throw new PatchPilotError("local_path_not_allowlisted", "Local folder is outside PATCHPILOT_LOCAL_ROOTS.", {
+    throw new RiskRadarError("local_path_not_allowlisted", "Local folder is outside RISKRADAR_LOCAL_ROOTS.", {
       requestedPath: realRequested,
       allowlistRoots
     });
   }
   const stat = lstatSync(realRequested);
   if (!stat.isDirectory()) {
-    throw new PatchPilotError("local_path_not_directory", "Local project path must be a directory.", { requestedPath: realRequested });
+    throw new RiskRadarError("local_path_not_directory", "Local project path must be a directory.", { requestedPath: realRequested });
   }
   return realRequested;
 }

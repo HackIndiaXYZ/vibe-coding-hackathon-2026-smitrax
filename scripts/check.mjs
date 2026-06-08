@@ -35,7 +35,7 @@ const SECRET_RE = [/gh[pousr]_[A-Za-z0-9_]{20,}/, /sk-[A-Za-z0-9_-]{20,}/, /xox[
 async function checkUi() {
   if (!runPnpm("build")) return false;
   const port = 3030;
-  const server = spawn("pnpm", ["--filter", "@patchpilot/web", "exec", "next", "start", "--hostname", "127.0.0.1", "--port", String(port)], { shell: process.platform === "win32", detached: false });
+  const server = spawn("pnpm", ["--filter", "@riskradar/web", "exec", "next", "start", "--hostname", "127.0.0.1", "--port", String(port)], { shell: process.platform === "win32", detached: false });
   let ok = false;
   try {
     const up = await pollHealth(`http://127.0.0.1:${port}/api/health`);
@@ -60,7 +60,7 @@ async function checkUi() {
 function checkClean() {
   const tracked = spawnSync("git", ["ls-files", ".env"], { encoding: "utf8" }).stdout.trim();
   const envIgnored = spawnSync("git", ["check-ignore", ".env"], { encoding: "utf8" }).stdout.trim() === ".env";
-  const trackedGenerated = spawnSync("git", ["ls-files"], { encoding: "utf8" }).stdout.split(/\r?\n/).filter((f) => /node_modules\/|\.next\/|\.patchpilot\//.test(f));
+  const trackedGenerated = spawnSync("git", ["ls-files"], { encoding: "utf8" }).stdout.split(/\r?\n/).filter((f) => /node_modules\/|\.next\/|\.riskradar\//.test(f));
   console.log(`  ${tracked === "" ? "✓" : "✗"} .env not tracked`);
   console.log(`  ${envIgnored ? "✓" : "✗"} .env ignored`);
   console.log(`  ${trackedGenerated.length === 0 ? "✓" : "✗"} no generated files tracked`);
@@ -76,8 +76,8 @@ const GROUPS = {
   security: () => ["audit:repo", "verify:env-redaction", "verify:scanner-tools", "verify:scanners"].every(runPnpm),
   ui: () => checkUi(),
   live: () => {
-    if (!envHas("GITHUB_TOKEN", "PATCHPILOT_TEST_REPO", "TELEGRAM_BOT_TOKEN", "APPROVAL_SIGNING_SECRET")) {
-      console.log("⚠ check:live skipped — required live env not configured (GITHUB_TOKEN, PATCHPILOT_TEST_REPO, TELEGRAM_BOT_TOKEN, APPROVAL_SIGNING_SECRET). Not faking success.");
+    if (!envHas("GITHUB_TOKEN", "RISKRADAR_TEST_REPO", "TELEGRAM_BOT_TOKEN", "APPROVAL_SIGNING_SECRET")) {
+      console.log("⚠ check:live skipped — required live env not configured (GITHUB_TOKEN, RISKRADAR_TEST_REPO, TELEGRAM_BOT_TOKEN, APPROVAL_SIGNING_SECRET). Not faking success.");
       return true;
     }
     return ["verify:live-readiness", "demo:live", "demo:provider-failover"].every(runPnpm);

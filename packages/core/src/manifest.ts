@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { PatchPilotError } from "./errors";
+import { RiskRadarError } from "./errors";
 
 const DEPENDENCY_SECTIONS = ["dependencies", "devDependencies", "optionalDependencies"] as const;
 
@@ -10,7 +10,7 @@ const DEPENDENCY_SECTIONS = ["dependencies", "devDependencies", "optionalDepende
  */
 export function updateManifestDependencyVersion(manifestPath: string, packageName: string, version: string): boolean {
   if (!existsSync(manifestPath)) {
-    throw new PatchPilotError("manifest_missing", "package.json is missing from the remediation workspace.", { manifestPath });
+    throw new RiskRadarError("manifest_missing", "package.json is missing from the remediation workspace.", { manifestPath });
   }
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as Record<string, Record<string, string> | unknown>;
   let updated = false;
@@ -32,7 +32,7 @@ export function updateManifestDependencyVersion(manifestPath: string, packageNam
  */
 export function updateRequirementsVersion(requirementsPath: string, packageName: string, version: string): boolean {
   if (!existsSync(requirementsPath)) {
-    throw new PatchPilotError("manifest_missing", "requirements.txt is missing from the remediation workspace.", { requirementsPath });
+    throw new RiskRadarError("manifest_missing", "requirements.txt is missing from the remediation workspace.", { requirementsPath });
   }
   const normalize = (name: string) => name.toLowerCase().replace(/[-_.]+/g, "-");
   const target = normalize(packageName);

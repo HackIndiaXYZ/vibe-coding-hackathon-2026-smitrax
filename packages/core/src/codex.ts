@@ -2,14 +2,14 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import { commandExists, getEnv } from "./env";
-import { PatchPilotError } from "./errors";
+import { RiskRadarError } from "./errors";
 import { redact } from "./redaction";
 
-export const CODEX_REMEDIATION_PROMPT = `You are PatchPilot, a security remediation worker.
+export const CODEX_REMEDIATION_PROMPT = `You are RiskRadar, a security remediation worker.
 
 Your task is to fix exactly one dependency vulnerability in this repository.
 
-Read patchpilot-context.json before editing files.
+Read riskradar-context.json before editing files.
 
 Rules:
 1. Make the smallest safe dependency update that resolves the vulnerability.
@@ -25,10 +25,10 @@ Rules:
 
 Required workflow:
 1. Inspect package manifest and lockfile.
-2. Identify the vulnerable package and fixed version from patchpilot-context.json.
+2. Identify the vulnerable package and fixed version from riskradar-context.json.
 3. Apply the minimal dependency update.
 4. Update lockfile correctly.
-5. Run the validation commands from patchpilot-context.json if available.
+5. Run the validation commands from riskradar-context.json if available.
 6. Report validation results.
 7. Provide a PR-ready summary.
 
@@ -45,11 +45,11 @@ const TEN_MINUTES_MS = 10 * 60 * 1000;
 /**
  * Compact, bounded remediation prompt used by `verify:codex-live`. It instructs
  * Codex to perform a single manifest edit and explicitly forbids running any
- * commands, so PatchPilot itself stays in control of install/test/build. This is
+ * commands, so RiskRadar itself stays in control of install/test/build. This is
  * the lever that keeps the live Codex task small enough to complete reliably.
  */
 export function buildScopedCodexPrompt(input: { packageName: string; currentVersion: string; fixedVersion: string }): string {
-  return `You are PatchPilot Codex worker. In this workspace, update package.json so ${input.packageName} moves from ${input.currentVersion} to ${input.fixedVersion}. Change only package.json. Do not edit package-lock.json. Do not run commands. Do not refactor. Stop after the edit.`;
+  return `You are RiskRadar Codex worker. In this workspace, update package.json so ${input.packageName} moves from ${input.currentVersion} to ${input.fixedVersion}. Change only package.json. Do not edit package-lock.json. Do not run commands. Do not refactor. Stop after the edit.`;
 }
 
 export interface CodexCliResult {
@@ -68,14 +68,14 @@ export interface CodexRemediationOutcome {
   codexStatus: "completed" | "timeout" | "quota_limited" | "rate_limited" | "auth_failed" | "failed" | "unavailable" | "no_changes";
   /** Real Codex completion: a finished job whose detected file changes were captured. */
   codexCompleted: boolean;
-  /** Whether PatchPilot should run the deterministic fallback for this outcome. */
+  /** Whether RiskRadar should run the deterministic fallback for this outcome. */
   shouldFallback: boolean;
 }
 
 /**
  * Classifies a remediation job into an honest Codex outcome. A job is only
  * reported as a real Codex completion when it reached a PR/patch-ready state
- * *and* PatchPilot actually detected changed files. Timeouts, failures, missing
+ * *and* RiskRadar actually detected changed files. Timeouts, failures, missing
  * Codex, and no-change runs all fall back to deterministic remediation.
  */
 export function classifyCodexRemediation(
@@ -106,7 +106,7 @@ export function codexStatus(): { configured: boolean; message: string } {
 
 export function writeCodexContext(workspace: string, context: unknown): string {
   mkdirSync(workspace, { recursive: true });
-  const file = path.join(workspace, "patchpilot-context.json");
+  const file = path.join(workspace, "riskradar-context.json");
   writeFileSync(file, redact(context));
   return file;
 }
@@ -133,9 +133,9 @@ export async function runCodexPrompt(
 ): Promise<CodexCliResult> {
   const status = codexStatus();
   if (!status.configured) {
-    throw new PatchPilotError("codex_unavailable", `Codex not executed: ${status.message}`, { requiredTool: getEnv("CODEX_BIN") ?? "codex" });
+    throw new RiskRadarError("codex_unavailable", `Codex not executed: ${status.message}`, { requiredTool: getEnv("CODEX_BIN") ?? "codex" });
   }
-  if (!existsSync(workspace)) throw new PatchPilotError("workspace_missing", "Codex workspace does not exist.", { workspace });
+  if (!existsSync(workspace)) throw new RiskRadarError("workspace_missing", "Codex workspace does not exist.", { workspace });
   const safety = codexSafetyFlags();
   const timeoutMs = options.timeoutMs ?? Number(getEnv("CODEX_TIMEOUT_MS") ?? TEN_MINUTES_MS);
   return spawnCodex(codexExecArgs(workspace, safety), { input: prompt, timeoutMs });
@@ -166,7 +166,7 @@ export function codexSafetyFlags(bin = getEnv("CODEX_BIN") ?? "codex"): string[]
   const help = spawnSync(invocation.command, invocation.args, { encoding: "utf8", timeout: 10000 });
   const text = `${help.stdout ?? ""}\n${help.stderr ?? ""}`;
   if ((help.status ?? 1) !== 0 || !text.includes("--sandbox")) {
-    throw new PatchPilotError("codex_safety_unavailable", "Codex not executed: this Codex CLI does not expose enforceable sandbox flags.", { requiredFlag: "--sandbox" });
+    throw new RiskRadarError("codex_safety_unavailable", "Codex not executed: this Codex CLI does not expose enforceable sandbox flags.", { requiredFlag: "--sandbox" });
   }
   const flags = ["--sandbox", "workspace-write", "--ephemeral", "--skip-git-repo-check"];
   if (text.includes("--ask-for-approval")) {

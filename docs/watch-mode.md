@@ -8,10 +8,10 @@ still requires explicit approval.
 ## Enable
 
 ```
-PATCHPILOT_WATCH_ENABLED=false            # default off
-PATCHPILOT_WATCH_INTERVAL_MINUTES=60
-PATCHPILOT_WATCH_TELEGRAM_ALERTS=true
-PATCHPILOT_QUIET_HOURS=23:00-07:00        # suppress non-critical alerts overnight
+RISKRADAR_WATCH_ENABLED=false            # default off
+RISKRADAR_WATCH_INTERVAL_MINUTES=60
+RISKRADAR_WATCH_TELEGRAM_ALERTS=true
+RISKRADAR_QUIET_HOURS=23:00-07:00        # suppress non-critical alerts overnight
 ```
 
 Or toggle from the dashboard **Watch Mode** page (writes to local settings).
@@ -33,7 +33,7 @@ pnpm demo:watch          # narrated two-cycle demo
   Telegram is not configured, the finding is recorded and shown on the dashboard.
 - Status (`enabled`, last/next run, last error, findings discovered, alerts sent,
   deduped) is exposed at `/api/watch`, the `/watch` page, and the MCP tool
-  `patchpilot.get_watch_status`.
+  `riskradar.get_watch_status`.
 - If provider failover is needed during a watch-triggered remediation, it follows
   the consent ladder in `docs/model-providers.md`.
 

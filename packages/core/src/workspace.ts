@@ -59,7 +59,7 @@ export function isSecretLikePath(relativePath: string): boolean {
 }
 
 export function retainWorkspaces(): boolean {
-  return getEnv("PATCHPILOT_RETAIN_WORKSPACES") === "true";
+  return getEnv("RISKRADAR_RETAIN_WORKSPACES") === "true";
 }
 
 export function cleanupWorkspace(workspace: string): void {

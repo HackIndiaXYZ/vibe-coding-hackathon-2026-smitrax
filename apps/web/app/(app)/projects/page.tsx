@@ -1,8 +1,8 @@
-import { PatchPilotService, JsonDatabase } from "@patchpilot/core";
+import { RiskRadarService, JsonDatabase } from "@riskradar/core";
 import { PaginatedTable } from "../../../components/PaginatedTable";
 
 export default function ProjectsPage() {
-  const projects = new PatchPilotService(new JsonDatabase()).listProjects();
+  const projects = new RiskRadarService(new JsonDatabase()).listProjects();
   const rows = [...projects].reverse().map((project) => (
     <tr key={project.id}>
       <td data-label="Name">{project.name}</td>

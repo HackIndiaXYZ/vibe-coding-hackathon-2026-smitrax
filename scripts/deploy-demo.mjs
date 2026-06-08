@@ -5,14 +5,14 @@
  *   pnpm deploy:demo
  *
  * Deploys apps/web to Vercel production with the demo env (seeded data + banner),
- * then re-points the stable alias (trypatchpilot.vercel.app) at the new
+ * then re-points the stable alias (tryriskradar.vercel.app) at the new
  * deployment — so the custom domain always follows the latest production build.
  */
 import { execSync } from "node:child_process";
 
 const SCOPE = process.env.VERCEL_SCOPE ?? "aibots-projects-bfdd3c0c";
-const ALIAS = process.env.PATCHPILOT_DEMO_ALIAS ?? "trypatchpilot.vercel.app";
-const ENV = ["PATCHPILOT_DEMO=true", "PATCHPILOT_DATA_FILE=demo/seed.json"];
+const ALIAS = process.env.RISKRADAR_DEMO_ALIAS ?? "tryriskradar.vercel.app";
+const ENV = ["RISKRADAR_DEMO=true", "RISKRADAR_DATA_FILE=demo/seed.json"];
 
 const envFlags = ENV.flatMap((e) => ["--build-env", e, "--env", e]).join(" ");
 const cmd = `vercel deploy --prod --yes --scope ${SCOPE} ${envFlags}`;

@@ -6,7 +6,7 @@ import { logDir, getEnv } from "./env";
 import { redact } from "./redaction";
 import type { ValidationRun } from "./types";
 
-export async function runCommand(command: string, cwd: string, remediationJobId: string, timeoutMs = Number(getEnv("PATCHPILOT_COMMAND_TIMEOUT_MS") ?? 120000)): Promise<ValidationRun> {
+export async function runCommand(command: string, cwd: string, remediationJobId: string, timeoutMs = Number(getEnv("RISKRADAR_COMMAND_TIMEOUT_MS") ?? 120000)): Promise<ValidationRun> {
   const started = Date.now();
   const logPath = path.join(logDir(), `${remediationJobId}-${Date.now()}.log`);
   mkdirSync(path.dirname(logPath), { recursive: true });
@@ -49,7 +49,7 @@ export function safeChildEnv(): NodeJS.ProcessEnv {
 }
 
 export function validationInstallScriptsAllowed(): boolean {
-  return getEnv("PATCHPILOT_ALLOW_VALIDATION_SCRIPTS") === "true";
+  return getEnv("RISKRADAR_ALLOW_VALIDATION_SCRIPTS") === "true";
 }
 
 export function safeNpmInstallCommand(hasPackageLock: boolean): string {

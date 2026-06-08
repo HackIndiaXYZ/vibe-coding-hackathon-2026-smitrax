@@ -1,11 +1,11 @@
 {
-  "name": "@patchpilot/cli",
+  "name": "@riskradar/cli",
   "version": "0.1.3",
-  "description": "PatchPilot CLI — standalone supply-chain scanner (npm + PyPI) with reachability (VEX-lite) triage.",
+  "description": "RiskRadar CLI — standalone supply-chain scanner (npm + PyPI) with reachability (VEX-lite) triage.",
   "license": "MIT",
   "type": "module",
   "bin": {
-    "patchpilot": "./dist/index.js"
+    "riskradar": "./dist/index.js"
   },
   "files": ["dist"],
   "scripts": {
@@ -16,7 +16,7 @@
     "bundle": "esbuild src/index.ts --bundle --platform=node --target=node18 --format=esm --packages=bundle --banner:js=\"import{createRequire}from'module';const require=createRequire(import.meta.url);\" --outfile=dist/index.js"
   },
   "dependencies": {
-    "@patchpilot/core": "workspace:*"
+    "@riskradar/core": "workspace:*"
   },
   "devDependencies": {
     "esbuild": "^0.25.0",

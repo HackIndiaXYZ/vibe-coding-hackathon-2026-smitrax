@@ -1,4 +1,4 @@
-import { JsonDatabase, agentProviderReadiness, getSettings } from "@patchpilot/core";
+import { JsonDatabase, agentProviderReadiness, getSettings } from "@riskradar/core";
 import { SettingsControls } from "../../../components/SettingsControls";
 
 const PROVIDER_ACTIONS = new Set([
@@ -26,7 +26,7 @@ export default function ProvidersPage() {
       <div className="topline">Provider ladder &amp; failover</div>
       <h1>Providers</h1>
       <p className="muted" style={{ marginTop: 8, marginBottom: 24 }}>
-        Chain: <span className="mono">{failover.chain.join(" → ")}</span>. Only Codex edits the repo; cloud/local providers return strict JSON plans PatchPilot applies. Lower-trust providers need consent in <b>ask</b> mode. No API keys are ever shown here.
+        Chain: <span className="mono">{failover.chain.join(" → ")}</span>. Only Codex edits the repo; cloud/local providers return strict JSON plans RiskRadar applies. Lower-trust providers need consent in <b>ask</b> mode. No API keys are ever shown here.
       </p>
 
       <section className="grid two">

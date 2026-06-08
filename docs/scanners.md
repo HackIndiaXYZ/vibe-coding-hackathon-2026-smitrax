@@ -1,6 +1,6 @@
 # Scanner Orchestration
 
-PatchPilot orchestrates real scanners. It never fakes results: a category is
+RiskRadar orchestrates real scanners. It never fakes results: a category is
 green only when a real check can run. Missing external tools show
 `tool_missing` with an install hint; categories with no matching files show
 `not_applicable`.
@@ -28,13 +28,13 @@ pnpm demo:scanner-coverage    # print the coverage matrix
 ```
 
 Coverage and findings are also exposed at `/api/scanners`, the `/scanners`
-dashboard page, and the MCP tool `patchpilot.get_scanner_coverage`.
+dashboard page, and the MCP tool `riskradar.get_scanner_coverage`.
 
 ## Security
 
 - Secret findings store only masked previews; raw values never leave the scanner.
 - Secret findings are never sent to cloud LLM providers.
-- Every external tool runs with `PATCHPILOT_SCANNER_TIMEOUT_MS`.
+- Every external tool runs with `RISKRADAR_SCANNER_TIMEOUT_MS`.
 - Scanner output is redacted before storage/logging.
 
 Install the external tools (Gitleaks, Trivy, OSV-Scanner, Syft) with `pnpm install:scanners`. Missing tools surface as `tool_missing` in the dashboard.

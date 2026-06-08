@@ -2,13 +2,13 @@ import { getEnv } from "./env";
 
 /**
  * Durable job queue + scheduler backed by Redis/BullMQ (opt-in). Enabled only
- * when PATCHPILOT_QUEUE_MODE=redis AND REDIS_URL is set; otherwise PatchPilot
+ * when RISKRADAR_QUEUE_MODE=redis AND REDIS_URL is set; otherwise RiskRadar
  * uses its existing inline execution (default), so tests/demos are unaffected.
  *
  * The queue survives process restarts (jobs + repeatable watch schedule live in
  * Redis), which is the durable-scheduler the file-only inline mode lacked.
  */
-export const QUEUE_NAME = "patchpilot";
+export const QUEUE_NAME = "riskradar";
 
 export type QueueJob =
   | { type: "ping" }
@@ -18,7 +18,7 @@ export type QueueJob =
   | { type: "watch-cycle" };
 
 export function queueEnabled(): boolean {
-  return getEnv("PATCHPILOT_QUEUE_MODE") === "redis" && Boolean(getEnv("REDIS_URL"));
+  return getEnv("RISKRADAR_QUEUE_MODE") === "redis" && Boolean(getEnv("REDIS_URL"));
 }
 
 function connection(): { host: string; port: number } {
@@ -42,7 +42,7 @@ async function getQueue() {
 }
 
 export async function enqueue(job: QueueJob): Promise<string | undefined> {
-  if (!queueEnabled()) throw new Error("Queue mode is not enabled (set PATCHPILOT_QUEUE_MODE=redis + REDIS_URL).");
+  if (!queueEnabled()) throw new Error("Queue mode is not enabled (set RISKRADAR_QUEUE_MODE=redis + REDIS_URL).");
   const queue = await getQueue();
   const added = await queue.add(job.type, job, { removeOnComplete: 100, removeOnFail: 100 });
   return added.id;
@@ -55,7 +55,7 @@ export async function scheduleWatchCycle(intervalMinutes: number): Promise<void>
 }
 
 export async function queueStatus(): Promise<{ enabled: boolean; counts?: Record<string, number>; message: string }> {
-  if (!queueEnabled()) return { enabled: false, message: "Inline mode (set PATCHPILOT_QUEUE_MODE=redis + REDIS_URL for the durable queue)." };
+  if (!queueEnabled()) return { enabled: false, message: "Inline mode (set RISKRADAR_QUEUE_MODE=redis + REDIS_URL for the durable queue)." };
   try {
     const queue = await getQueue();
     return { enabled: true, counts: await queue.getJobCounts(), message: "Redis queue reachable." };

@@ -2,7 +2,7 @@ import { loadDotenvFile, safeJson } from "./live-utils.ts";
 
 loadDotenvFile();
 // Default to the docker-compose Redis if not already configured.
-process.env.PATCHPILOT_QUEUE_MODE ||= "redis";
+process.env.RISKRADAR_QUEUE_MODE ||= "redis";
 process.env.REDIS_URL ||= "redis://localhost:6379";
 
 // Round-trips a job through the real Redis/BullMQ queue: start a worker, enqueue

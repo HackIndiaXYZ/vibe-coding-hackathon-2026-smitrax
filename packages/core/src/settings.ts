@@ -1,8 +1,8 @@
 import { JsonDatabase } from "./database";
 import { getEnv } from "./env";
-import type { FailoverMode, FailoverSettings, PatchPilotSettings, RepoFailoverPolicy, StoredSettings, WatchSettings } from "./types";
+import type { FailoverMode, FailoverSettings, RiskRadarSettings, RepoFailoverPolicy, StoredSettings, WatchSettings } from "./types";
 
-export type { PatchPilotSettings } from "./types";
+export type { RiskRadarSettings } from "./types";
 
 const DEFAULT_CHAIN = ["codex", "openrouter", "anthropic", "grok", "openai-compatible", "ollama", "deterministic"];
 
@@ -23,30 +23,30 @@ function envMode(name: string, fallback: FailoverMode): FailoverMode {
 }
 
 /** Safe-by-default settings derived from env. The DB stores only overrides. */
-export function envDefaultSettings(): PatchPilotSettings {
+export function envDefaultSettings(): RiskRadarSettings {
   const watch: WatchSettings = {
-    enabled: envBool("PATCHPILOT_WATCH_ENABLED", false),
-    intervalMinutes: envNum("PATCHPILOT_WATCH_INTERVAL_MINUTES", 60),
-    quietHours: getEnv("PATCHPILOT_QUIET_HOURS"),
-    telegramAlerts: envBool("PATCHPILOT_WATCH_TELEGRAM_ALERTS", true)
+    enabled: envBool("RISKRADAR_WATCH_ENABLED", false),
+    intervalMinutes: envNum("RISKRADAR_WATCH_INTERVAL_MINUTES", 60),
+    quietHours: getEnv("RISKRADAR_QUIET_HOURS"),
+    telegramAlerts: envBool("RISKRADAR_WATCH_TELEGRAM_ALERTS", true)
   };
-  const chainRaw = getEnv("PATCHPILOT_PROVIDER_CHAIN");
+  const chainRaw = getEnv("RISKRADAR_PROVIDER_CHAIN");
   const failover: FailoverSettings = {
-    mode: envMode("PATCHPILOT_PROVIDER_FAILOVER_MODE", "ask"),
+    mode: envMode("RISKRADAR_PROVIDER_FAILOVER_MODE", "ask"),
     chain: chainRaw ? chainRaw.split(",").map((entry) => entry.trim()).filter(Boolean) : [...DEFAULT_CHAIN],
-    allowCloudFailover: envBool("PATCHPILOT_ALLOW_CLOUD_MODEL_FAILOVER", true),
-    allowLocalFailover: envBool("PATCHPILOT_ALLOW_LOCAL_MODEL_FAILOVER", false),
-    requireConsentForLowerTrust: envBool("PATCHPILOT_REQUIRE_CONSENT_FOR_LOWER_TRUST_PROVIDER", true),
-    fast: envBool("PATCHPILOT_FAST_FAILOVER", true),
-    maxAttempts: envNum("PATCHPILOT_PROVIDER_CHAIN_MAX_ATTEMPTS", 3),
-    readinessTimeoutMs: envNum("PATCHPILOT_PROVIDER_READINESS_TIMEOUT_MS", 3000),
-    attemptTimeoutMs: envNum("PATCHPILOT_PROVIDER_ATTEMPT_TIMEOUT_MS", 30000),
-    readinessCacheTtlMs: envNum("PATCHPILOT_PROVIDER_READINESS_CACHE_TTL_MS", 600000)
+    allowCloudFailover: envBool("RISKRADAR_ALLOW_CLOUD_MODEL_FAILOVER", true),
+    allowLocalFailover: envBool("RISKRADAR_ALLOW_LOCAL_MODEL_FAILOVER", false),
+    requireConsentForLowerTrust: envBool("RISKRADAR_REQUIRE_CONSENT_FOR_LOWER_TRUST_PROVIDER", true),
+    fast: envBool("RISKRADAR_FAST_FAILOVER", true),
+    maxAttempts: envNum("RISKRADAR_PROVIDER_CHAIN_MAX_ATTEMPTS", 3),
+    readinessTimeoutMs: envNum("RISKRADAR_PROVIDER_READINESS_TIMEOUT_MS", 3000),
+    attemptTimeoutMs: envNum("RISKRADAR_PROVIDER_ATTEMPT_TIMEOUT_MS", 30000),
+    readinessCacheTtlMs: envNum("RISKRADAR_PROVIDER_READINESS_CACHE_TTL_MS", 600000)
   };
   return { watch, failover, repoPolicies: {}, scannerToggles: {} };
 }
 
-function mergeSettings(defaults: PatchPilotSettings, stored: StoredSettings | undefined): PatchPilotSettings {
+function mergeSettings(defaults: RiskRadarSettings, stored: StoredSettings | undefined): RiskRadarSettings {
   return {
     watch: { ...defaults.watch, ...(stored?.watch ?? {}) },
     failover: {
@@ -60,12 +60,12 @@ function mergeSettings(defaults: PatchPilotSettings, stored: StoredSettings | un
 }
 
 /** Resolved settings: env defaults overlaid with persisted DB overrides. */
-export function getSettings(db = new JsonDatabase()): PatchPilotSettings {
+export function getSettings(db = new JsonDatabase()): RiskRadarSettings {
   return mergeSettings(envDefaultSettings(), db.read().settings);
 }
 
 /** Persists a partial settings override and returns the resolved settings. */
-export function updateSettings(db: JsonDatabase, patch: StoredSettings): PatchPilotSettings {
+export function updateSettings(db: JsonDatabase, patch: StoredSettings): RiskRadarSettings {
   db.update((state) => {
     const current = state.settings ?? {};
     state.settings = {
@@ -79,13 +79,13 @@ export function updateSettings(db: JsonDatabase, patch: StoredSettings): PatchPi
 }
 
 /** Sets a per-repo failover policy (e.g. "always allow local model for this repo"). */
-export function setRepoFailoverPolicy(db: JsonDatabase, projectId: string, policy: RepoFailoverPolicy): PatchPilotSettings {
+export function setRepoFailoverPolicy(db: JsonDatabase, projectId: string, policy: RepoFailoverPolicy): RiskRadarSettings {
   const current = db.read().settings?.repoPolicies ?? {};
   return updateSettings(db, { repoPolicies: { ...current, [projectId]: { ...(current[projectId] ?? {}), ...policy } } });
 }
 
 /** Clears all per-repo failover consent policies. */
-export function resetRepoFailoverPolicies(db: JsonDatabase): PatchPilotSettings {
+export function resetRepoFailoverPolicies(db: JsonDatabase): RiskRadarSettings {
   db.update((state) => {
     if (state.settings) state.settings.repoPolicies = {};
   });

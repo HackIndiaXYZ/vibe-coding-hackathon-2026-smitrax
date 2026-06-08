@@ -1,8 +1,8 @@
-import { JsonDatabase, PatchPilotService } from "@patchpilot/core";
+import { JsonDatabase, RiskRadarService } from "@riskradar/core";
 import { PaginatedTable } from "../../../components/PaginatedTable";
 
 export default function BlastRadiusPage() {
-  const data = new PatchPilotService(new JsonDatabase()).blastRadius();
+  const data = new RiskRadarService(new JsonDatabase()).blastRadius();
   const rows = [...data].reverse().map((row) => {
     const prShort = row.prUrl
       ? row.prUrl

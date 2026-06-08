@@ -5,7 +5,7 @@ loadDotenvFile();
 
 const required = [
   "GITHUB_TOKEN",
-  "PATCHPILOT_TEST_REPO",
+  "RISKRADAR_TEST_REPO",
   "TELEGRAM_BOT_TOKEN",
   "TELEGRAM_CHAT_ID",
   "TELEGRAM_WEBHOOK_SECRET",
@@ -32,7 +32,7 @@ async function main() {
   const telegram = await assertTelegramBotWorks();
   const codexAvailable = commandAvailable(optionalEnv("CODEX_BIN") ?? "codex");
   const osvScannerAvailable = commandAvailable("osv-scanner");
-  const localRootsConfigured = Boolean(optionalEnv("PATCHPILOT_LOCAL_ROOTS"));
+  const localRootsConfigured = Boolean(optionalEnv("RISKRADAR_LOCAL_ROOTS"));
 
   console.log(safeJson({
     ok: true,

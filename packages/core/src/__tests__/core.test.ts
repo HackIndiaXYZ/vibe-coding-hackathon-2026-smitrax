@@ -6,7 +6,7 @@ import {
   CODEX_REMEDIATION_PROMPT,
   COMMIT_GITIGNORE_ENTRIES,
   JsonDatabase,
-  PatchPilotService,
+  RiskRadarService,
   assertSafeCommitState,
   assertSafeLocalPath,
   agentProviderReadiness,
@@ -98,7 +98,7 @@ import {
 } from "../index";
 
 function tempRoot() {
-  return mkdtempSync(path.join(os.tmpdir(), "patchpilot-test-"));
+  return mkdtempSync(path.join(os.tmpdir(), "riskradar-test-"));
 }
 
 describe("redaction", () => {
@@ -132,7 +132,7 @@ describe("path safety", () => {
   it("rejects traversal outside allowlist", () => {
     const root = tempRoot();
     const outside = tempRoot();
-    expect(() => assertSafeLocalPath(outside, [root])).toThrow(/outside PATCHPILOT_LOCAL_ROOTS/);
+    expect(() => assertSafeLocalPath(outside, [root])).toThrow(/outside RISKRADAR_LOCAL_ROOTS/);
     rmSync(root, { recursive: true, force: true });
     rmSync(outside, { recursive: true, force: true });
   });
@@ -340,7 +340,7 @@ describe("workspace and patch artifacts", () => {
     mkdirSync(second);
     cleanupWorkspace(first);
     expect(existsSync(first)).toBe(false);
-    vi.stubEnv("PATCHPILOT_RETAIN_WORKSPACES", "true");
+    vi.stubEnv("RISKRADAR_RETAIN_WORKSPACES", "true");
     cleanupWorkspace(second);
     expect(existsSync(second)).toBe(true);
     vi.unstubAllEnvs();
@@ -380,7 +380,7 @@ describe("rollback states", () => {
         createdAt: new Date().toISOString()
       }]
     });
-    await expect(new PatchPilotService(db).rollback("rem")).rejects.toThrow(/Rollback is not available/);
+    await expect(new RiskRadarService(db).rollback("rem")).rejects.toThrow(/Rollback is not available/);
     expect(db.read().remediationJobs[0]?.rollbackStatus).toBe("not_available");
     rmSync(root, { recursive: true, force: true });
   });
@@ -398,10 +398,10 @@ describe("rollback states", () => {
     db.write({
       ...emptyState(),
       projects: [{ id: "proj", name: "owner/repo", sourceType: "github", githubOwner: "owner", githubRepo: "repo", githubDefaultBranch: "main", isPathAllowlisted: false, packageManager: "npm", deploymentProvider: "none", productionExposed: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }],
-      remediationJobs: [{ id: "rem", findingId: "find", projectId: "proj", status: "approval_sent", agent: "codex", branchName: "patchpilot/fix-x", changedFiles: ["package.json"], rollbackStatus: "available", createdAt: new Date().toISOString() }],
-      pullRequests: [{ id: "pr", remediationJobId: "rem", provider: "github", owner: "owner", repo: "repo", number: 7, url: "https://github.com/owner/repo/pull/7", branchName: "patchpilot/fix-x", baseBranch: "main", draft: true, status: "created", createdAt: new Date().toISOString() }]
+      remediationJobs: [{ id: "rem", findingId: "find", projectId: "proj", status: "approval_sent", agent: "codex", branchName: "riskradar/fix-x", changedFiles: ["package.json"], rollbackStatus: "available", createdAt: new Date().toISOString() }],
+      pullRequests: [{ id: "pr", remediationJobId: "rem", provider: "github", owner: "owner", repo: "repo", number: 7, url: "https://github.com/owner/repo/pull/7", branchName: "riskradar/fix-x", baseBranch: "main", draft: true, status: "created", createdAt: new Date().toISOString() }]
     });
-    const result = await new PatchPilotService(db).rollback("rem");
+    const result = await new RiskRadarService(db).rollback("rem");
     expect(result.rollbackStatus).toBe("completed");
     expect(db.read().pullRequests[0]?.status).toBe("closed");
     expect(calls.some((c) => c.startsWith("PATCH") && c.includes("/pulls/7"))).toBe(true);
@@ -451,7 +451,7 @@ describe("rollback states", () => {
         createdAt: new Date().toISOString()
       }]
     });
-    const rolledBack = await new PatchPilotService(db).rollback("rem");
+    const rolledBack = await new RiskRadarService(db).rollback("rem");
     expect(rolledBack.rollbackStatus).toBe("completed");
     expect(readFileSync(path.join(projectRoot, "package.json"), "utf8")).toContain("4.17.20");
     rmSync(root, { recursive: true, force: true });
@@ -478,7 +478,7 @@ describe("validation runner", () => {
     vi.unstubAllEnvs();
     expect(safeNpmInstallCommand(true)).toBe("npm ci --ignore-scripts");
     expect(safeNpmInstallCommand(false)).toBe("npm install --ignore-scripts");
-    vi.stubEnv("PATCHPILOT_ALLOW_VALIDATION_SCRIPTS", "true");
+    vi.stubEnv("RISKRADAR_ALLOW_VALIDATION_SCRIPTS", "true");
     expect(safeNpmInstallCommand(true)).toBe("npm ci");
     vi.unstubAllEnvs();
   });
@@ -587,8 +587,8 @@ describe("scoped Codex remediation", () => {
   it("supports grok (OpenAI-compatible) and anthropic (messages API) providers", () => {
     vi.unstubAllEnvs();
     // grok = OpenAI-compatible against xAI
-    vi.stubEnv("PATCHPILOT_GROK_API_KEY", "grok-secret-key");
-    vi.stubEnv("PATCHPILOT_AGENT_MODEL", "grok-2-latest");
+    vi.stubEnv("RISKRADAR_GROK_API_KEY", "grok-secret-key");
+    vi.stubEnv("RISKRADAR_AGENT_MODEL", "grok-2-latest");
     expect(() => assertLlmProviderConfigured("grok")).not.toThrow();
     const grok = buildLlmChatRequest("grok", { x: 1 });
     expect(grok.url).toBe("https://api.x.ai/v1/chat/completions");
@@ -596,13 +596,13 @@ describe("scoped Codex remediation", () => {
     expect(grok.body.response_format).toEqual({ type: "json_object" });
 
     // anthropic = messages API with x-api-key + version
-    vi.stubEnv("PATCHPILOT_ANTHROPIC_API_KEY", "anthropic-secret-key");
+    vi.stubEnv("RISKRADAR_ANTHROPIC_API_KEY", "anthropic-secret-key");
     const anth = buildAnthropicRequest({ x: 1 });
     expect(anth.url).toBe("https://api.anthropic.com/v1/messages");
     expect(anth.headers["x-api-key"]).toBe("anthropic-secret-key");
     expect(anth.headers["anthropic-version"]).toBe("2023-06-01");
     expect(anth.body.messages[0]?.role).toBe("user");
-    expect(anth.body.system).toContain("PatchPilot");
+    expect(anth.body.system).toContain("RiskRadar");
 
     // readiness reflects configuration (env names only)
     const readiness = agentProviderReadiness();
@@ -610,8 +610,8 @@ describe("scoped Codex remediation", () => {
     expect(readiness.find((p) => p.id === "anthropic")?.status).toBe("configured");
     vi.unstubAllEnvs();
     // without keys → not_configured, and assert throws name the right env
-    expect(() => assertLlmProviderConfigured("grok")).toThrow(/PATCHPILOT_GROK_API_KEY/);
-    expect(() => assertLlmProviderConfigured("anthropic")).toThrow(/PATCHPILOT_ANTHROPIC_API_KEY/);
+    expect(() => assertLlmProviderConfigured("grok")).toThrow(/RISKRADAR_GROK_API_KEY/);
+    expect(() => assertLlmProviderConfigured("anthropic")).toThrow(/RISKRADAR_ANTHROPIC_API_KEY/);
     expect(agentProviderReadiness().find((p) => p.id === "grok")?.status).toBe("not_configured");
   });
 
@@ -619,7 +619,7 @@ describe("scoped Codex remediation", () => {
     expect(scoped).toContain("Do not run commands");
     expect(scoped).not.toMatch(/npm (install|ci|test|run build)/i);
     expect(scoped.toLowerCase()).not.toContain("validation");
-    // PatchPilot, not Codex, owns install/test/build. The broad prompt is the one
+    // RiskRadar, not Codex, owns install/test/build. The broad prompt is the one
     // that tells the agent to run validation commands.
     expect(CODEX_REMEDIATION_PROMPT).toContain("Run the validation commands");
   });
@@ -718,19 +718,19 @@ describe("BYO agent provider layer", () => {
   it("selects the configured provider and defaults to codex", () => {
     vi.unstubAllEnvs();
     expect(resolveAgentProvider()).toBe("codex");
-    vi.stubEnv("PATCHPILOT_AGENT_PROVIDER", "openrouter");
+    vi.stubEnv("RISKRADAR_AGENT_PROVIDER", "openrouter");
     expect(resolveAgentProvider()).toBe("openrouter");
     expect(agentProviderReadiness().find((provider) => provider.selected)?.id).toBe("openrouter");
-    vi.stubEnv("PATCHPILOT_AGENT_PROVIDER", "not-a-provider");
-    expect(() => resolveAgentProvider()).toThrow(/Unknown PATCHPILOT_AGENT_PROVIDER/);
+    vi.stubEnv("RISKRADAR_AGENT_PROVIDER", "not-a-provider");
+    expect(() => resolveAgentProvider()).toThrow(/Unknown RISKRADAR_AGENT_PROVIDER/);
     vi.unstubAllEnvs();
   });
 
   it("requires API keys / base URL before any LLM call", () => {
     vi.unstubAllEnvs();
-    vi.stubEnv("PATCHPILOT_LLM_API_KEY", "");
-    expect(() => assertLlmProviderConfigured("openrouter")).toThrow(/PATCHPILOT_LLM_API_KEY/);
-    expect(() => assertLlmProviderConfigured("openai-compatible")).toThrow(/PATCHPILOT_LLM_BASE_URL/);
+    vi.stubEnv("RISKRADAR_LLM_API_KEY", "");
+    expect(() => assertLlmProviderConfigured("openrouter")).toThrow(/RISKRADAR_LLM_API_KEY/);
+    expect(() => assertLlmProviderConfigured("openai-compatible")).toThrow(/RISKRADAR_LLM_BASE_URL/);
     // ollama needs no key.
     expect(() => assertLlmProviderConfigured("ollama")).not.toThrow();
     vi.unstubAllEnvs();
@@ -738,9 +738,9 @@ describe("BYO agent provider layer", () => {
 
   it("constructs an OpenAI-compatible chat request", () => {
     vi.unstubAllEnvs();
-    vi.stubEnv("PATCHPILOT_LLM_BASE_URL", "https://llm.example.test/v1/");
-    vi.stubEnv("PATCHPILOT_LLM_API_KEY", "llm-secret-key-value");
-    vi.stubEnv("PATCHPILOT_AGENT_MODEL", "test-model");
+    vi.stubEnv("RISKRADAR_LLM_BASE_URL", "https://llm.example.test/v1/");
+    vi.stubEnv("RISKRADAR_LLM_API_KEY", "llm-secret-key-value");
+    vi.stubEnv("RISKRADAR_AGENT_MODEL", "test-model");
     const request = buildLlmChatRequest("openai-compatible", { finding: "lodash" });
     expect(request.url).toBe("https://llm.example.test/v1/chat/completions");
     expect(request.body.model).toBe("test-model");
@@ -800,12 +800,12 @@ describe("BYO agent provider layer", () => {
 
   it("exposes provider readiness without leaking secret values", () => {
     vi.unstubAllEnvs();
-    vi.stubEnv("PATCHPILOT_LLM_API_KEY", "super-secret-llm-key-value-123");
-    vi.stubEnv("PATCHPILOT_LLM_BASE_URL", "https://private.example.test/v1");
+    vi.stubEnv("RISKRADAR_LLM_API_KEY", "super-secret-llm-key-value-123");
+    vi.stubEnv("RISKRADAR_LLM_BASE_URL", "https://private.example.test/v1");
     const serialized = JSON.stringify(agentProviderReadiness());
     expect(serialized).not.toContain("super-secret-llm-key-value-123");
     expect(serialized).not.toContain("private.example.test");
-    expect(serialized).toContain("PATCHPILOT_LLM_API_KEY");
+    expect(serialized).toContain("RISKRADAR_LLM_API_KEY");
     expect(serialized).toContain("openrouter");
     vi.unstubAllEnvs();
   });
@@ -1029,11 +1029,11 @@ describe("provider failover ladder", () => {
     const projectRoot = path.join(root, "project");
     mkdirSync(projectRoot);
     writeFileSync(path.join(projectRoot, "package.json"), JSON.stringify({ dependencies: { lodash: "4.17.20" } }));
-    vi.stubEnv("PATCHPILOT_DATA_FILE", path.join(root, "db.json"));
+    vi.stubEnv("RISKRADAR_DATA_FILE", path.join(root, "db.json"));
     vi.stubEnv("CODEX_ENABLED", "false");          // selected provider (codex) unavailable
     vi.stubEnv("TELEGRAM_ALLOWED_CHAT_IDS", "");    // no real Telegram send
-    vi.stubEnv("PATCHPILOT_LLM_API_KEY", "");       // openrouter/openai-compatible not configured
-    vi.stubEnv("PATCHPILOT_LLM_BASE_URL", "");
+    vi.stubEnv("RISKRADAR_LLM_API_KEY", "");       // openrouter/openai-compatible not configured
+    vi.stubEnv("RISKRADAR_LLM_BASE_URL", "");
     // Ollama endpoint answers as ready.
     vi.stubGlobal("fetch", vi.fn(async (url: string | URL) => {
       if (String(url).includes("/api/tags")) return new Response(JSON.stringify({ models: [{ name: "qwen2.5-coder:7b" }] }), { status: 200 });
@@ -1046,7 +1046,7 @@ describe("provider failover ladder", () => {
       vulnerabilities: [{ id: "OSV-X", source: "osv", cveIds: ["CVE-2021-23337"], ghsaIds: [], summary: "lodash", severity: "high", references: [] }],
       findings: [{ id: "find", projectId: "proj", vulnerabilityId: "OSV-X", packageName: "lodash", ecosystem: "npm", currentVersion: "4.17.20", fixedVersion: "4.17.21", dependencyType: "direct", riskScore: 70, riskLevel: "high", riskFactors: [], missingRiskData: [], fixStrategy: "safe_patch", status: "fix_available", scanConfidence: "direct_manifest_only", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }]
     });
-    const result = await new PatchPilotService(db).startGuardedRemediation("find");
+    const result = await new RiskRadarService(db).startGuardedRemediation("find");
     expect(result.outcome).toBe("consent_requested");
     expect(result.decision?.provider).toBe("ollama");
     expect(result.consent?.status).toBe("pending");
@@ -1064,9 +1064,9 @@ describe("provider failover ladder", () => {
     const projectRoot = path.join(root, "project");
     mkdirSync(projectRoot);
     writeFileSync(path.join(projectRoot, "package.json"), JSON.stringify({ dependencies: { lodash: "4.17.20" } }));
-    vi.stubEnv("PATCHPILOT_DATA_FILE", path.join(root, "db.json"));
-    vi.stubEnv("PATCHPILOT_WORKSPACE_DIR", path.join(root, "ws"));
-    vi.stubEnv("PATCHPILOT_LOG_DIR", path.join(root, "logs"));
+    vi.stubEnv("RISKRADAR_DATA_FILE", path.join(root, "db.json"));
+    vi.stubEnv("RISKRADAR_WORKSPACE_DIR", path.join(root, "ws"));
+    vi.stubEnv("RISKRADAR_LOG_DIR", path.join(root, "logs"));
     vi.stubEnv("TELEGRAM_ALLOWED_CHAT_IDS", "");
     // Ollama plan request fails fast → routing is proven without a live model.
     vi.stubGlobal("fetch", vi.fn(async () => new Response("error", { status: 500 })));
@@ -1085,14 +1085,14 @@ describe("provider failover ladder", () => {
 
     // reject → no remediation job, consent rejected
     const rejectDb = seedConsent("pcon_reject");
-    const rejected = await new PatchPilotService(rejectDb).resolveProviderConsent("pcon_reject", "reject", "tester");
+    const rejected = await new RiskRadarService(rejectDb).resolveProviderConsent("pcon_reject", "reject", "tester");
     expect(rejected.status).toBe("rejected");
     expect(rejectDb.read().remediationJobs).toHaveLength(0);
     expect(rejectDb.read().providerConsents?.[0]?.status).toBe("rejected");
 
     // allow_once → routes to the candidate (ollama) and resolves
     const allowDb = seedConsent("pcon_allow");
-    const allowed = await new PatchPilotService(allowDb).resolveProviderConsent("pcon_allow", "allow_once", "tester");
+    const allowed = await new RiskRadarService(allowDb).resolveProviderConsent("pcon_allow", "allow_once", "tester");
     expect(allowed.status).toBe("resolved");
     expect(allowDb.read().remediationJobs.some((job) => job.agent === "ollama")).toBe(true);
     expect(allowDb.read().auditReceipts.some((receipt) => receipt.action === "provider_failover_consent_approved")).toBe(true);
@@ -1100,7 +1100,7 @@ describe("provider failover ladder", () => {
 
     // always_allow_repo → sets the per-repo policy
     const policyDb = seedConsent("pcon_policy");
-    await new PatchPilotService(policyDb).resolveProviderConsent("pcon_policy", "always_allow_repo", "tester");
+    await new RiskRadarService(policyDb).resolveProviderConsent("pcon_policy", "always_allow_repo", "tester");
     expect(getSettings(policyDb).repoPolicies.proj?.alwaysAllowLocal).toBe(true);
 
     vi.unstubAllGlobals();
@@ -1110,7 +1110,7 @@ describe("provider failover ladder", () => {
 
   it("skips unconfigured providers with no network call", async () => {
     vi.unstubAllEnvs();
-    vi.stubEnv("PATCHPILOT_LLM_API_KEY", "");
+    vi.stubEnv("RISKRADAR_LLM_API_KEY", "");
     const fetchSpy = vi.fn(async () => new Response("{}", { status: 200 }));
     vi.stubGlobal("fetch", fetchSpy);
     const readiness = await checkProviderReadiness("openrouter");
@@ -1124,9 +1124,9 @@ describe("provider failover ladder", () => {
 describe("scanner orchestration", () => {
   it("detects external tools honestly (disabled / tool_missing)", () => {
     vi.unstubAllEnvs();
-    vi.stubEnv("PATCHPILOT_SCANNER_GITLEAKS_ENABLED", "true");
-    vi.stubEnv("PATCHPILOT_SCANNER_GITLEAKS_PATH", "definitely-not-installed-gitleaks");
-    vi.stubEnv("PATCHPILOT_SCANNER_SEMGREP_ENABLED", "false");
+    vi.stubEnv("RISKRADAR_SCANNER_GITLEAKS_ENABLED", "true");
+    vi.stubEnv("RISKRADAR_SCANNER_GITLEAKS_PATH", "definitely-not-installed-gitleaks");
+    vi.stubEnv("RISKRADAR_SCANNER_SEMGREP_ENABLED", "false");
     const tools = detectScannerTools();
     expect(tools.find((tool) => tool.id === "gitleaks")?.status).toBe("tool_missing");
     expect(tools.find((tool) => tool.id === "semgrep")?.status).toBe("disabled");
@@ -1142,8 +1142,8 @@ describe("scanner orchestration", () => {
     if (process.platform === "win32") writeFileSync(bin, "@echo off\r\nexit /b 1\r\n");
     else { writeFileSync(bin, "#!/usr/bin/env sh\nexit 1\n"); chmodSync(bin, 0o755); }
 
-    vi.stubEnv("PATCHPILOT_SCANNER_GITLEAKS_ENABLED", "true");
-    vi.stubEnv("PATCHPILOT_SCANNER_GITLEAKS_PATH", bin);
+    vi.stubEnv("RISKRADAR_SCANNER_GITLEAKS_ENABLED", "true");
+    vi.stubEnv("RISKRADAR_SCANNER_GITLEAKS_PATH", bin);
     const tool = detectScannerTools().find((item) => item.id === "gitleaks");
     expect(tool?.status).toBe("tool_missing");
     expect(tool?.installHint).toMatch(/did not return a usable --version response/);
@@ -1233,9 +1233,9 @@ describe("scanner orchestration", () => {
     const semgrep = fakeTool("semgrep", `console.log(JSON.stringify({results:[{check_id:"rule.x",path:"a.js",start:{line:3},extra:{message:"bad",severity:"ERROR"}}]}));`);
     const trivy = fakeTool("trivy", `console.log(JSON.stringify({Results:[{Target:"package-lock.json",Vulnerabilities:[{VulnerabilityID:"CVE-2021-23337",PkgName:"lodash",InstalledVersion:"4.17.20",FixedVersion:"4.17.21",Severity:"HIGH",Title:"cmd injection"}]}]}));`);
 
-    vi.stubEnv("PATCHPILOT_SCANNER_GITLEAKS_PATH", gitleaks);
-    vi.stubEnv("PATCHPILOT_SCANNER_SEMGREP_PATH", semgrep);
-    vi.stubEnv("PATCHPILOT_SCANNER_TRIVY_PATH", trivy);
+    vi.stubEnv("RISKRADAR_SCANNER_GITLEAKS_PATH", gitleaks);
+    vi.stubEnv("RISKRADAR_SCANNER_SEMGREP_PATH", semgrep);
+    vi.stubEnv("RISKRADAR_SCANNER_TRIVY_PATH", trivy);
 
     const results = runProjectScanners(project, "p", { categories: ["secret", "sast", "container"] });
     const secret = results.find((r) => r.scanner === "gitleaks");
@@ -1344,12 +1344,12 @@ describe("Telegram sendMessage", () => {
     vi.stubEnv("TELEGRAM_BOT_TOKEN", "telegram-token-value");
     const fetchMock = vi.fn(async (_url: string | URL, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body));
-      expect(body.text).toBe("PatchPilot Telegram live test");
+      expect(body.text).toBe("RiskRadar Telegram live test");
       expect(body.reply_markup).toBeUndefined();
       return new Response(JSON.stringify({ ok: true, result: { message_id: 42 } }), { status: 200 });
     });
     vi.stubGlobal("fetch", fetchMock);
-    await expect(sendTelegramApproval({ chatId: "123456789", text: "PatchPilot Telegram live test" })).resolves.toEqual({ messageId: "42" });
+    await expect(sendTelegramApproval({ chatId: "123456789", text: "RiskRadar Telegram live test" })).resolves.toEqual({ messageId: "42" });
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
   });
@@ -1391,14 +1391,14 @@ describe("Telegram sendMessage", () => {
     const token = signApprovalPayload({ approvalId: "appr_test", action: "approve", exp: 9999999999 }, "secret");
     vi.stubGlobal("fetch", vi.fn(async (_url: string | URL, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body));
-      expect(body.text).toContain("PatchPilot live verification approval request");
+      expect(body.text).toContain("RiskRadar live verification approval request");
       expect(body.text).toContain(token);
       expect(body.reply_markup).toBeUndefined();
       return new Response(JSON.stringify({ ok: true, result: { message_id: 43 } }), { status: 200 });
     }));
     await expect(sendTelegramApproval({
       chatId: "123456789",
-      text: ["PatchPilot live verification approval request", `Signed approval token: ${token}`].join("\n")
+      text: ["RiskRadar live verification approval request", `Signed approval token: ${token}`].join("\n")
     })).resolves.toEqual({ messageId: "43" });
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
@@ -1428,7 +1428,7 @@ describe("GitHub scanning", () => {
         updatedAt: new Date().toISOString()
       }]
     });
-    await expect(new PatchPilotService(db).scanProject("proj")).rejects.toThrow(/GITHUB_TOKEN/);
+    await expect(new RiskRadarService(db).scanProject("proj")).rejects.toThrow(/GITHUB_TOKEN/);
     vi.unstubAllEnvs();
     rmSync(root, { recursive: true, force: true });
   });
@@ -1439,8 +1439,8 @@ describe("GitHub scanning", () => {
     mkdirSync(repo);
     writeFileSync(path.join(repo, "package.json"), JSON.stringify({ dependencies: { lodash: "4.17.20" } }, null, 2));
     runGit(["init"], repo);
-    runGit(["config", "user.email", "patchpilot@example.invalid"], repo);
-    runGit(["config", "user.name", "PatchPilot"], repo);
+    runGit(["config", "user.email", "riskradar@example.invalid"], repo);
+    runGit(["config", "user.name", "RiskRadar"], repo);
     runGit(["add", "-A"], repo);
     runGit(["commit", "-m", "initial"], repo);
     runGit(["branch", "-M", "main"], repo);
@@ -1452,8 +1452,8 @@ describe("GitHub scanning", () => {
       return new Response(JSON.stringify({ results: [{ vulns: [{ id: "OSV-TEST" }] }] }), { status: 200 });
     });
     vi.stubGlobal("fetch", fetchMock);
-    vi.stubEnv("PATCHPILOT_DISABLE_OSV_SCANNER", "true");
-    vi.stubEnv("PATCHPILOT_SCANNER_SEMGREP_ENABLED", "false"); // deterministic: don't invoke host Semgrep (incl. WSL)
+    vi.stubEnv("RISKRADAR_DISABLE_OSV_SCANNER", "true");
+    vi.stubEnv("RISKRADAR_SCANNER_SEMGREP_ENABLED", "false"); // deterministic: don't invoke host Semgrep (incl. WSL)
     const db = new JsonDatabase(path.join(root, "db.json"));
     db.write({
       ...emptyState(),
@@ -1473,7 +1473,7 @@ describe("GitHub scanning", () => {
         updatedAt: new Date().toISOString()
       }]
     });
-    const scan = await new PatchPilotService(db).scanProject("proj");
+    const scan = await new RiskRadarService(db).scanProject("proj");
     expect(scan.status).toBe("completed");
     expect(db.read().findings[0]?.packageName).toBe("lodash");
     expect(db.read().findings[0]?.scanConfidence).toBe("direct_manifest_only");
@@ -1489,8 +1489,8 @@ describe("GitHub scanning", () => {
     mkdirSync(repo);
     writeFileSync(path.join(repo, "package.json"), "{}");
     runGit(["init"], repo);
-    runGit(["config", "user.email", "patchpilot@example.invalid"], repo);
-    runGit(["config", "user.name", "PatchPilot"], repo);
+    runGit(["config", "user.email", "riskradar@example.invalid"], repo);
+    runGit(["config", "user.name", "RiskRadar"], repo);
     runGit(["add", "-A"], repo);
     runGit(["commit", "-m", "initial"], repo);
     runGit(["branch", "-M", "main"], repo);
@@ -1508,15 +1508,15 @@ describe("GitHub scanning", () => {
     mkdirSync(repo);
     writeFileSync(path.join(repo, "package.json"), JSON.stringify({ dependencies: { lodash: "4.17.20" } }, null, 2));
     runGit(["init"], repo);
-    runGit(["config", "user.email", "patchpilot@example.invalid"], repo);
-    runGit(["config", "user.name", "PatchPilot"], repo);
+    runGit(["config", "user.email", "riskradar@example.invalid"], repo);
+    runGit(["config", "user.name", "RiskRadar"], repo);
     runGit(["add", "-A"], repo);
     runGit(["commit", "-m", "initial"], repo);
     runGit(["branch", "-M", "main"], repo);
-    vi.stubEnv("PATCHPILOT_WORKSPACE_DIR", workspaces);
-    vi.stubEnv("PATCHPILOT_RETAIN_WORKSPACES", "true");
-    vi.stubEnv("PATCHPILOT_DISABLE_OSV_SCANNER", "true");
-    vi.stubEnv("PATCHPILOT_SCANNER_SEMGREP_ENABLED", "false"); // deterministic: don't invoke host Semgrep (incl. WSL)
+    vi.stubEnv("RISKRADAR_WORKSPACE_DIR", workspaces);
+    vi.stubEnv("RISKRADAR_RETAIN_WORKSPACES", "true");
+    vi.stubEnv("RISKRADAR_DISABLE_OSV_SCANNER", "true");
+    vi.stubEnv("RISKRADAR_SCANNER_SEMGREP_ENABLED", "false"); // deterministic: don't invoke host Semgrep (incl. WSL)
     vi.stubGlobal("fetch", vi.fn(async (url: string | URL) => {
       const value = String(url);
       if (value.includes("/vulns/OSV-TEST")) return new Response(JSON.stringify({ id: "OSV-TEST", aliases: [], summary: "fixture", affected: [] }), { status: 200 });
@@ -1541,7 +1541,7 @@ describe("GitHub scanning", () => {
         updatedAt: new Date().toISOString()
       }]
     });
-    await new PatchPilotService(db).scanProject("proj");
+    await new RiskRadarService(db).scanProject("proj");
     const retained = readdirSync(workspaces).filter((entry) => entry.startsWith("scan_proj_"));
     expect(retained.length).toBe(1);
     const config = readFileSync(path.join(workspaces, retained[0]!, ".git", "config"), "utf8");
@@ -1591,7 +1591,7 @@ describe("OSV scanner parsing", () => {
       manifestPath: path.join(root, "package.json"),
       stack: ["node", "npm"]
     };
-    vi.stubEnv("PATCHPILOT_DISABLE_OSV_SCANNER", "true");
+    vi.stubEnv("RISKRADAR_DISABLE_OSV_SCANNER", "true");
     vi.stubGlobal("fetch", vi.fn(async (url: string | URL) => {
       const value = String(url);
       if (value.includes("/vulns/OSV-TEST")) return new Response(JSON.stringify({ id: "OSV-TEST", aliases: [], summary: "fixture", affected: [] }), { status: 200 });
@@ -1631,8 +1631,8 @@ describe("OSV scanner parsing", () => {
       lockfilePath: path.join(root, "package-lock.json"),
       stack: ["node", "npm"]
     };
-    vi.stubEnv("PATCHPILOT_DISABLE_OSV_SCANNER", "false");
-    vi.stubEnv("PATCHPILOT_SCANNER_OSV_SCANNER_PATH", scanner); // use the fake scanner, not the real installed one
+    vi.stubEnv("RISKRADAR_DISABLE_OSV_SCANNER", "false");
+    vi.stubEnv("RISKRADAR_SCANNER_OSV_SCANNER_PATH", scanner); // use the fake scanner, not the real installed one
     const result = await queryOsvFindings(root, [manifest]);
     expect(result.scanner).toBe("osv-scanner");
     expect(result.scanConfidence).toBe("lockfile");
@@ -1669,15 +1669,15 @@ describe("plugin manifest", () => {
   it("validates manifest and warns on dangerous permissions", () => {
     const root = tempRoot();
     const manifestPath = path.join(root, "plugin.json");
-    writeFileSync(manifestPath, JSON.stringify({ id: "patchpilot-test", version: "1.0.0", entry: "./dist/index.js", permissions: ["secrets:read"] }));
+    writeFileSync(manifestPath, JSON.stringify({ id: "riskradar-test", version: "1.0.0", entry: "./dist/index.js", permissions: ["secrets:read"] }));
     const result = validatePluginManifest(manifestPath);
     expect(result.warnings[0]).toContain("requires explicit review");
-    expect(pluginManifestSchema.parse(result.manifest).id).toBe("patchpilot-test");
+    expect(pluginManifestSchema.parse(result.manifest).id).toBe("riskradar-test");
     rmSync(root, { recursive: true, force: true });
   });
 
   it("signs and verifies a plugin manifest, rejecting tampering", () => {
-    const manifest = { id: "patchpilot-test", version: "1.0.0", entry: "./dist/index.js", permissions: ["scan:read"] };
+    const manifest = { id: "riskradar-test", version: "1.0.0", entry: "./dist/index.js", permissions: ["scan:read"] };
     const sig = signPluginManifest(manifest, "registry-secret");
     expect(verifyPluginSignature(manifest, sig, "registry-secret")).toBe(true);
     expect(verifyPluginSignature({ ...manifest, version: "1.0.1" }, sig, "registry-secret")).toBe(false); // tampered
@@ -1698,13 +1698,13 @@ describe("secret-manager file", () => {
   it("loads secrets from a file for unset keys only (never overrides)", () => {
     const root = tempRoot();
     const file = path.join(root, "secrets.json");
-    writeFileSync(file, JSON.stringify({ PATCHPILOT_SECRET_TEST_A: "fromfile", PATCHPILOT_SECRET_TEST_B: "fromfile" }));
-    vi.stubEnv("PATCHPILOT_SECRET_TEST_B", "fromenv"); // already set → must NOT be overridden
+    writeFileSync(file, JSON.stringify({ RISKRADAR_SECRET_TEST_A: "fromfile", RISKRADAR_SECRET_TEST_B: "fromfile" }));
+    vi.stubEnv("RISKRADAR_SECRET_TEST_B", "fromenv"); // already set → must NOT be overridden
     const result = loadSecretsFile(file);
-    expect(result.keys).toContain("PATCHPILOT_SECRET_TEST_A");
-    expect(process.env.PATCHPILOT_SECRET_TEST_A).toBe("fromfile");
-    expect(process.env.PATCHPILOT_SECRET_TEST_B).toBe("fromenv"); // preserved
-    delete process.env.PATCHPILOT_SECRET_TEST_A;
+    expect(result.keys).toContain("RISKRADAR_SECRET_TEST_A");
+    expect(process.env.RISKRADAR_SECRET_TEST_A).toBe("fromfile");
+    expect(process.env.RISKRADAR_SECRET_TEST_B).toBe("fromenv"); // preserved
+    delete process.env.RISKRADAR_SECRET_TEST_A;
     vi.unstubAllEnvs();
     rmSync(root, { recursive: true, force: true });
   });
@@ -1789,17 +1789,17 @@ describe("provenance attestation", () => {
   };
 
   it("signs and round-trip verifies when a secret is set", () => {
-    vi.stubEnv("PATCHPILOT_ATTESTATION_SECRET", "test-attestation-secret");
+    vi.stubEnv("RISKRADAR_ATTESTATION_SECRET", "test-attestation-secret");
     const att = attestRemediation(base);
     expect(att.signed).toBe(true);
     expect(att.signature).toBeTruthy();
-    expect(att.keyId).toBe("PATCHPILOT_ATTESTATION_SECRET");
+    expect(att.keyId).toBe("RISKRADAR_ATTESTATION_SECRET");
     expect(verifyAttestation(att.statement, att.signature!)).toBe(true);
     vi.unstubAllEnvs();
   });
 
   it("detects tampering with the statement", () => {
-    vi.stubEnv("PATCHPILOT_ATTESTATION_SECRET", "test-attestation-secret");
+    vi.stubEnv("RISKRADAR_ATTESTATION_SECRET", "test-attestation-secret");
     const att = attestRemediation(base);
     const tampered = { ...att.statement, toVersion: "9.9.9" };
     expect(verifyAttestation(tampered, att.signature!)).toBe(false);
@@ -1807,7 +1807,7 @@ describe("provenance attestation", () => {
   });
 
   it("falls back to APPROVAL_HMAC_SECRET when no dedicated secret", () => {
-    vi.stubEnv("PATCHPILOT_ATTESTATION_SECRET", "");
+    vi.stubEnv("RISKRADAR_ATTESTATION_SECRET", "");
     vi.stubEnv("APPROVAL_HMAC_SECRET", "shared-secret");
     const att = attestRemediation(base);
     expect(att.signed).toBe(true);
@@ -1816,7 +1816,7 @@ describe("provenance attestation", () => {
   });
 
   it("returns an honest unsigned attestation when no secret is configured", () => {
-    vi.stubEnv("PATCHPILOT_ATTESTATION_SECRET", "");
+    vi.stubEnv("RISKRADAR_ATTESTATION_SECRET", "");
     vi.stubEnv("APPROVAL_HMAC_SECRET", "");
     const att = attestRemediation(base);
     expect(att.signed).toBe(false);

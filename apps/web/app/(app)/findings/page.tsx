@@ -1,4 +1,4 @@
-import { JsonDatabase } from "@patchpilot/core";
+import { JsonDatabase } from "@riskradar/core";
 import { PaginatedTable } from "../../../components/PaginatedTable";
 
 const REACH: Record<string, { text: string; cls: string; title: string }> = {
@@ -41,7 +41,7 @@ export default function FindingsPage() {
             <tr>
               <td colSpan={7} className="empty-cell">
                 <strong>No findings from a real scan yet.</strong>
-                <span>Run a scan from the Projects page to populate findings. PatchPilot only shows results from real OSV / scanner runs, never seeded placeholders.</span>
+                <span>Run a scan from the Projects page to populate findings. RiskRadar only shows results from real OSV / scanner runs, never seeded placeholders.</span>
               </td>
             </tr>
           )}

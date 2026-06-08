@@ -1,4 +1,4 @@
-import { JsonDatabase } from "@patchpilot/core";
+import { JsonDatabase } from "@riskradar/core";
 import { PaginatedTable } from "../../../components/PaginatedTable";
 
 export default function ApprovalsPage() {

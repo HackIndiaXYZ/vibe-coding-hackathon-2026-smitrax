@@ -1,5 +1,5 @@
 {
-  "name": "@patchpilot/mcp",
+  "name": "@riskradar/mcp",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.0",
-    "@patchpilot/core": "workspace:*",
+    "@riskradar/core": "workspace:*",
     "tsx": "^4.20.0",
     "zod": "^4.1.0"
   }

@@ -1,4 +1,4 @@
-import { agentProviderReadiness, integrationHealth, listAgentAdapters } from "@patchpilot/core";
+import { agentProviderReadiness, integrationHealth, listAgentAdapters } from "@riskradar/core";
 
 export default function SettingsPage() {
   const providers = agentProviderReadiness();
@@ -10,7 +10,7 @@ export default function SettingsPage() {
       <section className="panel" style={{ marginTop: 24 }}>
         <h2>Model Providers (BYO)</h2>
         <p className="muted" style={{ marginTop: 0 }}>
-          Selected provider: <span className="badge">{selected}</span>. Only Codex edits the repo directly; OpenRouter, OpenAI-compatible, and Ollama return strict JSON plans that PatchPilot applies itself. Required env shows names only, never secret values.
+          Selected provider: <span className="badge">{selected}</span>. Only Codex edits the repo directly; OpenRouter, OpenAI-compatible, and Ollama return strict JSON plans that RiskRadar applies itself. Required env shows names only, never secret values.
         </p>
         <div className="table-scroll">
           <table>

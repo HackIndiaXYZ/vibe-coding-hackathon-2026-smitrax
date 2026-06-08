@@ -2,7 +2,7 @@
  * MCP tool-poisoning detector.
  *
  * Scans an external MCP tool's description/metadata for hidden instructions,
- * zero-width smuggling characters, and prompt-injection patterns. PatchPilot
+ * zero-width smuggling characters, and prompt-injection patterns. RiskRadar
  * is itself an MCP server today; it does not consume third-party MCP servers
  * yet, so this module is exported and tested for when it does — and so a
  * judge asking "what about tool poisoning?" gets a real answer instead of

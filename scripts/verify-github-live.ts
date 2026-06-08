@@ -1,4 +1,4 @@
-import { JsonDatabase, PatchPilotService } from "../packages/core/src/index.ts";
+import { JsonDatabase, RiskRadarService } from "../packages/core/src/index.ts";
 import { assertGithubRepoAccessible, loadDotenvFile, parseTestRepo, safeJson } from "./live-utils.ts";
 
 loadDotenvFile();
@@ -7,7 +7,7 @@ async function main() {
   const repo = parseTestRepo();
   await assertGithubRepoAccessible(repo);
   const db = new JsonDatabase();
-  const service = new PatchPilotService(db);
+  const service = new RiskRadarService(db);
   const project = await service.createProject({ sourceType: "github", githubOwner: repo.owner, githubRepo: repo.repo });
   const scan = await service.scanProject(project.id);
   const state = db.read();

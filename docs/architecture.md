@@ -1,11 +1,11 @@
 # Architecture
 
-PatchPilot has four executable surfaces:
+RiskRadar has four executable surfaces:
 
 - `apps/web`: Next.js dashboard and API route handlers.
 - `packages/core`: scanner, risk, inventory, audit, approval, validation, integration, and plugin services.
 - `apps/worker`: local inline worker entrypoint for scan-all. Redis/BullMQ is available as an opt-in Docker-backed queue/scheduler path.
-- `apps/mcp`: stdio MCP server exposing PatchPilot tools.
+- `apps/mcp`: stdio MCP server exposing RiskRadar tools.
 
 State is stored in a local JSON file by `JsonDatabase` by default. An opt-in Postgres write-through/hydration path is available for local durable verification without changing API or MCP tool behavior.
 

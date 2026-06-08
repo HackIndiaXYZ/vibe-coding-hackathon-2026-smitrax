@@ -41,8 +41,8 @@ The webhook verifies:
 - chat allowlist
 - pending approval/consent state
 
-Approval updates PatchPilot state only; merging remains disabled by default.
+Approval updates RiskRadar state only; merging remains disabled by default.
 
-If `PATCHPILOT_APPLY_LOCAL_PATCH_ON_APPROVAL=true`, an approved local patch artifact can be applied to the original local folder. This is disabled by default.
+If `RISKRADAR_APPLY_LOCAL_PATCH_ON_APPROVAL=true`, an approved local patch artifact can be applied to the original local folder. This is disabled by default.
 
 Live Telegram send is implemented but credential-gated. Configure the Telegram env vars (bot token, chat id, allowlist, webhook secret, HMAC secret) to enable it.

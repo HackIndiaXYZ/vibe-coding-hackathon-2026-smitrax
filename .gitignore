@@ -26,8 +26,8 @@ coverage/
 *.tsbuildinfo
 
 # Local runtime state and tool caches
-.patchpilot/
-.patchpilot-*/
+.riskradar/
+.riskradar-*/
 tmp/
 temp/
 *.log

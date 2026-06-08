@@ -1,4 +1,4 @@
-import { JsonDatabase, PatchPilotService } from "@patchpilot/core";
+import { JsonDatabase, RiskRadarService } from "@riskradar/core";
 
 const humanize = (key: string) =>
   key
@@ -7,7 +7,7 @@ const humanize = (key: string) =>
     .trim();
 
 export default function ThreatRadarPage() {
-  const radar = new PatchPilotService(new JsonDatabase()).threatRadar();
+  const radar = new RiskRadarService(new JsonDatabase()).threatRadar();
   return (
     <>
       <div className="topline">Counts backed by persisted scan records</div>

@@ -4,7 +4,7 @@ import {
 } from "lucide-react";
 import { CopyCommand } from "../components/CopyCommand";
 
-const REPO = "https://github.com/MokiMeow/PatchPilot";
+const REPO = "https://github.com/MokiMeow/RiskRadar";
 
 const PIPELINE = [
   ["01", "Inventory"], ["02", "Scan"], ["03", "Reachability"], ["04", "Risk"],
@@ -30,7 +30,7 @@ export default function Landing() {
     <div className="lp">
       <div className="lp-glow" aria-hidden="true" />
       <header className="lp-nav">
-        <a className="lp-brand" href="/"><span className="lp-dot" />PatchPilot</a>
+        <a className="lp-brand" href="/"><span className="lp-dot" />RiskRadar</a>
         <nav className="lp-nav-links">
           <a href="#how">How it works</a>
           <a href="#features">Features</a>
@@ -48,7 +48,7 @@ export default function Landing() {
             <span className="sentence"><span className="nowrap">A <span className="lp-accent">signed, human-approved</span></span> pipeline applies it.</span>
           </h1>
           <p className="lp-lede">
-            PatchPilot finds the CVEs that actually reach your code, lets OpenAI Codex write the fix
+            RiskRadar finds the CVEs that actually reach your code, lets OpenAI Codex write the fix
             in a sandbox, signs the result, and waits for a tap on your phone. Every integration runs
             live (Codex, OSV, GitHub, Telegram) with a full audit trail behind each change.
           </p>
@@ -56,7 +56,7 @@ export default function Landing() {
             <a className="lp-btn" href="/dashboard">Open the dashboard <ArrowRight size={16} /></a>
             <a className="lp-btn lp-btn-ghost" href={REPO} target="_blank" rel="noreferrer"><Github size={16} /> View on GitHub</a>
           </div>
-          <CopyCommand label="Scan your own project" command="npx patchpilot-cli scan" />
+          <CopyCommand label="Scan your own project" command="npx riskradar-cli scan" />
           <div className="lp-trust">
             <span><ShieldCheck size={14} /> No auto-merge, no auto-deploy</span>
             <span><GitPullRequest size={14} /> Signed provenance on every fix</span>
@@ -66,10 +66,10 @@ export default function Landing() {
         <div className="lp-terminal" aria-hidden="true">
           <div className="lp-term-bar">
             <span className="lp-term-lights"><i /><i /><i /></span>
-            <span className="lp-term-title">patchpilot · scan</span>
+            <span className="lp-term-title">riskradar · scan</span>
           </div>
           <div className="lp-term-body">
-            <div className="t-line"><span className="t-mut">$</span> npx patchpilot-cli scan ./storefront</div>
+            <div className="t-line"><span className="t-mut">$</span> npx riskradar-cli scan ./storefront</div>
             <div className="t-line t-dim">Scanning 318 deps via OSV…</div>
             <div className="t-line">&nbsp;</div>
             <div className="t-line"><span className="t-red">CRIT</span>{"  "}<span className="t-b">lodash</span><span className="t-dim">@4.17.11</span>{"   "}<span className="t-grn">→ 4.17.21</span></div>
@@ -97,7 +97,7 @@ export default function Landing() {
             </div>
           ))}
         </div>
-        <p className="lp-note">Highlighted steps are PatchPilot's edge: <span className="lp-accent">reachability triage</span>, <span className="lp-accent">Codex-written fixes</span>, and a <span className="lp-accent">signed attestation</span>, all gated behind a human tap.</p>
+        <p className="lp-note">Highlighted steps are RiskRadar's edge: <span className="lp-accent">reachability triage</span>, <span className="lp-accent">Codex-written fixes</span>, and a <span className="lp-accent">signed attestation</span>, all gated behind a human tap.</p>
       </section>
 
       {/* ===== Features ===== */}
@@ -133,7 +133,7 @@ export default function Landing() {
       </section>
 
       <footer className="lp-foot">
-        <span className="lp-brand"><span className="lp-dot" />PatchPilot</span>
+        <span className="lp-brand"><span className="lp-dot" />RiskRadar</span>
         <span className="lp-mono">Open-source · CVE &amp; supply-chain response · built with OpenAI Codex</span>
       </footer>
     </div>

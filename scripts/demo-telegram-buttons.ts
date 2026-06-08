@@ -47,7 +47,7 @@ async function main() {
   state.remediationJobs = (state.remediationJobs ?? []).filter((j) => j.id !== "rem_demo");
   state.approvals = (state.approvals ?? []).filter((a) => a.id !== approvalId);
   state.providerConsents = (state.providerConsents ?? []).filter((c) => c.id !== consentId);
-  state.projects.push({ id: "proj_demo", name: "patchpilot-tap-demo", sourceType: "local", localPath: fixture, isPathAllowlisted: true, packageManager: "npm", deploymentProvider: "none", productionExposed: false, createdAt: ISO(), updatedAt: ISO() } as never);
+  state.projects.push({ id: "proj_demo", name: "riskradar-tap-demo", sourceType: "local", localPath: fixture, isPathAllowlisted: true, packageManager: "npm", deploymentProvider: "none", productionExposed: false, createdAt: ISO(), updatedAt: ISO() } as never);
   state.vulnerabilities.push({ id: "OSV-demo", source: "osv", cveIds: ["CVE-2021-23337"], ghsaIds: [], summary: "lodash", severity: "high", references: [] } as never);
   state.findings.push({ id: findingId, projectId: "proj_demo", vulnerabilityId: "OSV-demo", packageName: "lodash", ecosystem: "npm", currentVersion: "4.17.20", fixedVersion: "4.17.21", dependencyType: "direct", riskScore: 78, riskLevel: "high", riskFactors: [], missingRiskData: [], fixStrategy: "safe_patch", status: "fix_available", scanConfidence: "direct_manifest_only", createdAt: ISO(), updatedAt: ISO() } as never);
   state.remediationJobs.push({ id: "rem_demo", findingId, projectId: "proj_demo", status: "approval_sent", agent: "codex", changedFiles: ["package.json"], rollbackStatus: "available", createdAt: ISO() } as never);
@@ -59,7 +59,7 @@ async function main() {
 
   // 1) Remediation approval
   if (want("approval")) {
-    const text = ["PatchPilot approval needed", "", "Project: patchpilot-tap-demo", "Package: lodash", "Risk: 78/100 high", "Fix: 4.17.20 -> 4.17.21", "", "Tap a button. Nothing is merged or deployed automatically."].join("\n");
+    const text = ["RiskRadar approval needed", "", "Project: riskradar-tap-demo", "Package: lodash", "Risk: 78/100 high", "Fix: 4.17.20 -> 4.17.21", "", "Tap a button. Nothing is merged or deployed automatically."].join("\n");
     const result = await sendTelegramApproval({ chatId, text, replyMarkup: inlineKeyboard([[
       { text: "✅ Approve", callbackData: telegramCallbackData("a", approvalId, "approve") },
       { text: "❌ Reject", callbackData: telegramCallbackData("a", approvalId, "reject") }
@@ -88,7 +88,7 @@ async function main() {
 
   // 3) Watch alert
   if (want("watch")) {
-    const text = ["PatchPilot watch alert", "", "Project: patchpilot-tap-demo", "Package: lodash@4.17.20", "Risk: 78/100 high", "Fix: update to 4.17.21", "", "New vulnerability found. Start remediation? (watch mode never patches automatically)"].join("\n");
+    const text = ["RiskRadar watch alert", "", "Project: riskradar-tap-demo", "Package: lodash@4.17.20", "Risk: 78/100 high", "Fix: update to 4.17.21", "", "New vulnerability found. Start remediation? (watch mode never patches automatically)"].join("\n");
     const result = await sendTelegramApproval({ chatId, text, replyMarkup: inlineKeyboard([[
       { text: "🚀 Start remediation", callbackData: telegramCallbackData("w", findingId, "start") },
       { text: "🔕 Dismiss", callbackData: telegramCallbackData("w", findingId, "dismiss") }
