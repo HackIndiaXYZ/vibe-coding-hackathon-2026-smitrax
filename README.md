@@ -3,7 +3,7 @@
   <p><strong>Watch Commander for Supply-Chain Security</strong></p>
   <p>
     <a href="https://www.npmjs.com/package/riskradar-cli"><img src="https://img.shields.io/npm/v/riskradar-cli" alt="npm"></a>
-    <a href="#"><img src="https://img.shields.io/github/license/HackIndiaXYZ/vibe-coding-hackathon-2026-smitrax" alt="License"></a>
+    <a href="https://github.com/midlaj-muhammed/RiskRadar.git"><img src="https://img.shields.io/github/license/midlaj-muhammed/RiskRadar" alt="License"></a>
     <a href="https://tryriskradar.vercel.app"><img src="https://img.shields.io/badge/demo-live-brightgreen" alt="Demo"></a>
   </p>
   <p>

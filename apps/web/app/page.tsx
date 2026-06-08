@@ -4,7 +4,7 @@ import {
 } from "lucide-react";
 import { CopyCommand } from "../components/CopyCommand";
 
-const REPO = "https://github.com/MokiMeow/RiskRadar";
+const REPO = "https://github.com/midlaj-muhammed/RiskRadar.git";
 
 const PIPELINE = [
   ["01", "Inventory"], ["02", "Scan"], ["03", "Reachability"], ["04", "Risk"],
