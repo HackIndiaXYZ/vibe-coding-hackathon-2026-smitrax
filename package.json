@@ -20,7 +20,7 @@
     "demo:seed": "tsx scripts/make-demo-seed.ts",
     "deploy:demo": "node scripts/deploy-demo.mjs",
     "scan:cli": "tsx apps/cli/src/index.ts scan",
-    "cli:bundle": "pnpm --filter @riskradar/cli bundle",
+    "cli:bundle": "pnpm --filter riskradar-cli bundle",
     "mcp:dev": "pnpm --filter @riskradar/mcp dev",
     "verify:plugin-mcp": "pnpm --filter @riskradar/mcp verify:plugin",
     "build": "pnpm -r build",
