@@ -25,11 +25,10 @@ importers:
         version: 3.2.4(@types/node@24.12.4)(tsx@4.22.3)
 
   apps/cli:
-    dependencies:
+    devDependencies:
       '@riskradar/core':
         specifier: workspace:*
         version: link:../../packages/core
-    devDependencies:
       esbuild:
         specifier: ^0.25.0
         version: 0.25.12
